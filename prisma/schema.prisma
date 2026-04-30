@@ -1,0 +1,493 @@
+// The Right Home - Apartment & Office Management
+// Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+enum UserRole {
+  ADMIN     // Full access, can manage users
+  STAFF     // Limited to assigned buildings
+}
+
+enum BuildingPermission {
+  OWNER     // Full access to this building
+  MANAGER   // Manage contracts, invoices, finance
+  ACCOUNTANT // Finance only
+  VIEWER    // Read-only
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(STAFF)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  permissions  UserBuildingPermission[]
+  auditLogs    AuditLog[]
+  pushSubs     PushSubscription[]
+  transactions Transaction[]
+}
+
+model UserBuildingPermission {
+  id         String             @id @default(cuid())
+  userId     String
+  buildingId String
+  permission BuildingPermission @default(MANAGER)
+  createdAt  DateTime           @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, buildingId])
+  @@index([buildingId])
+}
+
+// ============================================================
+// BUILDINGS & ROOMS
+// ============================================================
+
+enum BuildingType {
+  CHDV   // Căn hộ dịch vụ (serviced apartment)
+  VP     // Văn phòng (office)
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+model Building {
+  id        String       @id @default(cuid())
+  name      String
+  address   String
+  type      BuildingType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  rooms        Room[]
+  permissions  UserBuildingPermission[]
+  contracts    Contract[]
+  customers    Customer[]
+  invoices     Invoice[]
+  transactions Transaction[]
+  setting      BuildingSetting?
+  openingBalances OpeningBalance[]
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  buildingId String
+  number     String
+  status     RoomStatus @default(AVAILABLE)
+  notes      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  building  Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+
+  @@unique([buildingId, number])
+  @@index([buildingId])
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+model Customer {
+  id         String       @id @default(cuid())
+  buildingId String
+  type       CustomerType
+
+  // Common
+  email String?
+  phone String?
+  notes String?
+
+  // Individual
+  fullName        String?
+  idNumber        String? // CCCD
+  licensePlate    String?
+  idCardFrontUrl  String?
+  idCardBackUrl   String?
+  dateOfBirth     DateTime?
+  hometown        String?
+
+  // Company
+  companyName String?
+  taxNumber   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  building          Building            @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  contractCustomers ContractCustomer[]
+  openingBalances   OpeningBalance[]
+  transactions      Transaction[]
+
+  @@index([buildingId])
+}
+
+// ============================================================
+// CONTRACTS
+// ============================================================
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED_LOST_DEPOSIT // Mất cọc
+  TERMINATED              // Dừng thuê bình thường
+}
+
+model Contract {
+  id         String         @id @default(cuid())
+  buildingId String
+  roomId     String
+  code       String         @unique // HD-YYMM-NNN
+
+  startDate  DateTime
+  endDate    DateTime
+  termMonths Int            // 3, 6, 12, 24, 36
+  paymentDay Int            // ngày thanh toán hàng tháng (1-28)
+
+  monthlyRent  BigInt       // VND
+  vatRate      Float        @default(0) // 0 for CHDV, 0.1 for VP usually
+  depositAmount BigInt      @default(0)
+
+  // Snapshot from settings at contract creation (for invoice generation)
+  electricityPricePerKwh BigInt @default(0)
+  parkingCount           Int    @default(0)
+  parkingFeePerVehicle   BigInt @default(0)
+  serviceFeeAmount       BigInt @default(0) // monthly service fee
+
+  status            ContractStatus @default(ACTIVE)
+  notes             String?
+  contractFileUrl   String?  // user-uploaded signed contract
+  generatedDocxUrl  String?  // auto-generated from template
+
+  // Termination
+  terminatedAt   DateTime?
+  depositRefund  BigInt?   // amount refunded; if status=TERMINATED_LOST_DEPOSIT, deposit goes to revenue
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  building     Building          @relation(fields: [buildingId], references: [id])
+  room         Room              @relation(fields: [roomId], references: [id])
+  customers    ContractCustomer[]
+  yearlyRents  ContractYearlyRent[]
+  invoices     Invoice[]
+
+  @@index([buildingId, status])
+  @@index([roomId])
+}
+
+model ContractCustomer {
+  id         String   @id @default(cuid())
+  contractId String
+  customerId String
+  isPrimary  Boolean  @default(false)
+  orderIdx   Int      @default(0)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, customerId])
+  @@index([contractId])
+}
+
+// VP only: rent for year 2, 3
+model ContractYearlyRent {
+  id         String @id @default(cuid())
+  contractId String
+  yearIndex  Int    // 1, 2, 3
+  rent       BigInt
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, yearIndex])
+}
+
+// ============================================================
+// INVOICES
+// ============================================================
+
+enum InvoiceStatus {
+  PENDING    // Chờ thanh toán
+  PARTIAL    // Một phần
+  PAID       // Đã thanh toán
+  OVERDUE    // Quá hạn (computed by cron)
+  CANCELLED  // Đã huỷ
+}
+
+model Invoice {
+  id         String   @id @default(cuid())
+  contractId String
+  buildingId String
+  code       String   @unique // HD-YYMM-NNN
+
+  month   Int       // 1-12
+  year    Int
+  dueDate DateTime
+
+  // Rent
+  rentAmount BigInt
+  vatAmount  BigInt @default(0)
+
+  // Electricity
+  electricityStart       Int?
+  electricityEnd         Int?
+  electricityStartPhoto  String?
+  electricityEndPhoto    String?
+  electricityPricePerKwh BigInt @default(0)
+  electricityFee         BigInt @default(0)
+
+  // Parking
+  parkingCount           Int    @default(0)
+  parkingFeePerVehicle   BigInt @default(0)
+  parkingFee             BigInt @default(0)
+
+  // Office only
+  overtimeFee BigInt @default(0)
+
+  // Service
+  serviceFee BigInt @default(0)
+
+  totalAmount BigInt @default(0) // = rent + vat + electricity + parking + overtime + service
+  paidAmount  BigInt @default(0)
+
+  status InvoiceStatus @default(PENDING)
+  sentAt DateTime?
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contract     Contract     @relation(fields: [contractId], references: [id])
+  building     Building     @relation(fields: [buildingId], references: [id])
+  payments     InvoicePayment[]
+  transactions Transaction[]
+
+  @@unique([contractId, month, year])
+  @@index([buildingId, year, month])
+  @@index([status])
+}
+
+model InvoicePayment {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  transactionId String   @unique
+  amount        BigInt
+  paidAt        DateTime @default(now())
+
+  invoice     Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ============================================================
+// FINANCE: TRANSACTIONS
+// ============================================================
+
+enum TransactionType {
+  INCOME   // Phiếu thu
+  EXPENSE  // Phiếu chi
+}
+
+enum PartyKind {
+  CUSTOMER
+  THO_SUA_CHUA
+  THO_XAY
+  DON_VE_SINH
+  BAO_VE
+  NHA_NUOC
+  NCC_KHAC
+  OTHER
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  buildingId  String
+  code        String          @unique // PT-YYMM-NNN or PC-YYMM-NNN
+  date        DateTime
+  type        TransactionType
+  amount      BigInt
+  content     String          // Nội dung
+  notes       String?
+
+  categoryId      String?
+  paymentMethodId String?
+
+  partyKind  PartyKind?
+  customerId String?    // if partyKind = CUSTOMER
+  partyId    String?    // if not customer
+
+  // Hạch toán vào BCKD
+  countInBR        Boolean   @default(true)
+  accountingMonth  Int?
+  accountingYear   Int?
+
+  invoiceId String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building       Building          @relation(fields: [buildingId], references: [id])
+  category       TransactionCategory? @relation(fields: [categoryId], references: [id])
+  paymentMethod  PaymentMethod?    @relation(fields: [paymentMethodId], references: [id])
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  party          Party?            @relation(fields: [partyId], references: [id])
+  invoice        Invoice?          @relation(fields: [invoiceId], references: [id])
+  invoicePayment InvoicePayment?
+  createdBy      User?             @relation(fields: [createdById], references: [id])
+
+  @@index([buildingId, date])
+  @@index([buildingId, accountingYear, accountingMonth])
+}
+
+// Non-customer counterparties (workers, suppliers, govt)
+model Party {
+  id         String    @id @default(cuid())
+  kind       PartyKind
+  name       String
+  phone      String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  transactions    Transaction[]
+  openingBalances OpeningBalance[]
+}
+
+model TransactionCategory {
+  id           String          @id @default(cuid())
+  buildingType BuildingType?   // null = applies to both
+  name         String
+  type         TransactionType
+
+  transactions Transaction[]
+
+  @@unique([buildingType, name, type])
+}
+
+model PaymentMethod {
+  id           String        @id @default(cuid())
+  buildingType BuildingType? // null = both
+  name         String
+  isCash       Boolean       @default(false)
+
+  transactions Transaction[]
+
+  @@unique([buildingType, name])
+}
+
+// ============================================================
+// OPENING BALANCES (for first-month setup)
+// ============================================================
+
+enum OpeningKind {
+  CUSTOMER_REVENUE  // số dư đầu doanh thu của 1 khách
+  PARTY_DEBT        // số dư đầu công nợ với 1 đối tượng
+  CASHBOOK          // số dư đầu kỳ quỹ tiền theo PTTT
+}
+
+model OpeningBalance {
+  id          String      @id @default(cuid())
+  buildingId  String
+  kind        OpeningKind
+  customerId  String?
+  partyId     String?
+  paymentMethodLabel String? // for cashbook
+  amount      BigInt
+  asOfMonth   Int
+  asOfYear    Int
+
+  building Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
+  party    Party?    @relation(fields: [partyId], references: [id])
+
+  @@index([buildingId, asOfYear, asOfMonth])
+}
+
+// ============================================================
+// SETTINGS PER BUILDING
+// ============================================================
+
+enum ServiceFeeType {
+  PER_ROOM
+  PER_PERSON
+}
+
+model BuildingSetting {
+  id         String   @id @default(cuid())
+  buildingId String   @unique
+
+  electricityPricePerKwh BigInt @default(3500) // VND/kWh
+  parkingFeePerVehicle   BigInt @default(0)    // VND/xe/tháng
+  serviceFeeType         ServiceFeeType @default(PER_ROOM)
+  serviceFeeAmount       BigInt @default(0)
+
+  contractTemplateUrl String?
+  autoGenerateInvoiceDay Int @default(1)
+  defaultDueDay          Int @default(5)
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// PWA NOTIFICATIONS
+// ============================================================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // CREATE / UPDATE / DELETE / LOGIN / EXPORT / SEND
+  entityType String   // Building, Contract, Invoice, ...
+  entityId   String?
+  buildingId String?
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([buildingId, createdAt])
+}
