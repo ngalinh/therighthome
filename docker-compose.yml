@@ -31,6 +31,20 @@ services:
     expose:
       - "3000"
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: ["node", "scripts/worker.js"]
+    networks: [app-net]
+
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped

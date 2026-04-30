@@ -4,7 +4,7 @@ Phần mềm quản lý căn hộ dịch vụ (CHDV) và văn phòng (VP) cho th
 
 ## Tính năng
 
-### Đã có (Phase 1 + 2)
+### Đã có (Phase 1 → 4)
 - **Auth multi-user** với phân quyền theo từng toà nhà (OWNER / MANAGER / ACCOUNTANT / VIEWER)
 - **Toà nhà**: CRUD, sơ đồ phòng visual (trống / đang thuê / sắp hết hạn / bảo trì)
 - **Phòng**: thêm hàng loạt, xoá nếu chưa có HĐ
@@ -16,11 +16,14 @@ Phần mềm quản lý căn hộ dịch vụ (CHDV) và văn phòng (VP) cho th
 - **Cài đặt toà**: đơn giá điện, phí xe, phí dịch vụ, mẫu HĐ DOCX, ngày tự động hoá đơn
 - **PWA**: manifest, service worker, installable, offline shell, push notification subscription
 - **Design**: gradient brand, line icons (lucide), mobile bottom-nav, glass cards
+- **Hoá đơn**: tạo hàng loạt cho HĐ active, edit số điện đầu/cuối + chụp ảnh, tính lại tự động (điện/xe/OT/DV), gửi email với template đẹp qua Gmail SMTP, ghi nhận thanh toán → tự tạo phiếu thu, huỷ HĐ
+- **Tài chính**: 5 tab — Giao dịch (phiếu thu/chi với phân loại/PTTT/đối tượng), Doanh thu theo khách, Công nợ theo đối tượng, Sổ quỹ theo PTTT (running balance), KQKD (chỉ tính tick "Hạch toán")
+- **Số dư đầu kỳ**: nhập tay cho 3 loại (doanh thu khách / công nợ đối tượng / sổ quỹ PTTT) trong Cài đặt toà
+- **Termination flow**: kết thúc HĐ với 3 lý do (hết hạn / dừng thuê / mất cọc). Mất cọc tự động hạch toán deposit vào doanh thu category "Tiền cọc mất". Tự free room.
+- **Cron worker**: container `worker` chạy mỗi giờ — auto chuyển PENDING → OVERDUE, auto chuyển ACTIVE → EXPIRED khi hết hạn, auto-generate hoá đơn vào ngày cấu hình mỗi toà
 
 ### Sắp ra mắt
-- Phase 3 — Hoá đơn: auto-generate đầu tháng, tính tiền điện/xe/DV/VAT, gửi qua Gmail SMTP, cron auto-overdue
-- Phase 4 — Tài chính: phiếu thu/chi, doanh thu, công nợ, sổ quỹ, báo cáo KQKD, mất cọc → hạch toán doanh thu
-- Phase 5 — Cài đặt chung, audit log, web push, Google Drive backup, import Excel
+- Phase 5 — Cài đặt chung UI (user CRUD + phân quyền, đối tượng, loại thu chi, PTTT), audit log, web push, import Excel
 - Phase 6 — Hardening, deploy, polish
 
 ## Stack

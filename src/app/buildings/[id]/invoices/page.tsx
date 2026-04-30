@@ -1,20 +1,55 @@
 import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getBuildingPermission } from "@/lib/permissions";
+import { can, getBuildingPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader, PageBody } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Receipt } from "lucide-react";
+import { InvoicesView } from "./invoices-view";
+import { serializeBigInt } from "@/lib/utils";
 
-export default async function InvoicesPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicesPage({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ month?: string; year?: string; status?: string }>;
+}) {
   const session = await auth();
   if (!session) redirect("/login");
   const { id } = await params;
+  const sp = await searchParams;
   const perm = await getBuildingPermission(session.user.id, session.user.role, id);
   if (!perm) notFound();
   const building = await prisma.building.findUnique({ where: { id } });
   if (!building) notFound();
+  const canWrite = await can(session.user.id, session.user.role, id, "invoice.write");
+  const canSend = await can(session.user.id, session.user.role, id, "invoice.send");
+
+  const now = new Date();
+  const month = Number(sp.month ?? now.getMonth() + 1);
+  const year = Number(sp.year ?? now.getFullYear());
+
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      buildingId: id,
+      month,
+      year,
+      ...(sp.status && sp.status !== "ALL" ? { status: sp.status as never } : {}),
+    },
+    include: {
+      contract: {
+        include: {
+          room: true,
+          customers: { include: { customer: true }, where: { isPrimary: true } },
+        },
+      },
+    },
+    orderBy: [{ status: "asc" }, { contract: { room: { number: "asc" } } }],
+  });
+
+  const paymentMethods = await prisma.paymentMethod.findMany({
+    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <AppShell
@@ -23,17 +58,17 @@ export default async function InvoicesPage({ params }: { params: Promise<{ id: s
     >
       <PageHeader title="Hoá đơn" description={building.name} gradient={building.type === "CHDV" ? "chdv" : "vp"} />
       <PageBody>
-        <Card>
-          <CardContent className="py-16 text-center">
-            <div className="rounded-2xl bg-gradient-brand/10 inline-flex p-4 mb-4">
-              <Receipt className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold">Hoá đơn — Sắp ra mắt</h3>
-            <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-              Phase 3: tạo hoá đơn tự động đầu tháng, upload ảnh đồng hồ điện, gửi hoá đơn qua email Gmail SMTP, tự động chuyển trạng thái Quá hạn.
-            </p>
-          </CardContent>
-        </Card>
+        <InvoicesView
+          buildingId={id}
+          buildingType={building.type}
+          month={month}
+          year={year}
+          status={sp.status ?? "ALL"}
+          invoices={serializeBigInt(invoices)}
+          paymentMethods={paymentMethods}
+          canWrite={canWrite}
+          canSend={canSend}
+        />
       </PageBody>
     </AppShell>
   );

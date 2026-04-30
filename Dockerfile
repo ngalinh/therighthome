@@ -32,6 +32,7 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --chown=nextjs:nodejs scripts/entrypoint.sh /app/entrypoint.sh
+COPY --chown=nextjs:nodejs scripts/worker.js /app/scripts/worker.js
 RUN chmod +x /app/entrypoint.sh
 
 USER nextjs
