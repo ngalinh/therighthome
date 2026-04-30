@@ -4,7 +4,7 @@ Phần mềm quản lý căn hộ dịch vụ (CHDV) và văn phòng (VP) cho th
 
 ## Tính năng
 
-### Đã có (Phase 1 → 4)
+### Đã có (Phase 1 → 6)
 - **Auth multi-user** với phân quyền theo từng toà nhà (OWNER / MANAGER / ACCOUNTANT / VIEWER)
 - **Toà nhà**: CRUD, sơ đồ phòng visual (trống / đang thuê / sắp hết hạn / bảo trì)
 - **Phòng**: thêm hàng loạt, xoá nếu chưa có HĐ
@@ -22,9 +22,11 @@ Phần mềm quản lý căn hộ dịch vụ (CHDV) và văn phòng (VP) cho th
 - **Termination flow**: kết thúc HĐ với 3 lý do (hết hạn / dừng thuê / mất cọc). Mất cọc tự động hạch toán deposit vào doanh thu category "Tiền cọc mất". Tự free room.
 - **Cron worker**: container `worker` chạy mỗi giờ — auto chuyển PENDING → OVERDUE, auto chuyển ACTIVE → EXPIRED khi hết hạn, auto-generate hoá đơn vào ngày cấu hình mỗi toà
 
-### Sắp ra mắt
-- Phase 5 — Cài đặt chung UI (user CRUD + phân quyền, đối tượng, loại thu chi, PTTT), audit log, web push, import Excel
-- Phase 6 — Hardening, deploy, polish
+- **Cài đặt chung**: User CRUD với phân quyền theo từng toà (4 cấp), CRUD loại thu/chi, PTTT, đối tượng, audit log viewer (100 mục gần nhất)
+- **Web Push (PWA)**: VAPID, subscribe/unsubscribe, gửi thử, push từ server tới user
+- **Import Excel**: Tải file mẫu .xlsx có 5 sheet (Toa_nha, Phong, Khach_hang, Hop_dong, Giao_dich), upload → preview với báo lỗi từng dòng → confirm import bulk vào DB
+- **Hardening**: Rate limit login (10 attempts/min/IP), security headers (X-Frame-Options, Permissions-Policy, Referrer-Policy, X-Content-Type-Options), HSTS qua Nginx
+- **CI**: GitHub Actions chạy `prisma validate` + `tsc --noEmit` + lint trên mỗi push/PR
 
 ## Stack
 

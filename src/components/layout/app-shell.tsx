@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight,
+  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, Upload,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: 
 const TOP_NAV: NavItem[] = [
   { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" },
   { href: "/buildings", label: "Toà nhà", icon: Building2 },
+  { href: "/import", label: "Import Excel", icon: Upload },
   { href: "/settings", label: "Cài đặt chung", icon: Settings },
 ];
 
@@ -142,7 +143,7 @@ export function AppShell({
       {/* Mobile bottom nav (top level) */}
       {!insideBuilding && (
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-4">
             {TOP_NAV.map((it) => {
               const Icon = it.icon;
               const active = isActive(it.href);
@@ -156,7 +157,7 @@ export function AppShell({
                   )}
                 >
                   <Icon className="h-5 w-5" />
-                  <span>{it.label}</span>
+                  <span className="leading-tight">{it.label}</span>
                 </Link>
               );
             })}

@@ -29,7 +29,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
+        const { rateLimit, clientKey } = await import("@/lib/rate-limit");
+        if (request) {
+          const key = clientKey(request, "login");
+          if (!rateLimit(key, 10, 60_000)) return null; // 10 attempts/min per IP
+        }
         const email = String(credentials?.email ?? "").toLowerCase().trim();
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
