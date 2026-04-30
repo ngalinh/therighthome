@@ -39,7 +39,17 @@ export function addMonths(d: Date, m: number): Date {
   return result;
 }
 
-// Convert any BigInt fields to strings recursively (for JSON serialization)
-export function serializeBigInt<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj, (_k, v) => (typeof v === "bigint" ? v.toString() : v))) as T;
+// Recursively reflect what JSON.stringify+parse does to bigints and Dates.
+export type Serialized<T> =
+  T extends bigint ? string :
+  T extends Date ? string :
+  T extends (infer U)[] ? Serialized<U>[] :
+  T extends object ? { [K in keyof T]: Serialized<T[K]> } :
+  T;
+
+// Convert any BigInt/Date fields to strings recursively (for JSON serialization).
+export function serializeBigInt<T>(obj: T): Serialized<T> {
+  return JSON.parse(
+    JSON.stringify(obj, (_k, v) => (typeof v === "bigint" ? v.toString() : v)),
+  ) as Serialized<T>;
 }

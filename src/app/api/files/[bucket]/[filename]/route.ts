@@ -26,7 +26,7 @@ export async function GET(
   try {
     const buf = await readStoredFile(bucket, filename);
     const ext = path.extname(filename).toLowerCase();
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         "Content-Type": MIME[ext] || "application/octet-stream",
