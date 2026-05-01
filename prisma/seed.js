@@ -65,9 +65,16 @@ async function main() {
     console.log("Change this password after first login!");
   }
 
-  for (const b of BUILDINGS) {
-    const exists = await prisma.building.findFirst({ where: { name: b.name } });
-    if (!exists) {
+  // Only seed default buildings on FRESH install (no buildings, no Building DELETE
+  // audit log). This prevents the seed from "resurrecting" buildings the user has
+  // deliberately deleted on every container restart.
+  const buildingCount = await prisma.building.count();
+  const deletedBuildingsCount = await prisma.auditLog.count({
+    where: { action: "DELETE", entityType: "Building" },
+  });
+  const isFreshInstall = buildingCount === 0 && deletedBuildingsCount === 0;
+  if (isFreshInstall) {
+    for (const b of BUILDINGS) {
       await prisma.building.create({
         data: {
           ...b,
@@ -82,6 +89,8 @@ async function main() {
       });
       console.log(`Created building: ${b.name}`);
     }
+  } else {
+    console.log(`Skipping building seed (count=${buildingCount}, deleted=${deletedBuildingsCount}).`);
   }
 
   for (const buildingType of ["CHDV", "VP"]) {

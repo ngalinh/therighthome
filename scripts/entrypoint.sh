@@ -15,6 +15,7 @@ fi
 
 echo "Seeding default data (idempotent)..."
 node prisma/seed.js || true
+node prisma/seed-vp1.js || true
 
 echo "Starting Next.js server..."
 exec node server.js
