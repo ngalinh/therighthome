@@ -58,37 +58,48 @@ npm run dev
 
 ## Deploy lên server (`admin.therighthome.vn` → `103.140.249.232`)
 
-### Một lần ban đầu
+App support 2 chế độ deploy. Chọn đúng chế độ theo môi trường server:
 
-1. **DNS**: trỏ `admin.therighthome.vn` (A record) về `103.140.249.232`
-2. **SSH vào server**, đảm bảo có Docker + Docker Compose:
-   ```bash
-   ssh vmadmin@103.140.249.232
-   sudo apt update && sudo apt install -y docker.io docker-compose-plugin git
-   sudo usermod -aG docker $USER && newgrp docker
-   ```
-3. **Clone repo**:
-   ```bash
-   git clone <repo-url> therighthome && cd therighthome
-   git checkout claude/design-apartment-management-pwa-6KQqE
-   ```
-4. **Tạo `.env`** từ template:
-   ```bash
-   cp .env.example .env
-   # Mở vim/nano và điền các giá trị (xem mục "Secrets cần điền" bên dưới)
-   ```
-5. **Chạy script deploy** (lấy SSL + start tất cả):
-   ```bash
-   bash scripts/deploy.sh
-   ```
-6. App sẽ chạy ở `https://admin.therighthome.vn`. Đăng nhập bằng admin được seed.
+#### Chế độ A — `host-proxy` (server đã có nginx + certbot host-level)
+
+Nếu server đã có nginx phục vụ các app khác, KHÔNG nên dừng nó. App của ta bind `127.0.0.1:3002`, host nginx reverse-proxy đến.
+
+```bash
+# 1. DNS: trỏ admin.therighthome.vn (A record) → server IP
+# 2. SSH vào server
+git clone https://github.com/ngalinh/therighthome.git && cd therighthome
+cp .env.example .env
+nano .env   # điền secrets (xem bảng "Secrets cần điền")
+
+bash scripts/deploy-host-proxy.sh
+# Script này sẽ:
+#   - build + start db + app + worker + backup (KHÔNG start nginx + certbot bundled)
+#   - copy nginx/host-snippet/admin.therighthome.vn.conf → /etc/nginx/conf.d/
+#   - reload nginx
+#   - chạy `certbot --nginx -d admin.therighthome.vn`
+```
+
+#### Chế độ B — `bundled-proxy` (server clean, không có nginx)
+
+Dùng nginx + certbot trong container của repo.
+
+```bash
+git clone https://github.com/ngalinh/therighthome.git && cd therighthome
+cp .env.example .env
+nano .env
+
+bash scripts/deploy.sh
+# Sẽ start tất cả container kể cả nginx + certbot, lấy SSL Let's Encrypt
+```
 
 ### Update code khi đã deploy
 
 ```bash
 git pull
-docker compose build app
-docker compose up -d app
+docker compose build app worker
+docker compose up -d app worker
+# Nếu chế độ B (bundled-proxy):
+# docker compose --profile bundled-proxy up -d
 ```
 
 ### Secrets cần điền vào `.env`

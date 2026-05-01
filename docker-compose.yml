@@ -28,6 +28,12 @@ services:
       - ./storage:/app/storage
       - ./secrets:/app/secrets:ro
     networks: [app-net]
+    # Bind to a host port so an existing host nginx can reverse-proxy to it.
+    # Default 127.0.0.1:3002 means only host nginx (or local) can reach it.
+    # When using bundled nginx (profile=bundled-proxy), this is still bound
+    # but nginx container talks to it via the docker network as well.
+    ports:
+      - "${APP_HOST_PORT:-127.0.0.1:3002}:3000"
     expose:
       - "3000"
 
@@ -46,6 +52,7 @@ services:
     networks: [app-net]
 
   nginx:
+    profiles: ["bundled-proxy"]
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
@@ -60,6 +67,7 @@ services:
     networks: [app-net]
 
   certbot:
+    profiles: ["bundled-proxy"]
     image: certbot/certbot:latest
     volumes:
       - ./certbot/www:/var/www/certbot
