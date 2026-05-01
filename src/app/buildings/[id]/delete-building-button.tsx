@@ -54,7 +54,7 @@ export function DeleteBuildingButton({
         size="sm"
         className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
       >
-        <Trash2 className="h-4 w-4" /> Xoá toà
+        <Trash2 className="h-4 w-4" /> Xoá toà nhà
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => !o && close()}>
