@@ -96,7 +96,7 @@ export function ContractsTab({
                       {formatVND(rent)} /tháng
                       {vatPct > 0 && (
                         <span className="text-slate-500 font-normal">
-                          {" "}+ VAT {vatPct}% ({formatVND(vatAmount)})
+                          {" "}(đã VAT {vatPct}%, gồm {formatVND(vatAmount)})
                         </span>
                       )}
                     </span>

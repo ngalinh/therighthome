@@ -185,7 +185,10 @@ function monthsBetween(start, end) {
 
 async function main() {
   // Tự tạo building nếu chưa có (in case user xoá rồi, hoặc fresh install).
-  let building = await prisma.building.findFirst({ where: { name: BUILDING_NAME } });
+  let building = await prisma.building.findFirst({
+    where: { name: BUILDING_NAME },
+    include: { setting: true },
+  });
   if (!building) {
     building = await prisma.building.create({
       data: {
@@ -200,11 +203,16 @@ async function main() {
           },
         },
       },
+      include: { setting: true },
     });
     console.log(`✅ Tạo building: ${BUILDING_NAME}`);
   }
   const buildingId = building.id;
-  console.log(`Building: ${BUILDING_NAME} (${buildingId})\n`);
+  // Use building setting as default for elec/parking (not hardcoded 3500/0)
+  const defaultElecPrice = building.setting?.electricityPricePerKwh ?? BigInt(3500);
+  const defaultParkingFee = building.setting?.parkingFeePerVehicle ?? BigInt(0);
+  console.log(`Building: ${BUILDING_NAME} (${buildingId})`);
+  console.log(`Default electricity: ${defaultElecPrice}đ/kWh, parking: ${defaultParkingFee}đ/xe\n`);
 
   for (const c of CONTRACTS) {
     const room = await prisma.room.upsert({
@@ -265,9 +273,9 @@ async function main() {
         monthlyRent: BigInt(c.monthlyRent),
         vatRate: c.vatRate,
         depositAmount: BigInt(c.deposit),
-        electricityPricePerKwh: BigInt(3500),
+        electricityPricePerKwh: defaultElecPrice,
         parkingCount: 0,
-        parkingFeePerVehicle: BigInt(0),
+        parkingFeePerVehicle: defaultParkingFee,
         serviceFeeAmount: BigInt(0),
         status: "ACTIVE",
         notes: c.notes,

@@ -62,7 +62,7 @@ async function autoGenerateInvoices() {
 async function generateForBuilding(buildingId, month, year) {
   const contracts = await prisma.contract.findMany({
     where: { buildingId, status: "ACTIVE" },
-    include: { building: { include: { setting: true } } },
+    include: { building: { include: { setting: true } }, yearlyRents: true },
   });
   let created = 0;
   for (const c of contracts) {
@@ -78,9 +78,22 @@ async function generateForBuilding(buildingId, month, year) {
     const dueDay = c.building.setting?.defaultDueDay ?? c.paymentDay ?? 5;
     const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
-    const vatAmount = BigInt(Math.round(Number(c.monthlyRent) * c.vatRate));
-    const parkingFee = BigInt(c.parkingCount) * c.parkingFeePerVehicle;
-    const totalAmount = c.monthlyRent + vatAmount + parkingFee + c.serviceFeeAmount;
+    // Effective rent based on contract year
+    const startDate = new Date(c.startDate);
+    let yearIdx = (year - startDate.getFullYear()) * 1 + 1;
+    const monthsDiff = (year - startDate.getFullYear()) * 12 + (month - 1 - startDate.getMonth());
+    yearIdx = Math.max(1, Math.floor(monthsDiff / 12) + 1);
+    const yearlyMatch = c.yearlyRents.find((y) => y.yearIndex === yearIdx);
+    const effectiveRent = yearlyMatch ? yearlyMatch.rent : c.monthlyRent;
+
+    // Snapshot from current building setting (override contract values)
+    const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
+    const parkingFeePerVeh = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
+
+    const vatAmount = BigInt(Math.round(Number(effectiveRent) * c.vatRate));
+    const parkingFee = BigInt(c.parkingCount) * parkingFeePerVeh;
+    // VAT is included in effectiveRent (after-VAT). Don't add it on top.
+    const totalAmount = effectiveRent + parkingFee + c.serviceFeeAmount;
 
     const code = await nextInvoiceCode(buildingId, month, year);
     await prisma.invoice.create({
@@ -91,12 +104,12 @@ async function generateForBuilding(buildingId, month, year) {
         month,
         year,
         dueDate,
-        rentAmount: c.monthlyRent,
+        rentAmount: effectiveRent,
         vatAmount,
-        electricityPricePerKwh: c.electricityPricePerKwh,
+        electricityPricePerKwh: electricityPrice,
         electricityFee: 0n,
         parkingCount: c.parkingCount,
-        parkingFeePerVehicle: c.parkingFeePerVehicle,
+        parkingFeePerVehicle: parkingFeePerVeh,
         parkingFee,
         overtimeFee: 0n,
         serviceFee: c.serviceFeeAmount,

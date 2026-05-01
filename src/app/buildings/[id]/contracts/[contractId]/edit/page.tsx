@@ -18,7 +18,7 @@ export default async function EditContractPage({
   if (!(await can(session.user.id, session.user.role, id, "contract.write"))) notFound();
 
   const [building, contract] = await Promise.all([
-    prisma.building.findUnique({ where: { id } }),
+    prisma.building.findUnique({ where: { id }, include: { setting: true } }),
     prisma.contract.findUnique({
       where: { id: contractId },
       include: {
@@ -30,6 +30,12 @@ export default async function EditContractPage({
   ]);
 
   if (!building || !contract || contract.buildingId !== id) notFound();
+  const settingSerialized = building.setting
+    ? {
+        electricityPricePerKwh: building.setting.electricityPricePerKwh.toString(),
+        parkingFeePerVehicle: building.setting.parkingFeePerVehicle.toString(),
+      }
+    : null;
 
   return (
     <AppShell
@@ -46,6 +52,7 @@ export default async function EditContractPage({
           buildingId={id}
           buildingType={building.type}
           contract={serializeBigInt(contract)}
+          buildingSetting={settingSerialized}
         />
       </PageBody>
     </AppShell>
