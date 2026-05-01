@@ -45,26 +45,29 @@ export function AppShell({
     return pathname === href || pathname.startsWith(href + "/");
   };
 
+  const isChdv = insideBuilding?.type === "CHDV";
+  const buildingGradient = isChdv ? "bg-gradient-chdv" : "bg-gradient-vp";
+
   return (
     <div className="min-h-dvh">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-white border-r border-slate-200 z-30">
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-white border-r border-slate-100 z-30 shadow-[1px_0_0_0_rgba(0,0,0,0.04)]">
         <BrandHeader />
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           <SectionLabel>Chính</SectionLabel>
           {TOP_NAV.map((it) => (
             <NavLink key={it.href} {...it} active={isActive(it.href)} />
           ))}
           {insideBuilding && (
             <>
-              <SectionLabel className="mt-6">
+              <SectionLabel className="mt-5">
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="h-3 w-3" />
+                  <span className={`h-2 w-2 rounded-full ${buildingGradient}`} />
                   {insideBuilding.buildingName}
                 </span>
               </SectionLabel>
               {buildingItems.map((it) => (
-                <NavLink key={it.href} {...it} active={isActive(it.href)} />
+                <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} />
               ))}
             </>
           )}
@@ -73,12 +76,12 @@ export function AppShell({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="lg:hidden sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200">
+      <header className="lg:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/60">
         <div className="flex items-center justify-between px-4 h-14">
-          <button className="p-2 -ml-2" onClick={() => setMobileOpen(true)} aria-label="Menu">
-            <Menu className="h-5 w-5" />
+          <button className="p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors" onClick={() => setMobileOpen(true)} aria-label="Menu">
+            <Menu className="h-5 w-5 text-slate-700" />
           </button>
-          <Link href="/" className="font-bold gradient-text text-lg">The Right Home</Link>
+          <Link href="/" className="font-bold gradient-text text-lg tracking-tight">The Right Home</Link>
           <div className="w-9" />
         </div>
       </header>
@@ -86,23 +89,35 @@ export function AppShell({
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl flex flex-col animate-slide-up">
-            <div className="flex items-center justify-between p-4 border-b">
-              <span className="font-bold gradient-text">The Right Home</span>
-              <button onClick={() => setMobileOpen(false)} aria-label="Close">
-                <X className="h-5 w-5" />
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <Link href="/" onClick={() => setMobileOpen(false)}>
+                <span className="font-bold gradient-text text-lg">The Right Home</span>
+              </Link>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5 text-slate-600" />
               </button>
             </div>
-            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+              <SectionLabel>Chính</SectionLabel>
               {TOP_NAV.map((it) => (
                 <NavLink key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
               ))}
               {insideBuilding && (
                 <>
-                  <SectionLabel className="mt-6">{insideBuilding.buildingName}</SectionLabel>
+                  <SectionLabel className="mt-5">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${buildingGradient}`} />
+                      {insideBuilding.buildingName}
+                    </span>
+                  </SectionLabel>
                   {buildingItems.map((it) => (
-                    <NavLink key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
+                    <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} onClick={() => setMobileOpen(false)} />
                   ))}
                 </>
               )}
@@ -117,7 +132,7 @@ export function AppShell({
 
       {/* Mobile bottom nav (when inside a building) */}
       {insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-5">
             {buildingItems.map((it) => {
               const Icon = it.icon;
@@ -127,11 +142,16 @@ export function AppShell({
                   key={it.href}
                   href={it.href}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] transition-colors",
-                    active ? "text-primary" : "text-slate-500",
+                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
+                    active ? "text-primary" : "text-slate-400",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <div className={cn(
+                    "h-6 w-6 rounded-lg flex items-center justify-center mb-0.5 transition-all",
+                    active ? (isChdv ? "bg-gradient-chdv text-white shadow-sm" : "bg-gradient-vp text-white shadow-sm") : "",
+                  )}>
+                    <Icon className="h-4 w-4" />
+                  </div>
                   <span className="leading-tight">{it.label.replace("Tổng quan toà", "Tổng quan")}</span>
                 </Link>
               );
@@ -142,7 +162,7 @@ export function AppShell({
 
       {/* Mobile bottom nav (top level) */}
       {!insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-4">
             {TOP_NAV.map((it) => {
               const Icon = it.icon;
@@ -152,11 +172,16 @@ export function AppShell({
                   key={it.href}
                   href={it.href}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] transition-colors",
-                    active ? "text-primary" : "text-slate-500",
+                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
+                    active ? "text-primary" : "text-slate-400",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <div className={cn(
+                    "h-6 w-6 rounded-lg flex items-center justify-center mb-0.5 transition-all",
+                    active ? "bg-gradient-brand text-white shadow-sm" : "",
+                  )}>
+                    <Icon className="h-4 w-4" />
+                  </div>
                   <span className="leading-tight">{it.label}</span>
                 </Link>
               );
@@ -179,7 +204,7 @@ function BrandHeader() {
         </div>
         <div className="flex flex-col leading-tight">
           <span className="font-bold gradient-text text-base">The Right Home</span>
-          <span className="text-[11px] text-slate-500">Quản lý CHDV & VP</span>
+          <span className="text-[11px] text-slate-400">Quản lý CHDV & VP</span>
         </div>
       </Link>
     </div>
@@ -195,20 +220,25 @@ function SectionLabel({ children, className }: { children: React.ReactNode; clas
 }
 
 function NavLink({
-  href, label, icon: Icon, active, onClick,
-}: NavItem & { active: boolean; onClick?: () => void }) {
+  href, label, icon: Icon, active, buildingType, onClick,
+}: NavItem & { active: boolean; buildingType?: "CHDV" | "VP"; onClick?: () => void }) {
+  const activeGradient = buildingType === "VP"
+    ? "bg-gradient-vp/10 text-teal-700"
+    : "bg-gradient-brand/10 text-primary";
+  const activeIcon = buildingType === "VP" ? "text-teal-600" : "text-primary";
+
   return (
     <Link
       href={href}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-        active ? "bg-gradient-brand/10 text-primary" : "text-slate-600 hover:bg-slate-50",
+        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+        active ? activeGradient : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
       )}
     >
-      <Icon className={cn("h-5 w-5", active && "text-primary")} />
+      <Icon className={cn("h-4.5 w-4.5", active ? activeIcon : "text-slate-400")} />
       <span className="flex-1">{label}</span>
-      {active && <ChevronRight className="h-4 w-4" />}
+      {active && <ChevronRight className="h-3.5 w-3.5 opacity-50" />}
     </Link>
   );
 }
@@ -216,19 +246,18 @@ function NavLink({
 function UserCard({ user, onSignOut }: { user: { name: string; email: string; role: string }; onSignOut: () => void }) {
   return (
     <div className="border-t border-slate-100 p-3">
-      <div className="flex items-center gap-3 px-2 py-2">
-        <div className="h-9 w-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-sm font-semibold">
+      <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+        <div className="h-9 w-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0">
           {user.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate">{user.name}</div>
-          <div className="text-xs text-slate-500 truncate">{user.role === "ADMIN" ? "Quản trị" : "Nhân viên"}</div>
+          <div className="font-semibold text-sm text-slate-900 truncate">{user.name}</div>
+          <div className="text-xs text-slate-400 truncate">{user.role === "ADMIN" ? "Quản trị viên" : "Nhân viên"}</div>
         </div>
-        <button onClick={onSignOut} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Đăng xuất">
-          <LogOut className="h-4 w-4 text-slate-600" />
+        <button onClick={onSignOut} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" aria-label="Đăng xuất">
+          <LogOut className="h-4 w-4 text-slate-500" />
         </button>
       </div>
     </div>
   );
 }
-

@@ -119,32 +119,30 @@ function RoomTile({
   room: Room; buildingId: string; canWrite: boolean; onDelete: () => void;
 }) {
   const isExpiring = room.daysLeft !== null && room.daysLeft <= 30;
-  const color =
-    room.status === "OCCUPIED"
-      ? isExpiring ? "bg-amber-50 border-amber-300 ring-amber-200" : "bg-rose-50 border-rose-200"
-      : room.status === "MAINTENANCE" ? "bg-slate-100 border-slate-300"
-      : "bg-emerald-50 border-emerald-200";
-  const dot =
-    room.status === "OCCUPIED" ? (isExpiring ? "bg-amber-500" : "bg-rose-500")
-    : room.status === "MAINTENANCE" ? "bg-slate-400" : "bg-emerald-500";
+
+  const styles = {
+    OCCUPIED: isExpiring
+      ? { card: "bg-amber-50 border-amber-200", dot: "bg-amber-400", text: "text-amber-800", accent: "bg-amber-400" }
+      : { card: "bg-rose-50 border-rose-200", dot: "bg-rose-400", text: "text-rose-800", accent: "bg-rose-400" },
+    MAINTENANCE: { card: "bg-slate-100 border-slate-200", dot: "bg-slate-400", text: "text-slate-600", accent: "bg-slate-400" },
+    AVAILABLE: { card: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400", text: "text-emerald-800", accent: "bg-emerald-400" },
+  };
+  const s = styles[room.status] ?? styles.AVAILABLE;
 
   return (
-    <div className={cn("relative rounded-xl border p-3 group", color)}>
-      <Link
-        href={`/buildings/${buildingId}/contracts?room=${room.id}`}
-        className="block"
-      >
-        <div className="flex items-center justify-between mb-1">
-          <span className="font-semibold text-sm">{room.number}</span>
-          <span className={cn("h-2 w-2 rounded-full", dot)} />
+    <div className={cn("relative rounded-xl border p-3 group", s.card)}>
+      <Link href={`/buildings/${buildingId}/contracts?room=${room.id}`} className="block">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="font-bold text-sm text-slate-900">{room.number}</span>
+          <span className={cn("h-2 w-2 rounded-full shrink-0", s.dot)} />
         </div>
         {room.customerName ? (
-          <div className="text-[11px] text-slate-700 truncate" title={room.customerName}>{room.customerName}</div>
+          <div className={cn("text-[11px] truncate font-medium", s.text)} title={room.customerName}>{room.customerName}</div>
         ) : (
           <div className="text-[11px] text-slate-500">Trống</div>
         )}
         {room.daysLeft !== null && room.daysLeft <= 30 && (
-          <div className="text-[10px] mt-1 text-amber-700 font-medium">
+          <div className="text-[10px] mt-1.5 text-amber-700 font-semibold bg-amber-100 rounded-md px-1.5 py-0.5 inline-block">
             {room.daysLeft <= 0 ? "Hết hạn" : `Còn ${room.daysLeft}d`}
           </div>
         )}

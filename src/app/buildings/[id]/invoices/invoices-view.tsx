@@ -142,10 +142,10 @@ export function InvoicesView({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniStat label="Tổng phải thu" value={formatVND(totalDue)} />
-        <MiniStat label="Đã thu" value={formatVND(totalPaid)} positive />
-        <MiniStat label="Còn lại" value={formatVND(totalDue - totalPaid)} warning />
-        <MiniStat label="Quá hạn" value={String(overdueCount)} danger />
+        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} gradient="from-slate-500 to-slate-700" />
+        <GradStat label="Đã thu" value={formatVND(totalPaid)} gradient="from-emerald-500 to-teal-500" />
+        <GradStat label="Còn lại" value={formatVND(totalDue - totalPaid)} gradient="from-amber-400 to-orange-500" />
+        <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} gradient="from-rose-500 to-pink-500" />
       </div>
 
       {/* List */}
@@ -183,15 +183,14 @@ export function InvoicesView({
   );
 }
 
-function MiniStat({ label, value, positive, warning, danger }: { label: string; value: string; positive?: boolean; warning?: boolean; danger?: boolean }) {
-  const color = danger ? "text-rose-600" : warning ? "text-amber-600" : positive ? "text-emerald-600" : "";
+function GradStat({ label, value, gradient }: { label: string; value: string; gradient: string }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-slate-500">{label}</div>
-        <div className={`text-lg font-bold mt-1 ${color}`}>{value}</div>
-      </CardContent>
-    </Card>
+    <div className={`stat-tile bg-gradient-to-br ${gradient}`}>
+      <div className="relative">
+        <div className="text-[11px] font-medium text-white/80 uppercase tracking-wide">{label}</div>
+        <div className="text-xl font-bold mt-1 leading-tight">{value}</div>
+      </div>
+    </div>
   );
 }
 
