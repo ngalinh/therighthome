@@ -1,15 +1,20 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty";
-import { FileText, User, Calendar, Download, XCircle, Loader2 } from "lucide-react";
+import {
+  FileText, User, Calendar, Download, XCircle, Loader2, Edit, Receipt,
+} from "lucide-react";
 import { toast } from "sonner";
 import { formatDateVN, formatVND, formatNumber, parseVNDInput } from "@/lib/utils";
 
@@ -20,11 +25,15 @@ type Contract = {
   startDate: string;
   endDate: string;
   monthlyRent: string;
+  vatRate: number;
   depositAmount: string;
   generatedDocxUrl: string | null;
   contractFileUrl: string | null;
   room: { number: string };
-  customers: { isPrimary: boolean; customer: { fullName: string | null; companyName: string | null; type: string } }[];
+  customers: {
+    isPrimary: boolean;
+    customer: { fullName: string | null; companyName: string | null; type: string };
+  }[];
 };
 
 const STATUS: Record<string, { label: string; variant: "default" | "success" | "warning" | "destructive" | "secondary" }> = {
@@ -35,7 +44,9 @@ const STATUS: Record<string, { label: string; variant: "default" | "success" | "
 };
 
 export function ContractsTab({
-  contracts, canWrite,
+  contracts,
+  buildingId,
+  canWrite,
 }: {
   contracts: Contract[];
   buildingId: string;
@@ -54,12 +65,16 @@ export function ContractsTab({
         const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
         const name = primary?.fullName || primary?.companyName || "—";
         const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
+        const rent = BigInt(c.monthlyRent);
+        const vatPct = Math.round(c.vatRate * 100);
+        const vatAmount = (rent * BigInt(Math.round(c.vatRate * 100))) / 100n;
+        const deposit = BigInt(c.depositAmount);
         return (
           <Card key={c.id}>
             <CardContent className="p-4">
               <div className="flex flex-wrap items-start gap-3 justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono text-slate-500">{c.code}</span>
                     <Badge variant={st.variant}>{st.label}</Badge>
                   </div>
@@ -74,24 +89,59 @@ export function ContractsTab({
                       <Calendar className="h-4 w-4 text-slate-400" />
                       {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
                     </span>
-                    <span className="flex items-center gap-1.5 font-medium text-emerald-700">
-                      {formatVND(BigInt(c.monthlyRent))} /tháng
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                    <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                      <Receipt className="h-3.5 w-3.5" />
+                      {formatVND(rent)} /tháng
+                      {vatPct > 0 && (
+                        <span className="text-slate-500 font-normal">
+                          {" "}+ VAT {vatPct}% ({formatVND(vatAmount)})
+                        </span>
+                      )}
                     </span>
+                    {deposit > 0n && (
+                      <span className="text-slate-600">
+                        Cọc: <span className="font-medium">{formatVND(deposit)}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-1.5 items-center">
                   {c.generatedDocxUrl && (
-                    <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-xs text-primary flex items-center gap-1 hover:underline">
+                    <a
+                      href={c.generatedDocxUrl}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-xs text-primary flex items-center gap-1 hover:underline"
+                    >
                       <Download className="h-3.5 w-3.5" /> HĐ.docx
                     </a>
                   )}
                   {c.contractFileUrl && (
-                    <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-xs text-primary flex items-center gap-1 hover:underline">
+                    <a
+                      href={c.contractFileUrl}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-xs text-primary flex items-center gap-1 hover:underline"
+                    >
                       <FileText className="h-3.5 w-3.5" /> HĐ ký
                     </a>
                   )}
+                  {canWrite && (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`}>
+                        <Edit className="h-3.5 w-3.5" /> Sửa
+                      </Link>
+                    </Button>
+                  )}
                   {canWrite && c.status === "ACTIVE" && (
-                    <Button onClick={() => setTerminateOpen(c)} variant="ghost" size="sm" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+                    <Button
+                      onClick={() => setTerminateOpen(c)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                    >
                       <XCircle className="h-3.5 w-3.5" /> Kết thúc
                     </Button>
                   )}
