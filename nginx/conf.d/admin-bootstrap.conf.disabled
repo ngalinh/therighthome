@@ -1,7 +1,7 @@
 # Use this BEFORE getting SSL cert (rename to .conf, remove the SSL one)
 server {
   listen 80;
-  server_name chdv.shipus.vn;
+  server_name admin.therighthome.vn;
   location /.well-known/acme-challenge/ { root /var/www/certbot; }
   location / {
     proxy_pass http://app:3000;

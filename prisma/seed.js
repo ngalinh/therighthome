@@ -49,7 +49,7 @@ const PARTY_KINDS = {
 };
 
 async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@shipus.vn";
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@therighthome.vn";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
 
   if (!(await prisma.user.findUnique({ where: { email: adminEmail } }))) {

@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 
-const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT = "mailto:admin@shipus.vn" } = process.env;
+const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT = "mailto:admin@therighthome.vn" } = process.env;
 
 let configured = false;
 function ensureConfigured() {
