@@ -1,8 +1,10 @@
 #!/bin/sh
 set -e
 
+PRISMA_BIN="node node_modules/prisma/build/index.js"
+
 echo "Running migrations..."
-npx prisma migrate deploy || npx prisma db push --accept-data-loss
+$PRISMA_BIN migrate deploy 2>/dev/null || $PRISMA_BIN db push --accept-data-loss
 
 echo "Seeding default data (idempotent)..."
 node prisma/seed.js || true
