@@ -10,7 +10,13 @@ if [ ! -f .env ]; then
 fi
 
 DOMAIN="admin.therighthome.vn"
-NGINX_CONF_DST="/etc/nginx/conf.d/admin.therighthome.vn.conf"
+# Detect nginx config layout — try sites-enabled first (Debian/Ubuntu),
+# then conf.d (RHEL-style). Existing site at /etc/nginx/sites-enabled/* tells us this server uses Debian style.
+if [ -d /etc/nginx/sites-enabled ]; then
+  NGINX_CONF_DST="/etc/nginx/sites-enabled/admin.therighthome.vn.conf"
+else
+  NGINX_CONF_DST="/etc/nginx/conf.d/admin.therighthome.vn.conf"
+fi
 NGINX_CONF_SRC="nginx/host-snippet/admin.therighthome.vn.conf"
 
 mkdir -p storage backups secrets
