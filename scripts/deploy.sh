@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First-time deploy script for chdv.shipus.vn
+# First-time deploy script for admin.therighthome.vn
 # Run on the server (vmadmin@103.140.249.232) after cloning the repo.
 set -euo pipefail
 
@@ -22,11 +22,11 @@ sleep 3
 
 echo "==> Requesting Let's Encrypt cert"
 docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
-  --email admin@shipus.vn --agree-tos --no-eff-email -d chdv.shipus.vn
+  --email admin@therighthome.vn --agree-tos --no-eff-email -d admin.therighthome.vn
 
 echo "==> Switching nginx to SSL config"
 mv -f nginx/conf.d/chdv-bootstrap.conf nginx/conf.d/chdv-bootstrap.conf.disabled
 mv -f nginx/conf.d/chdv.conf.ssl nginx/conf.d/chdv.conf
 
 docker compose up -d
-echo "==> Done. App available at https://chdv.shipus.vn"
+echo "==> Done. App available at https://admin.therighthome.vn"

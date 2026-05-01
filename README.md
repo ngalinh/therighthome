@@ -53,14 +53,14 @@ npx prisma db push
 node prisma/seed.js   # tạo admin + 6 toà mặc định
 
 npm run dev
-# → http://localhost:3000  (login: admin@shipus.vn / ChangeMe123!)
+# → http://localhost:3000  (login: admin@therighthome.vn / ChangeMe123!)
 ```
 
-## Deploy lên server (`chdv.shipus.vn` → `103.140.249.232`)
+## Deploy lên server (`admin.therighthome.vn` → `103.140.249.232`)
 
 ### Một lần ban đầu
 
-1. **DNS**: trỏ `chdv.shipus.vn` (A record) về `103.140.249.232`
+1. **DNS**: trỏ `admin.therighthome.vn` (A record) về `103.140.249.232`
 2. **SSH vào server**, đảm bảo có Docker + Docker Compose:
    ```bash
    ssh vmadmin@103.140.249.232
@@ -81,7 +81,7 @@ npm run dev
    ```bash
    bash scripts/deploy.sh
    ```
-6. App sẽ chạy ở `https://chdv.shipus.vn`. Đăng nhập bằng admin được seed.
+6. App sẽ chạy ở `https://admin.therighthome.vn`. Đăng nhập bằng admin được seed.
 
 ### Update code khi đã deploy
 
@@ -118,7 +118,7 @@ const bcrypt = require("bcryptjs");
 const p = new PrismaClient();
 (async () => {
   await p.user.create({ data: {
-    email: "user@shipus.vn", name: "Tên", role: "STAFF",
+    email: "user@therighthome.vn", name: "Tên", role: "STAFF",
     passwordHash: await bcrypt.hash("MatKhau123!", 12),
   }});
   console.log("done");
