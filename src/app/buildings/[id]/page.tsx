@@ -10,6 +10,7 @@ import { MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp } from "lu
 import Link from "next/link";
 import { formatVND } from "@/lib/utils";
 import { RoomsManager } from "./rooms-manager";
+import { DeleteBuildingButton } from "./delete-building-button";
 
 export default async function BuildingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -42,13 +43,16 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const [activeContracts, monthInvoices, overdue] = await Promise.all([
+  const [activeContracts, monthInvoices, overdue, totalContracts, totalInvoices, totalTransactions] = await Promise.all([
     prisma.contract.count({ where: { buildingId: id, status: "ACTIVE" } }),
     prisma.invoice.findMany({
       where: { buildingId: id, month, year },
       select: { totalAmount: true, paidAmount: true, status: true },
     }),
     prisma.invoice.count({ where: { buildingId: id, status: "OVERDUE" } }),
+    prisma.contract.count({ where: { buildingId: id } }),
+    prisma.invoice.count({ where: { buildingId: id } }),
+    prisma.transaction.count({ where: { buildingId: id } }),
   ]);
   const totalDue = monthInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = monthInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
@@ -65,9 +69,23 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
         gradient={building.type === "CHDV" ? "chdv" : "vp"}
         description=""
         actions={
-          <Badge variant={building.type === "CHDV" ? "chdv" : "vp"}>
-            {building.type === "CHDV" ? "Căn hộ DV" : "Văn phòng"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={building.type === "CHDV" ? "chdv" : "vp"}>
+              {building.type === "CHDV" ? "Căn hộ DV" : "Văn phòng"}
+            </Badge>
+            {session.user.role === "ADMIN" && (
+              <DeleteBuildingButton
+                buildingId={building.id}
+                buildingName={building.name}
+                counts={{
+                  rooms: building.rooms.length,
+                  contracts: totalContracts,
+                  invoices: totalInvoices,
+                  transactions: totalTransactions,
+                }}
+              />
+            )}
+          </div>
         }
       />
       <PageBody>
