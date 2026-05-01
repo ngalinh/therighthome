@@ -1,0 +1,79 @@
+name: Deploy to production
+
+# Runs only after CI succeeds on main, or when manually triggered.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Avoid overlapping deploys.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Skip if CI failed (workflow_run gives us the upstream conclusion).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull, build, deploy
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/home/vmadmin/therighthome' }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+              set -euo pipefail
+              cd "$DEPLOY_PATH"
+
+              echo "==> Fetching latest main"
+              git fetch --quiet origin main
+              git reset --hard origin/main
+
+              echo "==> Building app + worker images"
+              docker compose build app worker
+
+              echo "==> Restarting app + worker"
+              docker compose up -d app worker
+
+              echo "==> Pruning dangling images"
+              docker image prune -f >/dev/null
+
+              echo "==> Deploy complete"
+          REMOTE
+
+      - name: Health check
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          APP_PORT: ${{ secrets.APP_PORT || '3002' }}
+        run: |
+          ssh "$SSH_USER@$SSH_HOST" "APP_PORT='$APP_PORT' bash -s" <<'REMOTE'
+            set -e
+            for i in $(seq 1 30); do
+              if curl -fsS "http://127.0.0.1:${APP_PORT}/login" > /dev/null 2>&1; then
+                echo "✅ App responding on :$APP_PORT"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "❌ App not responding after 60s"
+            cd ~/therighthome
+            docker compose logs app --tail 50
+            exit 1
+          REMOTE
