@@ -117,6 +117,37 @@ async function main() {
     if (!exists) await prisma.party.create({ data: { kind, name } });
   }
 
+  // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
+  // user explicitly wants gone). Marker via AuditLog so it only runs once.
+  const cleanupDone = await prisma.auditLog.findFirst({
+    where: { action: "CLEANUP", entityType: "EmptyBuildings" },
+  });
+  if (!cleanupDone) {
+    const empty = await prisma.building.findMany({
+      where: { rooms: { none: {} } },
+      select: { id: true, name: true },
+    });
+    for (const b of empty) {
+      // Building has FK relations w/o cascade (contract/invoice/transaction);
+      // since the building has 0 rooms it likely also has 0 of those, but
+      // guard anyway.
+      const txCount = await prisma.transaction.count({ where: { buildingId: b.id } });
+      const invCount = await prisma.invoice.count({ where: { buildingId: b.id } });
+      const conCount = await prisma.contract.count({ where: { buildingId: b.id } });
+      if (txCount + invCount + conCount === 0) {
+        await prisma.building.delete({ where: { id: b.id } });
+        console.log(`Cleaned up empty building: ${b.name}`);
+      }
+    }
+    await prisma.auditLog.create({
+      data: {
+        action: "CLEANUP",
+        entityType: "EmptyBuildings",
+        after: { deletedCount: empty.length },
+      },
+    });
+  }
+
   console.log("Seed complete");
 }
 
