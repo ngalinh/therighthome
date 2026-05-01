@@ -34,10 +34,12 @@ export function EditContractForm({
   buildingId,
   buildingType,
   contract,
+  buildingSetting,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
   contract: Contract;
+  buildingSetting: { electricityPricePerKwh: string; parkingFeePerVehicle: string } | null;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -49,9 +51,19 @@ export function EditContractForm({
   const [vatRate, setVatRate] = useState(contract.vatRate * 100); // store as percent in UI
   const [deposit, setDeposit] = useState(contract.depositAmount);
   const [parkingCount, setParkingCount] = useState(contract.parkingCount);
-  const [parkingFeePerVehicle, setParkingFeePerVehicle] = useState(contract.parkingFeePerVehicle);
+  // Default elec/parking from building setting (shows current toà values).
+  // If contract has its own override (non-zero), keep that; else use building setting.
+  const [parkingFeePerVehicle, setParkingFeePerVehicle] = useState(
+    contract.parkingFeePerVehicle === "0" && buildingSetting?.parkingFeePerVehicle
+      ? buildingSetting.parkingFeePerVehicle
+      : contract.parkingFeePerVehicle,
+  );
   const [serviceFee, setServiceFee] = useState(contract.serviceFeeAmount);
-  const [electricityPricePerKwh, setElecPrice] = useState(contract.electricityPricePerKwh);
+  const [electricityPricePerKwh, setElecPrice] = useState(
+    contract.electricityPricePerKwh === "0" && buildingSetting?.electricityPricePerKwh
+      ? buildingSetting.electricityPricePerKwh
+      : contract.electricityPricePerKwh,
+  );
   const [notes, setNotes] = useState(contract.notes ?? "");
   const [yearlyRents, setYearlyRents] = useState(
     contract.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
@@ -62,9 +74,12 @@ export function EditContractForm({
     return addMonths(new Date(startDate), termMonths).toISOString().slice(0, 10);
   }, [startDate, termMonths]);
 
+  // monthlyRent is stored as the AFTER-VAT total (what tenant actually pays).
+  // pre-VAT and VAT amount are derived for display per user's convention:
+  //   preVAT = rent × (1 - vatRate);  vatAmount = rent × vatRate
   const rentBigInt = parseVNDInput(monthlyRent);
   const vatAmount = (rentBigInt * BigInt(Math.round(vatRate * 100))) / 10000n;
-  const totalAfterVAT = rentBigInt + vatAmount;
+  const preVATAmount = rentBigInt - vatAmount;
 
   const primaryCustomer = contract.customers.find((c) => c.isPrimary)?.customer;
   const customerName = primaryCustomer?.fullName || primaryCustomer?.companyName || "—";
@@ -137,11 +152,11 @@ export function EditContractForm({
             <CardTitle>Tóm tắt giá</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <Row label="Giá thuê (chưa VAT)" value={formatVND(rentBigInt)} />
+            <Row label="Giá thuê sau VAT" value={formatVND(rentBigInt)} bold />
             {vatRate > 0 && (
               <>
+                <Row label="Giá thuê chưa VAT" value={formatVND(preVATAmount)} />
                 <Row label={`VAT (${vatRate}%)`} value={formatVND(vatAmount)} />
-                <Row label="Tổng sau VAT" value={formatVND(totalAfterVAT)} bold />
               </>
             )}
             <Row label="Tiền cọc" value={formatVND(parseVNDInput(deposit))} />
@@ -183,8 +198,13 @@ export function EditContractForm({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Giá thuê / tháng (chưa VAT)" required>
+              <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
+                {vatRate > 0 && rentBigInt > 0n && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    = {formatVND(preVATAmount)} chưa VAT + {formatVND(vatAmount)} VAT
+                  </p>
+                )}
               </Field>
               <Field label="VAT (%)">
                 <Input
@@ -214,23 +234,37 @@ export function EditContractForm({
           </CardHeader>
           <CardContent>
             {yearlyRents.length === 0 ? (
-              <p className="text-xs text-slate-500">Chưa có. Bấm Thêm năm nếu HĐ trên 1 năm có giá thuê khác nhau theo năm.</p>
+              <p className="text-xs text-slate-500">Chưa có. Bấm Thêm năm nếu HĐ trên 1 năm có giá thuê khác nhau. Khi đến năm, hệ thống tự dùng giá năm đó để xuất hoá đơn.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {yearlyRents
                   .sort((a, b) => a.yearIndex - b.yearIndex)
-                  .map((y) => (
-                    <div key={y.yearIndex} className="flex items-center gap-2">
-                      <Label className="w-20 text-xs">Năm {y.yearIndex}</Label>
-                      <VNDInput value={y.rent} onChange={(v) => updateYearlyRent(y.yearIndex, v)} />
-                      <button
-                        onClick={() => removeYearlyRent(y.yearIndex)}
-                        className="text-rose-500 hover:text-rose-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                  .map((y) => {
+                    const r = parseVNDInput(y.rent);
+                    const yVAT = (r * BigInt(Math.round(vatRate * 100))) / 10000n;
+                    const yPre = r - yVAT;
+                    return (
+                      <div key={y.yearIndex} className="rounded-xl border p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Label className="w-20 text-xs">Năm {y.yearIndex}</Label>
+                          <div className="flex-1">
+                            <VNDInput value={y.rent} onChange={(v) => updateYearlyRent(y.yearIndex, v)} />
+                          </div>
+                          <button
+                            onClick={() => removeYearlyRent(y.yearIndex)}
+                            className="text-rose-500 hover:text-rose-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {vatRate > 0 && r > 0n && (
+                          <p className="text-[11px] text-slate-500 pl-[88px]">
+                            Sau VAT: {formatVND(r)} = {formatVND(yPre)} chưa VAT + {formatVND(yVAT)} VAT
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </CardContent>
@@ -241,6 +275,24 @@ export function EditContractForm({
             <CardTitle>Phí điện, xe, dịch vụ</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {buildingSetting && (
+              <p className="text-[11px] text-slate-500">
+                Mặc định lấy từ Cài đặt toà:
+                {" "}giá điện <strong>{formatNumber(parseVNDInput(buildingSetting.electricityPricePerKwh))}đ/kWh</strong>,
+                {" "}phí xe <strong>{formatNumber(parseVNDInput(buildingSetting.parkingFeePerVehicle))}đ/xe</strong>.
+                {" "}
+                <button
+                  type="button"
+                  className="text-primary underline"
+                  onClick={() => {
+                    setElecPrice(buildingSetting.electricityPricePerKwh);
+                    setParkingFeePerVehicle(buildingSetting.parkingFeePerVehicle);
+                  }}
+                >
+                  Đặt lại theo cài đặt toà
+                </button>
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Đơn giá điện (₫/kWh)">
                 <VNDInput value={electricityPricePerKwh} onChange={setElecPrice} />

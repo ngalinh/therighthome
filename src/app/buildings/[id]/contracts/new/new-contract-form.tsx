@@ -200,8 +200,17 @@ export function NewContractForm({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Giá thuê / tháng (₫)" required>
+              <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
+                {(() => {
+                  const r = parseVNDInput(monthlyRent);
+                  const v = (r * BigInt(Math.round(vatRate * 100))) / 10000n;
+                  return vatRate > 0 && r > 0n ? (
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      = {formatNumber(r - v)} chưa VAT + {formatNumber(v)} VAT
+                    </p>
+                  ) : null;
+                })()}
               </Field>
               {buildingType === "VP" && (
                 <Field label="VAT (%)">

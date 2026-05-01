@@ -52,8 +52,12 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       </div>
 
       <table width="100%" style="border-collapse:collapse;font-size:14px;margin:8px 0">
-        ${row("Tiền thuê", formatVND(d.rentAmount))}
-        ${d.vatAmount > 0n ? row("VAT", formatVND(d.vatAmount)) : ""}
+        ${row(
+          d.vatAmount > 0n
+            ? `Tiền thuê (đã VAT, gồm ${formatVND(d.vatAmount)} VAT)`
+            : "Tiền thuê",
+          formatVND(d.rentAmount),
+        )}
         ${row(`Tiền điện (${elec})`, formatVND(d.electricityFee))}
         ${d.parkingFee > 0n ? row(`Phí gửi xe (${d.parkingCount} xe)`, formatVND(d.parkingFee)) : ""}
         ${d.overtimeFee > 0n ? row("Phí làm ngoài giờ", formatVND(d.overtimeFee)) : ""}

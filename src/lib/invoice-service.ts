@@ -1,20 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { nextInvoiceCode } from "@/lib/codes";
-import { computeInvoice } from "@/lib/invoice-compute";
+import { computeInvoice, getEffectiveRent } from "@/lib/invoice-compute";
 
 /**
  * Generate invoices for all ACTIVE contracts that don't yet have an invoice
  * for the given (month, year). Idempotent — calling twice doesn't duplicate.
+ *
+ * Pulls electricity price + parking fee from BuildingSetting (snapshot at
+ * generation time). Picks rent from ContractYearlyRent if exists for the
+ * year that the invoice falls in, otherwise uses Contract.monthlyRent.
  */
 export async function generateMonthlyInvoices(month: number, year: number, buildingId?: string) {
   const contracts = await prisma.contract.findMany({
     where: {
       status: "ACTIVE",
       ...(buildingId ? { buildingId } : {}),
-      // Skip contracts that haven't started or have ended
-      startDate: { lte: new Date(year, month, 0) }, // last day of (month-1)
+      startDate: { lte: new Date(year, month, 0) },
     },
-    include: { building: { include: { setting: true } } },
+    include: {
+      building: { include: { setting: true } },
+      yearlyRents: true,
+    },
   });
 
   const created: string[] = [];
@@ -30,14 +36,27 @@ export async function generateMonthlyInvoices(month: number, year: number, build
     const dueDay = c.building.setting?.defaultDueDay ?? c.paymentDay ?? 5;
     const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
+    // Effective rent: yearly override if exists, else monthlyRent
+    const effectiveRent = getEffectiveRent(
+      c.startDate,
+      c.monthlyRent,
+      c.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
+      month,
+      year,
+    );
+
+    // Snapshot electricity + parking from CURRENT building setting
+    const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
+    const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
+
     const compute = computeInvoice({
-      rentAmount: c.monthlyRent,
+      rentAmount: effectiveRent,
       vatRate: c.vatRate,
       electricityStart: null,
       electricityEnd: null,
-      electricityPricePerKwh: c.electricityPricePerKwh,
+      electricityPricePerKwh: electricityPrice,
       parkingCount: c.parkingCount,
-      parkingFeePerVehicle: c.parkingFeePerVehicle,
+      parkingFeePerVehicle,
       overtimeFee: 0n,
       serviceFee: c.serviceFeeAmount,
     });
@@ -51,12 +70,12 @@ export async function generateMonthlyInvoices(month: number, year: number, build
         month,
         year,
         dueDate,
-        rentAmount: c.monthlyRent,
+        rentAmount: effectiveRent,
         vatAmount: compute.vatAmount,
-        electricityPricePerKwh: c.electricityPricePerKwh,
+        electricityPricePerKwh: electricityPrice,
         electricityFee: 0n,
         parkingCount: c.parkingCount,
-        parkingFeePerVehicle: c.parkingFeePerVehicle,
+        parkingFeePerVehicle,
         parkingFee: compute.parkingFee,
         overtimeFee: 0n,
         serviceFee: c.serviceFeeAmount,
