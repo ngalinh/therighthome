@@ -448,6 +448,7 @@ model BuildingSetting {
   parkingFeePerVehicle   BigInt @default(0)    // VND/xe/tháng
   serviceFeeType         ServiceFeeType @default(PER_ROOM)
   serviceFeeAmount       BigInt @default(0)
+  overtimeFeePerHour     BigInt @default(0)    // VP only: VND per hour of overtime
 
   contractTemplateUrl String?
   autoGenerateInvoiceDay Int @default(1)

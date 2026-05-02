@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,8 @@ export function InvoiceDetail({
   const kwh = elecStartN !== null && elecEndN !== null && elecEndN > elecStartN ? elecEndN - elecStartN : 0;
   const elecFee = BigInt(kwh) * BigInt(invoice.electricityPricePerKwh);
   const parkingFee = BigInt(parkingCount) * BigInt(invoice.parkingFeePerVehicle);
-  const totalPreview = BigInt(invoice.rentAmount) + BigInt(invoice.vatAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee);
+  // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
+  const totalPreview = BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee);
   const remaining = BigInt(invoice.totalAmount) - BigInt(invoice.paidAmount);
 
   async function save() {
@@ -157,12 +158,22 @@ export function InvoiceDetail({
             <CardTitle className="text-base">Chi tiết</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Row label="Tiền thuê" value={formatVND(BigInt(invoice.rentAmount))} />
-            {BigInt(invoice.vatAmount) > 0n && <Row label="VAT" value={formatVND(BigInt(invoice.vatAmount))} />}
+            <Row
+              label={
+                BigInt(invoice.vatAmount) > 0n
+                  ? `Tiền thuê (đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT)`
+                  : "Tiền thuê"
+              }
+              value={formatVND(BigInt(invoice.rentAmount))}
+            />
             <Row label={`Tiền điện${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
             {parkingFee > 0n && <Row label={`Phí xe (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
-            {parseVNDInput(overtime) > 0n && <Row label="Phí làm ngoài giờ" value={formatVND(parseVNDInput(overtime))} />}
-            {parseVNDInput(serviceFee) > 0n && <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />}
+            {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
+              <Row label="Phí ngoài giờ" value={formatVND(parseVNDInput(overtime))} />
+            )}
+            {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
+              <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
+            )}
             <hr />
             <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
             <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
@@ -203,19 +214,21 @@ export function InvoiceDetail({
               <div className="space-y-1">
                 <Label className="text-xs">Số xe</Label>
                 <Input type="number" min={0} value={parkingCount} onChange={(e) => setParkingCount(Number(e.target.value))} disabled={!canWrite} />
+                <p className="text-[10px] text-slate-500">Mặc định lấy từ HĐ. Có thể chỉnh tay tháng này.</p>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Phí dịch vụ (₫)</Label>
-                <Input
-                  inputMode="numeric"
-                  value={formatNumber(parseVNDInput(serviceFee))}
-                  onChange={(e) => setServiceFee(e.target.value)}
-                  disabled={!canWrite}
-                />
-              </div>
-              {buildingType === "VP" && (
+              {buildingType === "CHDV" ? (
                 <div className="space-y-1">
-                  <Label className="text-xs">Phí làm ngoài giờ (₫)</Label>
+                  <Label className="text-xs">Phí dịch vụ (₫)</Label>
+                  <Input
+                    inputMode="numeric"
+                    value={formatNumber(parseVNDInput(serviceFee))}
+                    onChange={(e) => setServiceFee(e.target.value)}
+                    disabled={!canWrite}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs">Phí ngoài giờ (₫)</Label>
                   <Input
                     inputMode="numeric"
                     value={formatNumber(parseVNDInput(overtime))}
@@ -316,22 +329,36 @@ function PhotoUploadField({
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [localPhoto, setLocalPhoto] = useState(photoUrl);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      toast.error("Ảnh quá lớn (>10MB). Hãy chọn ảnh nhỏ hơn.");
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
     const fd = new FormData();
     fd.append("file", f);
     fd.append("which", which);
-    const res = await fetch(`/api/invoices/${invoiceId}/electricity-photo`, { method: "POST", body: fd });
-    setUploading(false);
-    if (!res.ok) return toast.error("Upload thất bại");
-    const { url } = await res.json();
-    setLocalPhoto(url);
-    toast.success("Đã upload ảnh");
-    router.refresh();
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/electricity-photo`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || `Upload thất bại (${res.status})`);
+        return;
+      }
+      const { url } = await res.json();
+      setLocalPhoto(url);
+      toast.success("Đã upload ảnh");
+      router.refresh();
+    } catch (err) {
+      toast.error("Lỗi mạng. Thử lại.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   return (
@@ -339,18 +366,35 @@ function PhotoUploadField({
       <Label className="text-xs">{label}</Label>
       <Input type="number" inputMode="numeric" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="0" />
       {localPhoto ? (
-        <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50">
-          <img src={localPhoto} alt={label} className="w-full h-full object-cover" />
-        </div>
+        <a href={localPhoto} target="_blank" rel="noopener" className="block group">
+          <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 cursor-zoom-in">
+            <img src={localPhoto} alt={label} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
+            <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
+              <span className="text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">Click để xem to</span>
+            </div>
+          </div>
+        </a>
       ) : null}
       {!disabled && (
-        <>
-          <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={upload} />
-          <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading} className="w-full">
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-            {localPhoto ? "Thay ảnh" : "Chụp ảnh đồng hồ"}
-          </Button>
-        </>
+        // Use a <label> wrapping the file input → native click flows through,
+        // works reliably on iOS PWA + Android Chrome where programmatic
+        // .click() on a hidden input is sometimes blocked.
+        <label
+          className={
+            "flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border bg-background text-sm font-medium cursor-pointer hover:bg-accent/10 hover:text-accent transition-colors w-full" +
+            (uploading ? " opacity-50 pointer-events-none" : "")
+          }
+        >
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={upload}
+            disabled={uploading}
+          />
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          {localPhoto ? "Thay ảnh" : "Chụp / chọn ảnh đồng hồ"}
+        </label>
       )}
     </div>
   );
