@@ -60,12 +60,15 @@ export function AppShell({
           ))}
           {insideBuilding && (
             <>
-              <SectionLabel className="mt-5">
-                <span className="flex items-center gap-1.5">
-                  <span className={`h-2 w-2 rounded-full ${buildingGradient}`} />
+              <div className={cn(
+                "mt-5 mb-1 rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm",
+                buildingGradient,
+              )}>
+                <Building2 className="h-4 w-4 text-white shrink-0" />
+                <span className="text-white text-sm font-semibold truncate flex-1">
                   {insideBuilding.buildingName}
                 </span>
-              </SectionLabel>
+              </div>
               {buildingItems.map((it) => (
                 <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} />
               ))}
@@ -110,12 +113,15 @@ export function AppShell({
               ))}
               {insideBuilding && (
                 <>
-                  <SectionLabel className="mt-5">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`h-2 w-2 rounded-full ${buildingGradient}`} />
+                  <div className={cn(
+                    "mt-5 mb-1 rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm",
+                    buildingGradient,
+                  )}>
+                    <Building2 className="h-4 w-4 text-white shrink-0" />
+                    <span className="text-white text-sm font-semibold truncate flex-1">
                       {insideBuilding.buildingName}
                     </span>
-                  </SectionLabel>
+                  </div>
                   {buildingItems.map((it) => (
                     <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} onClick={() => setMobileOpen(false)} />
                   ))}
