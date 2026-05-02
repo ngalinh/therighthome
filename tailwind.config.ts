@@ -60,11 +60,17 @@ const config: Config = {
       },
       backgroundImage: {
         "gradient-chdv": "linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)",
-        "gradient-vp": "linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)",
+        "gradient-vp": "linear-gradient(135deg, #2dd4bf 0%, #60a5fa 50%, #7c3aed 100%)",
         "gradient-brand": "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)",
         "gradient-success": "linear-gradient(135deg, #10b981 0%, #14b8a6 100%)",
         "gradient-warning": "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
-        "gradient-danger": "linear-gradient(135deg, #ef4444 0%, #f43f5e 100%)",
+        "gradient-danger": "linear-gradient(135deg, #fb923c 0%, #f43f5e 100%)",
+        "gradient-warm": "linear-gradient(135deg, #fbbf24 0%, #fb7185 50%, #ec4899 100%)",
+        "gradient-mint": "linear-gradient(135deg, #5eead4 0%, #93c5fd 50%, #818cf8 100%)",
+        "gradient-jewel-1": "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+        "gradient-jewel-2": "linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)",
+        "gradient-jewel-3": "linear-gradient(135deg, #84cc16 0%, #14b8a6 100%)",
+        "gradient-jewel-4": "linear-gradient(135deg, #f43f5e 0%, #ec4899 100%)",
       },
       keyframes: {
         "accordion-down": {

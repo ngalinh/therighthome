@@ -123,18 +123,38 @@ export function InvoiceDetail({
     router.refresh();
   }
 
+  const headerGradient =
+    invoice.status === "OVERDUE" ? "from-orange-500 via-rose-500 to-rose-600" :
+    invoice.status === "PAID"    ? "from-emerald-500 to-teal-500" :
+    invoice.status === "PARTIAL" ? "from-amber-400 to-orange-500" :
+    "from-slate-500 to-slate-700";
+
   return (
     <div className="grid lg:grid-cols-3 gap-4 lg:gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle>Thông tin hoá đơn</CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Phòng {invoice.contract.room.number} · {primary?.fullName || primary?.companyName}
-              </p>
+        <Card className="overflow-hidden">
+          {/* Gradient status header */}
+          <div className={`bg-gradient-to-br ${headerGradient} px-5 py-4 text-white`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/75">Hoá đơn · {invoice.code}</p>
+                <h3 className="text-lg font-bold mt-0.5">
+                  Phòng {invoice.contract.room.number} · {primary?.fullName || primary?.companyName}
+                </h3>
+              </div>
+              <Badge className="bg-white/20 text-white border-white/30 text-xs">
+                {st.label}
+              </Badge>
             </div>
-            <Badge variant={st.variant}>{st.label}</Badge>
+            <div className="mt-3 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold">{formatVND(BigInt(invoice.totalAmount))}</span>
+              {remaining > 0n && (
+                <span className="text-sm text-white/75">· còn {formatVND(remaining)}</span>
+              )}
+            </div>
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-4">
+            <CardTitle className="text-base">Chi tiết</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Row label="Tiền thuê" value={formatVND(BigInt(invoice.rentAmount))} />
