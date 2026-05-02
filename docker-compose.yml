@@ -48,6 +48,9 @@ services:
         condition: service_healthy
       app:
         condition: service_started
+    # The image now starts as root (so the app entrypoint can chown the bind
+    # mount). The worker doesn't need that — drop straight to the nextjs user.
+    user: "1001:1001"
     command: ["node", "scripts/worker.js"]
     networks: [app-net]
 

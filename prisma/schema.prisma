@@ -36,10 +36,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  permissions  UserBuildingPermission[]
-  auditLogs    AuditLog[]
-  pushSubs     PushSubscription[]
-  transactions Transaction[]
+  permissions      UserBuildingPermission[]
+  auditLogs        AuditLog[]
+  pushSubs         PushSubscription[]
+  transactions     Transaction[]
+  maintenanceTasks MaintenanceTask[]
+  overtimeRequests OvertimeRequest[]
 }
 
 model UserBuildingPermission {
@@ -79,14 +81,16 @@ model Building {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  rooms        Room[]
-  permissions  UserBuildingPermission[]
-  contracts    Contract[]
-  customers    Customer[]
-  invoices     Invoice[]
-  transactions Transaction[]
-  setting      BuildingSetting?
-  openingBalances OpeningBalance[]
+  rooms            Room[]
+  permissions      UserBuildingPermission[]
+  contracts        Contract[]
+  customers        Customer[]
+  invoices         Invoice[]
+  transactions     Transaction[]
+  setting          BuildingSetting?
+  openingBalances  OpeningBalance[]
+  maintenanceTasks MaintenanceTask[]
+  overtimeRequests OvertimeRequest[]
 }
 
 model Room {
@@ -99,8 +103,10 @@ model Room {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  building  Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  contracts Contract[]
+  building         Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  contracts        Contract[]
+  maintenanceTasks MaintenanceTask[]
+  overtimeRequests OvertimeRequest[]
 
   @@unique([buildingId, number])
   @@index([buildingId])
@@ -145,6 +151,7 @@ model Customer {
   contractCustomers ContractCustomer[]
   openingBalances   OpeningBalance[]
   transactions      Transaction[]
+  maintenanceTasks  MaintenanceTask[]
 
   @@index([buildingId])
 }
@@ -284,10 +291,11 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  contract     Contract     @relation(fields: [contractId], references: [id])
-  building     Building     @relation(fields: [buildingId], references: [id])
-  payments     InvoicePayment[]
-  transactions Transaction[]
+  contract         Contract          @relation(fields: [contractId], references: [id])
+  building         Building          @relation(fields: [buildingId], references: [id])
+  payments         InvoicePayment[]
+  transactions     Transaction[]
+  overtimeRequests OvertimeRequest[]
 
   @@unique([contractId, month, year])
   @@index([buildingId, year, month])
@@ -355,14 +363,15 @@ model Transaction {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  building       Building          @relation(fields: [buildingId], references: [id])
-  category       TransactionCategory? @relation(fields: [categoryId], references: [id])
-  paymentMethod  PaymentMethod?    @relation(fields: [paymentMethodId], references: [id])
-  customer       Customer?         @relation(fields: [customerId], references: [id])
-  party          Party?            @relation(fields: [partyId], references: [id])
-  invoice        Invoice?          @relation(fields: [invoiceId], references: [id])
-  invoicePayment InvoicePayment?
-  createdBy      User?             @relation(fields: [createdById], references: [id])
+  building        Building             @relation(fields: [buildingId], references: [id])
+  category        TransactionCategory? @relation(fields: [categoryId], references: [id])
+  paymentMethod   PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
+  customer        Customer?            @relation(fields: [customerId], references: [id])
+  party           Party?               @relation(fields: [partyId], references: [id])
+  invoice         Invoice?             @relation(fields: [invoiceId], references: [id])
+  invoicePayment  InvoicePayment?
+  createdBy       User?                @relation(fields: [createdById], references: [id])
+  maintenanceTask MaintenanceTask?
 
   @@index([buildingId, date])
   @@index([buildingId, accountingYear, accountingMonth])
@@ -377,8 +386,9 @@ model Party {
   notes      String?
   createdAt  DateTime  @default(now())
 
-  transactions    Transaction[]
-  openingBalances OpeningBalance[]
+  transactions     Transaction[]
+  openingBalances  OpeningBalance[]
+  maintenanceTasks MaintenanceTask[]
 }
 
 model TransactionCategory {
@@ -470,6 +480,68 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// MAINTENANCE / FACILITIES WORK
+// ============================================================
+
+enum MaintenanceStatus {
+  PENDING
+  DONE
+}
+
+model MaintenanceTask {
+  id          String            @id @default(cuid())
+  buildingId  String
+  roomId      String?
+  date        DateTime
+  partyKind   PartyKind?
+  partyId     String?           // non-customer party (Thợ sửa, …)
+  customerId  String?           // if "Đối tượng" is the renter
+  taskName    String
+  status      MaintenanceStatus @default(PENDING)
+  cost        BigInt            @default(0)
+  notes       String?
+
+  expenseTransactionId String? @unique // set after $ creates the expense
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building    Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  room        Room?        @relation(fields: [roomId], references: [id])
+  party       Party?       @relation(fields: [partyId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  transaction Transaction? @relation(fields: [expenseTransactionId], references: [id])
+  createdBy   User?        @relation(fields: [createdById], references: [id])
+
+  @@index([buildingId, date])
+}
+
+model OvertimeRequest {
+  id          String   @id @default(cuid())
+  buildingId  String
+  roomId      String?
+  date        DateTime
+  startTime   String   // "HH:MM"
+  endTime     String   // "HH:MM"
+  fee         BigInt   @default(0)
+  notes       String?
+
+  invoiceId   String?  // set after $ folds it into the invoice
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building  Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  room      Room?    @relation(fields: [roomId], references: [id])
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  createdBy User?    @relation(fields: [createdById], references: [id])
+
+  @@index([buildingId, date])
 }
 
 // ============================================================

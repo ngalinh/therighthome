@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, Upload,
+  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: 
 const TOP_NAV: NavItem[] = [
   { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" },
   { href: "/buildings", label: "Toà nhà", icon: Building2 },
-  { href: "/import", label: "Import Excel", icon: Upload },
+  { href: "/manage", label: "Quản lý", icon: ClipboardList },
   { href: "/settings", label: "Cài đặt chung", icon: Settings },
 ];
 
