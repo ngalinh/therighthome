@@ -145,6 +145,55 @@ async function main() {
     });
   }
 
+  // One-off: migrate existing contract codes to new format <TYPE>-DDMMYY-NN.
+  // Numbers are reassigned per (type, day) group ordered by createdAt for
+  // stability. Idempotent via AuditLog marker.
+  const codeMigDone = await prisma.auditLog.findFirst({
+    where: { action: "MIGRATE_CONTRACT_CODES_v2", entityType: "Contract" },
+  });
+  if (!codeMigDone) {
+    const allContracts = await prisma.contract.findMany({
+      include: { building: { select: { type: true } } },
+      orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    });
+    const fmt = (d) => {
+      const z = (n) => String(n).padStart(2, "0");
+      return `${z(d.getDate())}${z(d.getMonth() + 1)}${String(d.getFullYear()).slice(-2)}`;
+    };
+    const groups = new Map();
+    for (const c of allContracts) {
+      const key = `${c.building.type}-${fmt(new Date(c.startDate))}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
+    }
+    let migrated = 0;
+    // To avoid unique-constraint clashes when intermediate codes overlap between
+    // the existing and new schemes, do it in two passes: first set every code to
+    // a temporary unique value, then assign the final codes.
+    for (const c of allContracts) {
+      await prisma.contract.update({
+        where: { id: c.id },
+        data: { code: `__tmp_${c.id}` },
+      });
+    }
+    for (const [prefix, list] of groups) {
+      for (let i = 0; i < list.length; i++) {
+        const newCode = `${prefix}-${String(i + 1).padStart(2, "0")}`;
+        if (list[i].code !== newCode) {
+          await prisma.contract.update({
+            where: { id: list[i].id },
+            data: { code: newCode },
+          });
+          migrated++;
+        }
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "MIGRATE_CONTRACT_CODES_v2", entityType: "Contract", after: { migrated } },
+    });
+    if (migrated > 0) console.log(`Migrated ${migrated} contract codes to new format.`);
+  }
+
   // One-off: sync existing contracts' electricity/parking fees to match their
   // building's current setting. After this, defaults always come from setting.
   const feeSyncDone = await prisma.auditLog.findFirst({
