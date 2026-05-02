@@ -139,9 +139,9 @@ export async function POST(req: NextRequest) {
     });
     if (existing) continue;
 
-    const code = await nextContractCode(bId);
     const start = new Date(k.startDate);
     const end = addMonths(start, k.termMonths);
+    const code = await nextContractCode(bId, start);
     await prisma.contract.create({
       data: {
         buildingId: bId,

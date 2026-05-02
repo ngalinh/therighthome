@@ -277,20 +277,10 @@ export function EditContractForm({
           <CardContent className="space-y-3">
             {buildingSetting && (
               <p className="text-[11px] text-slate-500">
-                Mặc định lấy từ Cài đặt toà:
+                Mặc định theo Cài đặt toà nhà:
                 {" "}giá điện <strong>{formatNumber(parseVNDInput(buildingSetting.electricityPricePerKwh))}đ/kWh</strong>,
                 {" "}phí xe <strong>{formatNumber(parseVNDInput(buildingSetting.parkingFeePerVehicle))}đ/xe</strong>.
-                {" "}
-                <button
-                  type="button"
-                  className="text-primary underline"
-                  onClick={() => {
-                    setElecPrice(buildingSetting.electricityPricePerKwh);
-                    setParkingFeePerVehicle(buildingSetting.parkingFeePerVehicle);
-                  }}
-                >
-                  Đặt lại theo cài đặt toà
-                </button>
+                {" "}Có thể chỉnh tay nếu HĐ này khác.
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">

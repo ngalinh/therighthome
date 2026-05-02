@@ -7,19 +7,30 @@ import { can } from "@/lib/permissions";
 const updateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   address: z.string().min(1).max(300).optional(),
+  type: z.enum(["CHDV", "VP"]).optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
-  if (!(await can(session.user.id, session.user.role, id, "building.write"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // type changes only by admin (affects category/PTTT scoping); name/address by anyone with building.write.
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (parsed.data.type !== undefined && session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Only admin can change building type" }, { status: 403 });
+  }
+  if (!(await can(session.user.id, session.user.role, id, "building.write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   await prisma.building.update({ where: { id }, data: parsed.data });
+  await prisma.auditLog.create({
+    data: {
+      userId: session.user.id, action: "UPDATE", entityType: "Building",
+      entityId: id, buildingId: id, after: parsed.data as never,
+    },
+  });
   return NextResponse.json({ ok: true });
 }
 
