@@ -17,11 +17,11 @@ const BUILDINGS = [
 const TX_CATEGORIES = {
   CHDV: {
     INCOME: ["Tiền thuê phòng", "Tiền điện", "Tiền nước", "Phí gửi xe", "Phí dịch vụ", "Tiền cọc mất", "Khác"],
-    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Khác"],
+    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Khác"],
   },
   VP: {
     INCOME: ["Tiền thuê VP", "Tiền điện", "Phí gửi xe", "Phí dịch vụ", "Phí làm ngoài giờ", "Tiền cọc mất", "Khác"],
-    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Khác"],
+    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Khác"],
   },
 };
 

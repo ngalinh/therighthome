@@ -71,7 +71,7 @@ export async function DebtTab({
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Công nợ T{month}/{year}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Sổ Chi T{month}/{year}</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead>
