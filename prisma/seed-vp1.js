@@ -6,7 +6,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-const BUILDING_NAME = "VP 1 - Lê Trung Nghĩa";
+const BUILDING_NAME = "30 Lê Trung Nghĩa";
 const BUILDING_ADDRESS = "30 Lê Trung Nghĩa";
 
 const CONTRACTS = [

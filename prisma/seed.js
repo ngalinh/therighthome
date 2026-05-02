@@ -117,6 +117,34 @@ async function main() {
     if (!exists) await prisma.party.create({ data: { kind, name } });
   }
 
+  // One-off renames: address-based names are clearer when several buildings
+  // share a street. Idempotent via AuditLog marker.
+  const renames = [
+    { from: "VP 1 - Lê Trung Nghĩa", to: "30 Lê Trung Nghĩa" },
+    { from: "VP 2 - Lê Trung Nghĩa", to: "60 Lê Trung Nghĩa" },
+  ];
+  const renameMarker = await prisma.auditLog.findFirst({
+    where: { action: "RENAME", entityType: "Buildings_v1" },
+  });
+  if (!renameMarker) {
+    let renamedCount = 0;
+    for (const r of renames) {
+      const b = await prisma.building.findFirst({ where: { name: r.from } });
+      if (b) {
+        await prisma.building.update({ where: { id: b.id }, data: { name: r.to } });
+        console.log(`Renamed building: ${r.from} → ${r.to}`);
+        renamedCount++;
+      }
+    }
+    await prisma.auditLog.create({
+      data: {
+        action: "RENAME",
+        entityType: "Buildings_v1",
+        after: { renamedCount, list: renames },
+      },
+    });
+  }
+
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
   // user explicitly wants gone). Marker via AuditLog so it only runs once.
   const cleanupDone = await prisma.auditLog.findFirst({
