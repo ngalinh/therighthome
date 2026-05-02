@@ -117,6 +117,54 @@ async function main() {
     if (!exists) await prisma.party.create({ data: { kind, name } });
   }
 
+  // One-off: dedupe contracts that were created multiple times because earlier
+  // versions of seed-vp1 only checked ACTIVE status, so when a contract auto-
+  // expired the next deploy re-created it. Group by (roomId, startDate, monthlyRent),
+  // keep oldest, delete the rest along with any orphan customers.
+  const dedupeDone = await prisma.auditLog.findFirst({
+    where: { action: "DEDUPE_CONTRACTS_v1", entityType: "Contract" },
+  });
+  if (!dedupeDone) {
+    const all = await prisma.contract.findMany({
+      orderBy: { createdAt: "asc" },
+      include: { customers: { select: { customerId: true } } },
+    });
+    const seen = new Map();
+    let removed = 0;
+    for (const c of all) {
+      const key = `${c.roomId}|${c.startDate.toISOString()}|${c.monthlyRent}`;
+      if (seen.has(key)) {
+        // Duplicate — delete it. Need to clean up FKs (no cascade to invoice).
+        const invoiceIds = (
+          await prisma.invoice.findMany({ where: { contractId: c.id }, select: { id: true } })
+        ).map((i) => i.id);
+        if (invoiceIds.length > 0) {
+          await prisma.transaction.updateMany({
+            where: { invoiceId: { in: invoiceIds } },
+            data: { invoiceId: null },
+          });
+          await prisma.invoice.deleteMany({ where: { contractId: c.id } });
+        }
+        const customerIds = c.customers.map((cc) => cc.customerId);
+        await prisma.contract.delete({ where: { id: c.id } });
+        // Delete orphan customers (those that were only attached to this contract)
+        for (const cid of customerIds) {
+          const otherCount = await prisma.contractCustomer.count({ where: { customerId: cid } });
+          if (otherCount === 0) {
+            await prisma.customer.delete({ where: { id: cid } }).catch(() => {});
+          }
+        }
+        removed++;
+      } else {
+        seen.set(key, c);
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "DEDUPE_CONTRACTS_v1", entityType: "Contract", after: { removed } },
+    });
+    if (removed > 0) console.log(`Deduped ${removed} duplicate contracts.`);
+  }
+
   // One-off renames: address-based names are clearer when several buildings
   // share a street. Idempotent via AuditLog marker.
   const renames = [
