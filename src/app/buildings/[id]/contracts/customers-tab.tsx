@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Upload, Trash2, Loader2, Edit } from "lucide-react";
+import { Users, Trash2, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
 
 type Customer = {
@@ -91,35 +91,12 @@ export function CustomersTab({
 
 function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boolean }) {
   const router = useRouter();
-  const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const name = customer.fullName || customer.companyName || "—";
-  // Pick the most recent / active contract for display
   const latest =
     customer.contractCustomers.find((cc) => cc.contract.status === "ACTIVE")?.contract ??
     customer.contractCustomers[0]?.contract;
   const status = latest ? STATUS_LABEL[latest.status] : null;
-
-  async function uploadContract(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!latest) {
-      toast.error("Khách chưa có hợp đồng");
-      return;
-    }
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/contracts/${latest.id}/upload`, { method: "POST", body: fd });
-    setUploading(false);
-    if (!res.ok) {
-      toast.error("Tải lên thất bại");
-      return;
-    }
-    toast.success("Đã upload hợp đồng");
-    router.refresh();
-  }
 
   async function deleteCustomer() {
     if (!confirm(`Xoá khách "${name}"?`)) return;
@@ -155,19 +132,8 @@ function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boo
           <div className="flex gap-1 justify-end">
             {canWrite && (
               <>
-                <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={uploadContract} />
                 <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => setEditing(true)} title="Sửa">
                   <Edit className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={() => inputRef.current?.click()}
-                  disabled={uploading || !latest}
-                  title="Upload HĐ"
-                >
-                  {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-rose-600 hover:bg-rose-50" onClick={deleteCustomer} title="Xoá">
                   <Trash2 className="h-3 w-3" />

@@ -72,8 +72,8 @@ export default async function FinancePage({
             <TabsList className="inline-flex bg-slate-100 rounded-xl p-1 gap-0.5">
               {[
                 { value: "transactions", label: "Giao dịch" },
-                { value: "revenue", label: "Doanh thu" },
-                { value: "debt", label: "Công nợ" },
+                { value: "revenue", label: "Sổ Thu" },
+                { value: "debt", label: "Sổ Chi" },
                 { value: "cashbook", label: "Sổ quỹ" },
                 { value: "pnl", label: "KQKD" },
               ].map((t) => (

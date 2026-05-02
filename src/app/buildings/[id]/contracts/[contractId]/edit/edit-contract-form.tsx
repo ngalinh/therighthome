@@ -1,18 +1,19 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Save, X, Plus, Trash2 } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
 
 type Contract = {
   id: string;
   code: string;
+  contractFileUrl: string | null;
   startDate: string;
   endDate: string;
   termMonths: number;
@@ -35,11 +36,13 @@ export function EditContractForm({
   buildingType,
   contract,
   buildingSetting,
+  brokerCategoryId,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
   contract: Contract;
   buildingSetting: { electricityPricePerKwh: string; parkingFeePerVehicle: string } | null;
+  brokerCategoryId: string | null;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +76,57 @@ export function EditContractForm({
     if (!startDate) return "";
     return addMonths(new Date(startDate), termMonths).toISOString().slice(0, 10);
   }, [startDate, termMonths]);
+
+  // Upload + view contract file
+  const [contractFileUrl, setContractFileUrl] = useState(contract.contractFileUrl);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", f);
+    const res = await fetch(`/api/contracts/${contract.id}/upload`, { method: "POST", body: fd });
+    setUploading(false);
+    if (!res.ok) return toast.error("Upload thất bại");
+    const { url } = await res.json();
+    setContractFileUrl(url);
+    toast.success("Đã upload");
+  }
+  const fileExt = contractFileUrl ? contractFileUrl.split(".").pop()?.toLowerCase() : null;
+  const isPdf = fileExt === "pdf";
+  const isImage = fileExt && ["png", "jpg", "jpeg", "webp"].includes(fileExt);
+
+  // Broker fee → tự tạo phiếu chi
+  const [brokerFee, setBrokerFee] = useState("");
+  const [brokerLoading, setBrokerLoading] = useState(false);
+  async function recordBrokerFee() {
+    const a = parseVNDInput(brokerFee);
+    if (a <= 0n) return toast.error("Nhập số tiền > 0");
+    setBrokerLoading(true);
+    const res = await fetch(`/api/buildings/${buildingId}/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: new Date().toISOString(),
+        type: "EXPENSE",
+        amount: a.toString(),
+        content: `Phí môi giới HĐ ${contract.code}`,
+        categoryId: brokerCategoryId ?? undefined,
+        countInBR: true,
+        notes: `Liên quan HĐ ${contract.code}`,
+      }),
+    });
+    setBrokerLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success(`Đã ghi nhận phiếu chi ${formatVND(a)} (Phí môi giới)`);
+    setBrokerFee("");
+    router.refresh();
+  }
 
   // monthlyRent is stored as the AFTER-VAT total (what tenant actually pays).
   // pre-VAT and VAT amount are derived for display per user's convention:
@@ -160,6 +214,95 @@ export function EditContractForm({
               </>
             )}
             <Row label="Tiền cọc" value={formatVND(parseVNDInput(deposit))} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4" /> File hợp đồng
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contractFileUrl ? (
+              <>
+                {isPdf ? (
+                  <iframe
+                    src={contractFileUrl}
+                    className="w-full h-72 rounded-lg border bg-slate-50"
+                    title="Hợp đồng PDF"
+                  />
+                ) : isImage ? (
+                  <img src={contractFileUrl} alt="HĐ" className="w-full rounded-lg border" />
+                ) : (
+                  <a
+                    href={contractFileUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-sm text-primary underline flex items-center gap-1"
+                  >
+                    <FileText className="h-4 w-4" /> Mở file
+                  </a>
+                )}
+                <a
+                  href={contractFileUrl}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-xs text-primary underline block"
+                >
+                  Mở tab mới
+                </a>
+              </>
+            ) : (
+              <p className="text-xs text-slate-500">Chưa có file. Upload PDF hoặc ảnh HĐ đã ký.</p>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              className="hidden"
+              onChange={uploadFile}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {contractFileUrl ? "Thay file" : "Upload HĐ"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Phí môi giới</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-[11px] text-slate-500">
+              Khi click "Ghi nhận" sẽ tự tạo phiếu chi với loại "Phí môi giới" + nội dung kèm mã HĐ.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Số tiền (₫)</Label>
+              <Input
+                inputMode="numeric"
+                value={brokerFee ? formatNumber(parseVNDInput(brokerFee)) : ""}
+                onChange={(e) => setBrokerFee(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <Button
+              variant="gradient"
+              size="sm"
+              onClick={recordBrokerFee}
+              disabled={brokerLoading || parseVNDInput(brokerFee) <= 0n}
+              className="w-full"
+            >
+              {brokerLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Ghi nhận
+            </Button>
           </CardContent>
         </Card>
       </div>

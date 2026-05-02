@@ -17,7 +17,7 @@ export default async function EditContractPage({
   const { id, contractId } = await params;
   if (!(await can(session.user.id, session.user.role, id, "contract.write"))) notFound();
 
-  const [building, contract] = await Promise.all([
+  const [building, contract, brokerCategory] = await Promise.all([
     prisma.building.findUnique({ where: { id }, include: { setting: true } }),
     prisma.contract.findUnique({
       where: { id: contractId },
@@ -26,6 +26,9 @@ export default async function EditContractPage({
         yearlyRents: { orderBy: { yearIndex: "asc" } },
         customers: { include: { customer: true }, orderBy: { orderIdx: "asc" } },
       },
+    }),
+    prisma.transactionCategory.findFirst({
+      where: { name: "Phí môi giới", type: "EXPENSE" },
     }),
   ]);
 
@@ -43,7 +46,7 @@ export default async function EditContractPage({
       buildingNav={{ buildingId: id, buildingName: building.name, type: building.type }}
     >
       <PageHeader
-        title={`Sửa hợp đồng ${contract.code}`}
+        title={`Hợp đồng ${contract.code}`}
         description={`${building.name} · Phòng ${contract.room.number}`}
         gradient={building.type === "CHDV" ? "chdv" : "vp"}
       />
@@ -53,6 +56,7 @@ export default async function EditContractPage({
           buildingType={building.type}
           contract={serializeBigInt(contract)}
           buildingSetting={settingSerialized}
+          brokerCategoryId={brokerCategory?.id ?? null}
         />
       </PageBody>
     </AppShell>
