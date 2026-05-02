@@ -223,11 +223,14 @@ async function main() {
       update: { status: "OCCUPIED", area: c.area ?? undefined },
     });
 
+    // Check for ANY contract (not just ACTIVE) with the same room + startDate.
+    // Previously this only checked ACTIVE which meant the worker auto-expiring
+    // a past contract caused seed-vp1 to recreate it on every container start.
     const existing = await prisma.contract.findFirst({
-      where: { roomId: room.id, status: "ACTIVE" },
+      where: { roomId: room.id, startDate: new Date(c.startDate) },
     });
     if (existing) {
-      console.log(`⏭  ${c.room.padEnd(10)} đã có HĐ ACTIVE ${existing.code}, skip`);
+      console.log(`⏭  ${c.room.padEnd(10)} đã có HĐ (${existing.code}, ${existing.status}), skip`);
       continue;
     }
 

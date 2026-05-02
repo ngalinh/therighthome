@@ -90,3 +90,47 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await ctx.params;
+  const c = await prisma.contract.findUnique({ where: { id } });
+  if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await can(session.user.id, session.user.role, c.buildingId, "contract.write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Detach transactions from any invoices of this contract (no cascade).
+    const invoiceIds = (
+      await tx.invoice.findMany({ where: { contractId: id }, select: { id: true } })
+    ).map((i) => i.id);
+    if (invoiceIds.length > 0) {
+      await tx.transaction.updateMany({
+        where: { invoiceId: { in: invoiceIds } },
+        data: { invoiceId: null },
+      });
+      await tx.invoice.deleteMany({ where: { contractId: id } });
+    }
+    // Free room if this was the only ACTIVE contract for it.
+    if (c.status === "ACTIVE") {
+      const stillActive = await tx.contract.count({
+        where: { roomId: c.roomId, status: "ACTIVE", id: { not: id } },
+      });
+      if (stillActive === 0) {
+        await tx.room.update({ where: { id: c.roomId }, data: { status: "AVAILABLE" } });
+      }
+    }
+    // Cascade ContractCustomer + ContractYearlyRent via schema.
+    await tx.contract.delete({ where: { id } });
+    await tx.auditLog.create({
+      data: {
+        userId: session.user.id, action: "DELETE", entityType: "Contract",
+        entityId: id, buildingId: c.buildingId, before: { code: c.code } as never,
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true });
+}

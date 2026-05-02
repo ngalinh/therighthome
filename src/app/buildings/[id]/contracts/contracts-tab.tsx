@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  FileText, User, Calendar, Download, XCircle, Loader2, Edit, Receipt,
+  FileText, Download, XCircle, Loader2, Edit, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateVN, formatVND, formatNumber, parseVNDInput } from "@/lib/utils";
@@ -43,6 +43,11 @@ const STATUS: Record<string, { label: string; variant: "default" | "success" | "
   TERMINATED_LOST_DEPOSIT: { label: "Mất cọc", variant: "destructive" },
 };
 
+// Sort: ACTIVE first, then others by startDate desc
+const STATUS_ORDER: Record<string, number> = {
+  ACTIVE: 0, EXPIRED: 1, TERMINATED: 2, TERMINATED_LOST_DEPOSIT: 3,
+};
+
 export function ContractsTab({
   contracts,
   buildingId,
@@ -53,107 +58,151 @@ export function ContractsTab({
   buildingType: "CHDV" | "VP";
   canWrite: boolean;
 }) {
+  const router = useRouter();
   const [terminateOpen, setTerminateOpen] = useState<Contract | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState<Contract | null>(null);
 
   if (contracts.length === 0) {
     return <EmptyState icon={FileText} title="Chưa có hợp đồng nào" description="Bấm Tạo hợp đồng để bắt đầu." />;
   }
 
+  const sorted = [...contracts].sort((a, b) => {
+    const so = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+    if (so !== 0) return so;
+    return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+  });
+
+  async function deleteContract(c: Contract) {
+    const res = await fetch(`/api/contracts/${c.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success(`Đã xoá HĐ ${c.code}`);
+    setDeleteOpen(null);
+    router.refresh();
+  }
+
   return (
-    <div className="space-y-3">
-      {contracts.map((c) => {
-        const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
-        const name = primary?.fullName || primary?.companyName || "—";
-        const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
-        const rent = BigInt(c.monthlyRent);
-        const vatPct = Math.round(c.vatRate * 100);
-        const vatAmount = (rent * BigInt(Math.round(c.vatRate * 100))) / 100n;
-        const deposit = BigInt(c.depositAmount);
-        return (
-          <Card key={c.id}>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-start gap-3 justify-between">
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-slate-500">{c.code}</span>
-                    <Badge variant={st.variant}>{st.label}</Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                    <span className="flex items-center gap-1.5">
-                      <User className="h-4 w-4 text-slate-400" /> {name}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-slate-600">
-                      Phòng <span className="font-medium">{c.room.number}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 text-slate-600">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                      <Receipt className="h-3.5 w-3.5" />
-                      {formatVND(rent)} /tháng
-                      {vatPct > 0 && (
-                        <span className="text-slate-500 font-normal">
-                          {" "}(đã VAT {vatPct}%, gồm {formatVND(vatAmount)})
-                        </span>
+    <Card>
+      <CardContent className="p-0 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+              <th className="px-3 py-2.5 text-left">Mã HĐ</th>
+              <th className="px-3 py-2.5 text-left">Trạng thái</th>
+              <th className="px-3 py-2.5 text-left">Khách thuê</th>
+              <th className="px-3 py-2.5 text-left">Phòng</th>
+              <th className="px-3 py-2.5 text-left">Thời hạn</th>
+              <th className="px-3 py-2.5 text-right">Giá thuê</th>
+              <th className="px-3 py-2.5 text-right">Cọc</th>
+              <th className="px-3 py-2.5 text-left">File</th>
+              <th className="px-3 py-2.5 text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((c) => {
+              const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
+              const name = primary?.fullName || primary?.companyName || "—";
+              const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
+              const rent = BigInt(c.monthlyRent);
+              const vatPct = Math.round(c.vatRate * 100);
+              const deposit = BigInt(c.depositAmount);
+              return (
+                <tr key={c.id} className="border-t hover:bg-slate-50/60">
+                  <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{c.code}</td>
+                  <td className="px-3 py-2.5">
+                    <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">{st.label}</Badge>
+                  </td>
+                  <td className="px-3 py-2.5 max-w-[180px] truncate" title={name}>{name}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{c.room.number}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-600">
+                    {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    <div className="font-medium text-emerald-700">{formatVND(rent)}</div>
+                    {vatPct > 0 && <div className="text-[10px] text-slate-500">đã VAT {vatPct}%</div>}
+                  </td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap text-xs">{formatVND(deposit)}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <div className="flex gap-2 text-xs">
+                      {c.generatedDocxUrl && (
+                        <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary hover:underline" title="HĐ.docx">
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
                       )}
-                    </span>
-                    {deposit > 0n && (
-                      <span className="text-slate-600">
-                        Cọc: <span className="font-medium">{formatVND(deposit)}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {c.generatedDocxUrl && (
-                    <a
-                      href={c.generatedDocxUrl}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-xs text-primary flex items-center gap-1 hover:underline"
-                    >
-                      <Download className="h-3.5 w-3.5" /> HĐ.docx
-                    </a>
-                  )}
-                  {c.contractFileUrl && (
-                    <a
-                      href={c.contractFileUrl}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-xs text-primary flex items-center gap-1 hover:underline"
-                    >
-                      <FileText className="h-3.5 w-3.5" /> HĐ ký
-                    </a>
-                  )}
-                  {canWrite && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`}>
-                        <Edit className="h-3.5 w-3.5" /> Sửa
-                      </Link>
-                    </Button>
-                  )}
-                  {canWrite && c.status === "ACTIVE" && (
-                    <Button
-                      onClick={() => setTerminateOpen(c)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                    >
-                      <XCircle className="h-3.5 w-3.5" /> Kết thúc
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+                      {c.contractFileUrl && (
+                        <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary hover:underline" title="HĐ ký">
+                          <FileText className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex gap-1 justify-end">
+                      {canWrite && (
+                        <>
+                          <Button asChild variant="outline" size="sm" className="h-7 px-2">
+                            <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`}>
+                              <Edit className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                          {c.status === "ACTIVE" && (
+                            <Button
+                              onClick={() => setTerminateOpen(c)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-rose-600 hover:bg-rose-50"
+                              title="Kết thúc"
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => setDeleteOpen(c)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-rose-600 hover:bg-rose-50"
+                            title="Xoá"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </CardContent>
 
       <TerminateDialog contract={terminateOpen} onClose={() => setTerminateOpen(null)} />
-    </div>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-rose-600">Xoá hợp đồng</DialogTitle>
+          </DialogHeader>
+          {deleteOpen && (
+            <div className="text-sm space-y-2">
+              <p>Xoá vĩnh viễn hợp đồng <strong className="font-mono">{deleteOpen.code}</strong> không?</p>
+              <p className="text-xs text-slate-500">
+                Sẽ xoá kèm tất cả hoá đơn của HĐ này. Giao dịch liên quan sẽ tự gỡ liên kết invoice (vẫn giữ được record).
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(null)}>Huỷ</Button>
+            <Button variant="destructive" onClick={() => deleteOpen && deleteContract(deleteOpen)}>
+              Xoá vĩnh viễn
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -180,11 +229,7 @@ function TerminateDialog({ contract, onClose }: { contract: Contract | null; onC
     });
     setLoading(false);
     if (!res.ok) return toast.error("Có lỗi");
-    toast.success(
-      lostDeposit
-        ? "Đã kết thúc HĐ - tiền cọc đã hạch toán vào doanh thu"
-        : "Đã kết thúc HĐ"
-    );
+    toast.success(lostDeposit ? "Đã kết thúc HĐ - tiền cọc đã hạch toán vào doanh thu" : "Đã kết thúc HĐ");
     onClose();
     router.refresh();
   }
@@ -224,9 +269,6 @@ function TerminateDialog({ contract, onClose }: { contract: Contract | null; onC
                 onChange={(e) => setRefund(e.target.value)}
                 placeholder={formatNumber(BigInt(contract.depositAmount))}
               />
-              <button type="button" className="text-xs text-primary" onClick={() => setRefund(contract.depositAmount)}>
-                Trả đủ {formatVND(BigInt(contract.depositAmount))}
-              </button>
             </div>
           )}
         </div>
