@@ -321,6 +321,45 @@ async function main() {
     if (synced > 0) console.log(`Synced ${synced} contracts to building fee settings.`);
   }
 
+  // One-off: pull parkingCount from contract into invoice when invoice was
+  // created before the contract had parking set. Only patches invoices whose
+  // parkingCount=0 but the contract has >0 — so we don't override invoices
+  // that were intentionally edited to a different count.
+  const invParkDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_INVOICE_PARKING_v1", entityType: "Invoice" },
+  });
+  if (!invParkDone) {
+    const candidates = await prisma.invoice.findMany({
+      where: { parkingCount: 0 },
+      include: { contract: { select: { parkingCount: true } } },
+    });
+    let synced = 0;
+    for (const inv of candidates) {
+      const cnt = inv.contract.parkingCount;
+      if (!cnt || cnt <= 0) continue;
+      const newParkingFee = BigInt(cnt) * inv.parkingFeePerVehicle;
+      const newTotal =
+        inv.rentAmount +
+        inv.electricityFee +
+        newParkingFee +
+        inv.overtimeFee +
+        inv.serviceFee;
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        data: {
+          parkingCount: cnt,
+          parkingFee: newParkingFee,
+          totalAmount: newTotal,
+        },
+      });
+      synced++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_INVOICE_PARKING_v1", entityType: "Invoice", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced parking on ${synced} invoices from contracts.`);
+  }
+
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
   // user explicitly wants gone). Marker via AuditLog so it only runs once.
   const cleanupDone = await prisma.auditLog.findFirst({

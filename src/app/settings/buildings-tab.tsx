@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Edit, Loader2, MapPin } from "lucide-react";
+import { Building2, Edit, Loader2, MapPin, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
+import { ImportClient } from "@/app/import/import-client";
 
 type Building = {
   id: string;
@@ -62,6 +63,13 @@ export function BuildingsTab({ buildings }: { buildings: Building[] }) {
         building={editing}
         onClose={() => setEditing(null)}
       />
+
+      <div className="pt-6 mt-2 border-t border-slate-200/70">
+        <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+          <FileSpreadsheet className="h-4 w-4" /> Import dữ liệu Excel
+        </h2>
+        <ImportClient />
+      </div>
     </div>
   );
 }

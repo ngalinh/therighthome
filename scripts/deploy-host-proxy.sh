@@ -20,6 +20,10 @@ fi
 NGINX_CONF_SRC="nginx/host-snippet/admin.therighthome.vn.conf"
 
 mkdir -p storage backups secrets
+# Make sure the bind-mounted storage is writable by the container's nextjs uid.
+# Container also fixes this on startup, but doing it here helps if running as
+# a non-root host user that can't chown.
+chmod -R u+rwX,g+rwX,o+rwX storage 2>/dev/null || true
 
 echo "==> Building app image"
 docker compose build app worker backup

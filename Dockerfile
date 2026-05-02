@@ -16,7 +16,7 @@ RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl su-exec
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -35,7 +35,8 @@ COPY --chown=nextjs:nodejs scripts/entrypoint.sh /app/entrypoint.sh
 COPY --chown=nextjs:nodejs scripts/worker.js /app/scripts/worker.js
 RUN chmod +x /app/entrypoint.sh
 
-USER nextjs
+# Runs as root so the entrypoint can chown bind-mounted /app/storage,
+# then drops to the nextjs user via su-exec.
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
