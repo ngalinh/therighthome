@@ -57,7 +57,11 @@ export function BuildingsTab({ buildings }: { buildings: Building[] }) {
         ))}
       </div>
 
-      <EditDialog building={editing} onClose={() => setEditing(null)} />
+      <EditDialog
+        key={editing?.id ?? "none"}
+        building={editing}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
@@ -68,15 +72,6 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
   const [address, setAddress] = useState(building?.address ?? "");
   const [type, setType] = useState<"CHDV" | "VP">(building?.type ?? "CHDV");
   const [loading, setLoading] = useState(false);
-
-  // Reset form when building changes
-  useState(() => {
-    if (building) {
-      setName(building.name);
-      setAddress(building.address);
-      setType(building.type);
-    }
-  });
 
   if (!building) return null;
 
@@ -105,12 +100,6 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
       open={!!building}
       onOpenChange={(o) => {
         if (!o) onClose();
-        else if (building) {
-          // Reset to building values when opening
-          setName(building.name);
-          setAddress(building.address);
-          setType(building.type);
-        }
       }}
     >
       <DialogContent>
