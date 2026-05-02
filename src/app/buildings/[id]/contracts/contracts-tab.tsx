@@ -84,9 +84,75 @@ export function ContractsTab({
   }
 
   return (
-    <Card>
-      <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-sm">
+    <>
+      {/* Mobile: card list */}
+      <div className="space-y-2 lg:hidden">
+        {sorted.map((c) => {
+          const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
+          const name = primary?.fullName || primary?.companyName || "—";
+          const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
+          const rent = BigInt(c.monthlyRent);
+          const vatPct = Math.round(c.vatRate * 100);
+          const deposit = BigInt(c.depositAmount);
+          return (
+            <Card key={c.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs font-mono text-slate-500">{c.code}</span>
+                      <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                    </div>
+                    <div className="font-medium text-sm">{name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Phòng <strong className="text-slate-700">{c.room.number}</strong> · {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
+                    </div>
+                  </div>
+                  {canWrite && (
+                    <div className="flex gap-1 shrink-0">
+                      <Button asChild variant="outline" size="sm" className="h-8 px-2">
+                        <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                      {c.status === "ACTIVE" && (
+                        <Button onClick={() => setTerminateOpen(c)} variant="ghost" size="sm" className="h-8 px-2 text-rose-600">
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button onClick={() => setDeleteOpen(c)} variant="ghost" size="sm" className="h-8 px-2 text-rose-600">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs pt-2 border-t">
+                  <span className="font-medium text-emerald-700">
+                    {formatVND(rent)}/tháng
+                    {vatPct > 0 && <span className="text-slate-500 font-normal"> (đã VAT {vatPct}%)</span>}
+                  </span>
+                  {deposit > 0n && <span className="text-slate-600">Cọc: <strong>{formatVND(deposit)}</strong></span>}
+                  {(c.generatedDocxUrl || c.contractFileUrl) && (
+                    <span className="flex gap-2 ml-auto">
+                      {c.generatedDocxUrl && (
+                        <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary"><Download className="h-3.5 w-3.5" /></a>
+                      )}
+                      {c.contractFileUrl && (
+                        <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary"><FileText className="h-3.5 w-3.5" /></a>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="hidden lg:block">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
               <th className="px-3 py-2.5 text-left">Mã HĐ</th>
@@ -176,7 +242,8 @@ export function ContractsTab({
             })}
           </tbody>
         </table>
-      </CardContent>
+        </CardContent>
+      </Card>
 
       <TerminateDialog contract={terminateOpen} onClose={() => setTerminateOpen(null)} />
 
@@ -202,7 +269,7 @@ export function ContractsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }
 

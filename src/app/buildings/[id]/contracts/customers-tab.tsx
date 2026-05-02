@@ -63,29 +63,103 @@ export function CustomersTab({
   });
 
   return (
-    <Card>
-      <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-              <th className="px-3 py-2.5 text-left">Tên</th>
-              <th className="px-3 py-2.5 text-left">Loại</th>
-              <th className="px-3 py-2.5 text-left">CCCD/MST</th>
-              <th className="px-3 py-2.5 text-left">SĐT</th>
-              <th className="px-3 py-2.5 text-left">Email</th>
-              <th className="px-3 py-2.5 text-left">Phòng</th>
-              <th className="px-3 py-2.5 text-left">Trạng thái</th>
-              <th className="px-3 py-2.5 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((c) => (
-              <CustomerRow key={c.id} customer={c} canWrite={canWrite} />
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+    <>
+      {/* Mobile: card list */}
+      <div className="space-y-2 lg:hidden">
+        {sorted.map((c) => (
+          <CustomerCardMobile key={c.id} customer={c} canWrite={canWrite} />
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="hidden lg:block">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <th className="px-3 py-2.5 text-left">Tên</th>
+                <th className="px-3 py-2.5 text-left">Loại</th>
+                <th className="px-3 py-2.5 text-left">CCCD/MST</th>
+                <th className="px-3 py-2.5 text-left">SĐT</th>
+                <th className="px-3 py-2.5 text-left">Email</th>
+                <th className="px-3 py-2.5 text-left">Phòng</th>
+                <th className="px-3 py-2.5 text-left">Trạng thái</th>
+                <th className="px-3 py-2.5 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((c) => (
+                <CustomerRow key={c.id} customer={c} canWrite={canWrite} />
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function CustomerCardMobile({ customer, canWrite }: { customer: Customer; canWrite: boolean }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const name = customer.fullName || customer.companyName || "—";
+  const latest =
+    customer.contractCustomers.find((cc) => cc.contract.status === "ACTIVE")?.contract ??
+    customer.contractCustomers[0]?.contract;
+  const status = latest ? STATUS_LABEL[latest.status] : null;
+
+  async function deleteCustomer() {
+    if (!confirm(`Xoá khách "${name}"?`)) return;
+    const res = await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error || "Có lỗi");
+      return;
+    }
+    toast.success("Đã xoá khách");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-full bg-gradient-brand text-white flex items-center justify-center font-semibold shrink-0">
+              {name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <span className="font-medium">{name}</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {customer.type === "COMPANY" ? "Công ty" : "Cá nhân"}
+                </Badge>
+                {status && <Badge variant={status.variant} className="text-[10px]">{status.label}</Badge>}
+              </div>
+              <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                {customer.type === "COMPANY"
+                  ? customer.taxNumber && <span>MST: {customer.taxNumber}</span>
+                  : customer.idNumber && <span>CCCD: {customer.idNumber}</span>}
+                {customer.phone && <span>{customer.phone}</span>}
+                {customer.email && <span className="truncate max-w-[160px]">{customer.email}</span>}
+                {latest && <span>Phòng {latest.room.number}</span>}
+              </div>
+            </div>
+            {canWrite && (
+              <div className="flex gap-1 shrink-0">
+                <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => setEditing(true)}>
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-rose-600" onClick={deleteCustomer}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      {editing && <EditCustomerDialog customer={customer} onClose={() => setEditing(false)} />}
+    </>
   );
 }
 
