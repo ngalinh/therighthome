@@ -242,6 +242,52 @@ async function main() {
     if (migrated > 0) console.log(`Migrated ${migrated} contract codes to new format.`);
   }
 
+  // One-off: sync existing INVOICES' electricity price + parking fee to match
+  // their building's current setting, then recompute their totals. Idempotent
+  // via AuditLog marker; only runs once per release.
+  const invSyncDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_INVOICE_FEES_v1", entityType: "Invoice" },
+  });
+  if (!invSyncDone) {
+    const invoices = await prisma.invoice.findMany({
+      include: { building: { include: { setting: true } } },
+    });
+    let synced = 0;
+    for (const inv of invoices) {
+      const s = inv.building.setting;
+      if (!s) continue;
+      const newElec = s.electricityPricePerKwh;
+      const newParkPerVeh = s.parkingFeePerVehicle;
+      if (
+        inv.electricityPricePerKwh === newElec &&
+        inv.parkingFeePerVehicle === newParkPerVeh
+      ) continue;
+      // Recompute electricityFee with new price
+      const kwh =
+        inv.electricityStart != null && inv.electricityEnd != null && inv.electricityEnd > inv.electricityStart
+          ? inv.electricityEnd - inv.electricityStart
+          : 0;
+      const newElecFee = BigInt(kwh) * newElec;
+      const newParkingFee = BigInt(inv.parkingCount) * newParkPerVeh;
+      const newTotal = inv.rentAmount + newElecFee + newParkingFee + inv.overtimeFee + inv.serviceFee;
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        data: {
+          electricityPricePerKwh: newElec,
+          parkingFeePerVehicle: newParkPerVeh,
+          electricityFee: newElecFee,
+          parkingFee: newParkingFee,
+          totalAmount: newTotal,
+        },
+      });
+      synced++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_INVOICE_FEES_v1", entityType: "Invoice", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced ${synced} invoices to building fee settings.`);
+  }
+
   // One-off: sync existing contracts' electricity/parking fees to match their
   // building's current setting. After this, defaults always come from setting.
   const feeSyncDone = await prisma.auditLog.findFirst({

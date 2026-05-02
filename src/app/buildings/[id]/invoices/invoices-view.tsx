@@ -49,7 +49,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function InvoicesView({
-  buildingId, month, year, status, invoices, paymentMethods, canWrite, canSend,
+  buildingId, buildingType, month, year, status, invoices, paymentMethods, canWrite, canSend,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
@@ -156,20 +156,39 @@ export function InvoicesView({
           description={`Bấm "Tạo HĐ tháng này" để tự tạo cho tất cả HĐ đang hoạt động.`}
         />
       ) : (
-        <div className="space-y-2">
-          {invoices.map((inv) => (
-            <InvoiceRow
-              key={inv.id}
-              inv={inv}
-              canWrite={canWrite}
-              canSend={canSend}
-              sending={sending === inv.id}
-              buildingId={buildingId}
-              onSend={() => send(inv)}
-              onPay={() => setPayOpen(inv)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-2 lg:hidden">
+            {invoices.map((inv) => (
+              <InvoiceRow
+                key={inv.id}
+                inv={inv}
+                canWrite={canWrite}
+                canSend={canSend}
+                sending={sending === inv.id}
+                buildingId={buildingId}
+                onSend={() => send(inv)}
+                onPay={() => setPayOpen(inv)}
+              />
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <Card className="hidden lg:block">
+            <CardContent className="p-0 overflow-x-auto">
+              <InvoiceTable
+                invoices={invoices}
+                buildingType={buildingType}
+                buildingId={buildingId}
+                canWrite={canWrite}
+                canSend={canSend}
+                sending={sending}
+                onSend={send}
+                onPay={(inv) => setPayOpen(inv)}
+              />
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Pay dialog */}
@@ -191,6 +210,95 @@ function GradStat({ label, value, gradient }: { label: string; value: string; gr
         <div className="text-xl font-bold mt-1 leading-tight">{value}</div>
       </div>
     </div>
+  );
+}
+
+function InvoiceTable({
+  invoices, buildingType, buildingId, canWrite, canSend, sending, onSend, onPay,
+}: {
+  invoices: Invoice[];
+  buildingType: "CHDV" | "VP";
+  buildingId: string;
+  canWrite: boolean;
+  canSend: boolean;
+  sending: string | null;
+  onSend: (inv: Invoice) => void;
+  onPay: (inv: Invoice) => void;
+}) {
+  const isVP = buildingType === "VP";
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+          <th className="px-3 py-2.5 text-left">Mã HĐ</th>
+          <th className="px-3 py-2.5 text-left">Khách thuê</th>
+          <th className="px-3 py-2.5 text-left">Phòng</th>
+          <th className="px-3 py-2.5 text-left">Tình trạng</th>
+          <th className="px-3 py-2.5 text-left">Hạn TT</th>
+          <th className="px-3 py-2.5 text-right">Tiền thuê</th>
+          <th className="px-3 py-2.5 text-right">Tiền điện</th>
+          <th className="px-3 py-2.5 text-right">Phí xe</th>
+          <th className="px-3 py-2.5 text-right">{isVP ? "Phí ngoài giờ" : "Phí DV"}</th>
+          <th className="px-3 py-2.5 text-right">Tổng</th>
+          <th className="px-3 py-2.5 text-right">Đã thu</th>
+          <th className="px-3 py-2.5 text-right">Còn lại</th>
+          <th className="px-3 py-2.5 text-right">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        {invoices.map((inv) => {
+          const primary = inv.contract.customers[0]?.customer;
+          const name = primary?.fullName || primary?.companyName || "—";
+          const st = STATUS[inv.status] ?? { label: inv.status, variant: "secondary" as const };
+          const remaining = BigInt(inv.totalAmount) - BigInt(inv.paidAmount);
+          const overdueDays = inv.status === "OVERDUE"
+            ? Math.max(1, Math.ceil((Date.now() - new Date(inv.dueDate).getTime()) / (24 * 3600 * 1000)))
+            : null;
+          return (
+            <tr key={inv.id} className="border-t hover:bg-slate-50/60">
+              <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">
+                <Link href={`/buildings/${buildingId}/invoices/${inv.id}`} className="text-primary hover:underline">{inv.code}</Link>
+              </td>
+              <td className="px-3 py-2.5 max-w-[160px] truncate" title={name}>{name}</td>
+              <td className="px-3 py-2.5 whitespace-nowrap">{inv.contract.room.number}</td>
+              <td className="px-3 py-2.5">
+                <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">
+                  {st.label}{overdueDays !== null && ` ${overdueDays}d`}
+                </Badge>
+              </td>
+              <td className="px-3 py-2.5 whitespace-nowrap text-xs">{formatDateVN(inv.dueDate)}</td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.rentAmount))}</td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.electricityFee))}</td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.parkingFee))}</td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                {formatVND(BigInt(isVP ? inv.overtimeFee : inv.serviceFee))}
+              </td>
+              <td className="px-3 py-2.5 text-right font-semibold whitespace-nowrap text-emerald-700">
+                {formatVND(BigInt(inv.totalAmount))}
+              </td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.paidAmount))}</td>
+              <td className={`px-3 py-2.5 text-right whitespace-nowrap font-medium ${remaining > 0n ? "text-rose-600" : ""}`}>
+                {formatVND(remaining)}
+              </td>
+              <td className="px-3 py-2.5 text-right">
+                <div className="flex gap-1 justify-end">
+                  {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                    <Button onClick={() => onPay(inv)} variant="gradient" size="sm" className="h-7 px-2">
+                      <DollarSign className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {canSend && primary?.email && inv.status !== "CANCELLED" && (
+                    <Button onClick={() => onSend(inv)} variant="ghost" size="sm" className="h-7 px-2" disabled={sending === inv.id}>
+                      {sending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                    </Button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

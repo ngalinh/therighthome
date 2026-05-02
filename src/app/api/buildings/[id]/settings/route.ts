@@ -9,6 +9,7 @@ const schema = z.object({
   parkingFeePerVehicle: z.string(),
   serviceFeeType: z.enum(["PER_ROOM", "PER_PERSON"]),
   serviceFeeAmount: z.string(),
+  overtimeFeePerHour: z.string().optional(),
   autoGenerateInvoiceDay: z.number().int().min(1).max(28),
   defaultDueDay: z.number().int().min(1).max(28),
 });
@@ -23,25 +24,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
+  const baseData = {
+    electricityPricePerKwh: BigInt(d.electricityPricePerKwh),
+    parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle),
+    serviceFeeType: d.serviceFeeType,
+    serviceFeeAmount: BigInt(d.serviceFeeAmount),
+    overtimeFeePerHour: d.overtimeFeePerHour ? BigInt(d.overtimeFeePerHour) : 0n,
+    autoGenerateInvoiceDay: d.autoGenerateInvoiceDay,
+    defaultDueDay: d.defaultDueDay,
+  };
   await prisma.buildingSetting.upsert({
     where: { buildingId: id },
-    create: {
-      buildingId: id,
-      electricityPricePerKwh: BigInt(d.electricityPricePerKwh),
-      parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle),
-      serviceFeeType: d.serviceFeeType,
-      serviceFeeAmount: BigInt(d.serviceFeeAmount),
-      autoGenerateInvoiceDay: d.autoGenerateInvoiceDay,
-      defaultDueDay: d.defaultDueDay,
-    },
-    update: {
-      electricityPricePerKwh: BigInt(d.electricityPricePerKwh),
-      parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle),
-      serviceFeeType: d.serviceFeeType,
-      serviceFeeAmount: BigInt(d.serviceFeeAmount),
-      autoGenerateInvoiceDay: d.autoGenerateInvoiceDay,
-      defaultDueDay: d.defaultDueDay,
-    },
+    create: { buildingId: id, ...baseData },
+    update: baseData,
   });
   return NextResponse.json({ ok: true });
 }
