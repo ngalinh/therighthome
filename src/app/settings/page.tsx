@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Lock } from "lucide-react";
 import { UsersTab } from "./users-tab";
+import { BuildingsTab } from "./buildings-tab";
 import { CategoriesTab } from "./categories-tab";
 import { PaymentMethodsTab } from "./payment-methods-tab";
 import { PartiesTab } from "./parties-tab";
@@ -47,6 +48,7 @@ export default async function GlobalSettingsPage({
             <TabsList className="inline-flex">
               <TabsTrigger value="notifications">Thông báo</TabsTrigger>
               {isAdmin && <TabsTrigger value="users">Người dùng</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="buildings">Toà nhà</TabsTrigger>}
               {isAdmin && <TabsTrigger value="categories">Loại thu/chi</TabsTrigger>}
               {isAdmin && <TabsTrigger value="pttt">PTTT</TabsTrigger>}
               {isAdmin && <TabsTrigger value="parties">Đối tượng</TabsTrigger>}
@@ -69,6 +71,9 @@ export default async function GlobalSettingsPage({
             <>
               <TabsContent value="users">
                 <UsersTab users={users} buildings={buildings} currentUserId={session.user.id} />
+              </TabsContent>
+              <TabsContent value="buildings">
+                <BuildingsTab buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type }))} />
               </TabsContent>
               <TabsContent value="categories">
                 <CategoriesTab categories={categories} />

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const start = new Date(d.startDate);
   const end = addMonths(start, d.termMonths);
-  const code = await nextContractCode(buildingId);
+  const code = await nextContractCode(buildingId, start);
 
   const contract = await prisma.$transaction(async (tx) => {
     const customers = await Promise.all(

@@ -161,12 +161,14 @@ const CONTRACTS = [
 
 function pad(n, w = 3) { return String(n).padStart(w, "0"); }
 
-async function nextContractCode(buildingId, startDate) {
+async function nextContractCode(buildingId, startDate, buildingType) {
   const d = new Date(startDate);
-  const ym = `${String(d.getFullYear()).slice(-2)}${pad(d.getMonth() + 1, 2)}`;
-  const prefix = `HD-${ym}-`;
+  const dd = pad(d.getDate(), 2);
+  const mm = pad(d.getMonth() + 1, 2);
+  const yy = String(d.getFullYear()).slice(-2);
+  const prefix = `${buildingType}-${dd}${mm}${yy}-`;
   const last = await prisma.contract.findFirst({
-    where: { buildingId, code: { startsWith: prefix } },
+    where: { code: { startsWith: prefix } },
     orderBy: { code: "desc" },
   });
   const n = last ? parseInt(last.code.slice(prefix.length), 10) : 0;
@@ -258,7 +260,7 @@ async function main() {
 
     const customer = await prisma.customer.create({ data: customerData });
 
-    const code = await nextContractCode(buildingId, c.startDate);
+    const code = await nextContractCode(buildingId, c.startDate, building.type);
     const termMonths = monthsBetween(c.startDate, c.endDate);
 
     await prisma.contract.create({

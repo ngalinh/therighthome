@@ -145,6 +145,39 @@ async function main() {
     });
   }
 
+  // One-off: sync existing contracts' electricity/parking fees to match their
+  // building's current setting. After this, defaults always come from setting.
+  const feeSyncDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_CONTRACT_FEES", entityType: "Contract" },
+  });
+  if (!feeSyncDone) {
+    const contracts = await prisma.contract.findMany({
+      include: { building: { include: { setting: true } } },
+    });
+    let synced = 0;
+    for (const c of contracts) {
+      const s = c.building.setting;
+      if (!s) continue;
+      if (
+        c.electricityPricePerKwh !== s.electricityPricePerKwh ||
+        c.parkingFeePerVehicle !== s.parkingFeePerVehicle
+      ) {
+        await prisma.contract.update({
+          where: { id: c.id },
+          data: {
+            electricityPricePerKwh: s.electricityPricePerKwh,
+            parkingFeePerVehicle: s.parkingFeePerVehicle,
+          },
+        });
+        synced++;
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_CONTRACT_FEES", entityType: "Contract", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced ${synced} contracts to building fee settings.`);
+  }
+
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
   // user explicitly wants gone). Marker via AuditLog so it only runs once.
   const cleanupDone = await prisma.auditLog.findFirst({

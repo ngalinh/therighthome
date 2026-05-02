@@ -8,15 +8,31 @@ function ymPart(date = new Date()) {
   return `${y}${m}`;
 }
 
-export async function nextContractCode(buildingId: string): Promise<string> {
-  const ym = ymPart();
-  const prefix = `HD-${ym}-`;
+/**
+ * Contract code format: <TYPE>-DDMMYY-NN
+ * - TYPE = building.type (CHDV | VP)
+ * - DDMMYY = day/month/year of contract startDate
+ * - NN = sequential number among all contracts of the same TYPE that started
+ *   on the same day (across all buildings of that type), 2 digits
+ *
+ * Example: CHDV-051225-01, VP-191224-02
+ */
+export async function nextContractCode(buildingId: string, startDate: Date): Promise<string> {
+  const building = await prisma.building.findUnique({
+    where: { id: buildingId },
+    select: { type: true },
+  });
+  if (!building) throw new Error("Building not found");
+  const dd = pad(startDate.getDate(), 2);
+  const mm = pad(startDate.getMonth() + 1, 2);
+  const yy = String(startDate.getFullYear()).slice(-2);
+  const prefix = `${building.type}-${dd}${mm}${yy}-`;
   const last = await prisma.contract.findFirst({
-    where: { buildingId, code: { startsWith: prefix } },
+    where: { code: { startsWith: prefix } },
     orderBy: { code: "desc" },
   });
   const lastN = last ? parseInt(last.code.slice(prefix.length), 10) : 0;
-  return `${prefix}${pad(lastN + 1)}`;
+  return `${prefix}${pad(lastN + 1, 2)}`;
 }
 
 export async function nextInvoiceCode(buildingId: string, month: number, year: number): Promise<string> {
