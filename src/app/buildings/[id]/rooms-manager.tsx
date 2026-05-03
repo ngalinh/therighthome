@@ -141,10 +141,10 @@ function FloorGroupedRooms({
     <div className="space-y-3">
       {floors.map((f) => (
         <div key={f} className="flex items-start gap-3">
-          <div className="w-8 shrink-0 pt-3 text-xs font-semibold text-slate-400 text-right">
+          <div className="w-6 shrink-0 pt-3 text-xs font-semibold text-slate-400 text-right">
             {f === "G" ? "G" : `L${f}`}
           </div>
-          <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
+          <div className="flex-1 grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
             {byFloor.get(f)!.map((r) => (
               <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => onDelete(r)} />
             ))}

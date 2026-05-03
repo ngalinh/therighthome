@@ -11,6 +11,7 @@ import { ManageTasksTab } from "./tasks-tab";
 import { ManageOvertimeTab } from "./overtime-tab";
 import { AggregatedInvoicesView } from "./aggregated-invoices-view";
 import { AggregatedTransactionsClient } from "./aggregated-transactions-client";
+import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
 export async function ManageTypePage({
   kind,
@@ -96,6 +97,19 @@ export async function ManageTypePage({
 
   // Invoices (filtered by month/year/status/building/room).
   const targetBuildingIds = buildingFilter === "ALL" ? buildingIds : [buildingFilter].filter((id) => buildingIds.includes(id));
+
+  // Lazy auto-generate for current/past months (idempotent), so the user
+  // doesn't need to click "Tạo HĐ" — invoices appear automatically when
+  // viewing a month that has active contracts.
+  const isCurrentOrPast = year < now.getFullYear()
+    || (year === now.getFullYear() && month <= now.getMonth() + 1);
+  if (canInvoice && isCurrentOrPast) {
+    for (const bId of targetBuildingIds) {
+      await generateMonthlyInvoices(month, year, bId).catch((e) => {
+        console.error("[manage/auto-generate] failed for", bId, year, month, e);
+      });
+    }
+  }
   const invoices = await prisma.invoice.findMany({
     where: {
       buildingId: { in: targetBuildingIds },
