@@ -165,7 +165,7 @@ function RoomTile({
   const styles = {
     OCCUPIED: isExpiring
       ? { card: "bg-amber-50 border-amber-200", dot: "bg-amber-400", text: "text-amber-800", accent: "bg-amber-400" }
-      : { card: "bg-rose-50 border-rose-200", dot: "bg-rose-400", text: "text-rose-800", accent: "bg-rose-400" },
+      : { card: "bg-slate-100 border-slate-200", dot: "bg-slate-400", text: "text-slate-700", accent: "bg-slate-400" },
     MAINTENANCE: { card: "bg-slate-100 border-slate-200", dot: "bg-slate-400", text: "text-slate-600", accent: "bg-slate-400" },
     AVAILABLE: { card: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400", text: "text-emerald-800", accent: "bg-emerald-400" },
   };
