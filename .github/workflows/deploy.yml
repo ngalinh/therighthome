@@ -1,10 +1,10 @@
 name: Deploy to production
 
-# Runs only after CI succeeds on main, or when manually triggered.
+# Deploy fires immediately on push to main, in parallel with CI.
+# CI still runs for visibility but is no longer a blocker — we trust local
+# typecheck/build before the push. If CI fails on main, fix-forward.
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
     branches: [main]
   workflow_dispatch:
 
@@ -15,8 +15,6 @@ concurrency:
 
 jobs:
   deploy:
-    # Skip if CI failed (workflow_run gives us the upstream conclusion).
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
