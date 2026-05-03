@@ -10,35 +10,39 @@ export const SHEETS = {
   VP: "Văn phòng",
 } as const;
 
+// Only buildingName + roomNumber are required on each row. Everything else is
+// optional — rows with partial data still upsert the building/room (and the
+// customer if a name is given), and only create a contract when enough fields
+// are present (startDate + termMonths + monthlyRent + paymentDay).
 export type ChdvRow = {
   buildingName: string;
   roomNumber: string;
-  fullName: string;
+  fullName?: string;
   idNumber?: string;
   phone?: string;
   licensePlate?: string;
-  depositAmount: number;
-  termMonths: number;
-  startDate: string;        // YYYY-MM-DD
-  endDate?: string;         // YYYY-MM-DD (optional — computed from start+term if missing)
-  monthlyRent: number;
+  depositAmount?: number;
+  termMonths?: number;
+  startDate?: string;       // YYYY-MM-DD
+  endDate?: string;
+  monthlyRent?: number;
   serviceFeeAmount?: number;
-  paymentDay: number;       // 1..28
+  paymentDay?: number;      // 1..28
   notes?: string;
 };
 
 export type VpRow = {
   buildingName: string;
   roomNumber: string;
-  companyName: string;
+  companyName?: string;
   phone?: string;
   email?: string;
-  monthlyRent: number;      // already after VAT
-  depositAmount: number;
-  termMonths: number;
-  startDate: string;
+  monthlyRent?: number;     // already after VAT
+  depositAmount?: number;
+  termMonths?: number;
+  startDate?: string;
   endDate?: string;
-  paymentDay: number;
+  paymentDay?: number;
   notes?: string;
 };
 
@@ -141,7 +145,7 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-// Accepts JS Date, ISO string, or DD/MM/YYYY (Vietnamese style).
+// Accepts JS Date, ISO string, DD/MM/YYYY or DD/MM/YY (Vietnamese style).
 const date = (v: unknown): string | null => {
   if (v === null || v === undefined || v === "") return null;
   if (v instanceof Date) {
@@ -149,10 +153,14 @@ const date = (v: unknown): string | null => {
     return v.toISOString().slice(0, 10);
   }
   const s = String(v).trim();
-  // DD/MM/YYYY
-  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  // DD/MM/YYYY or DD/MM/YY
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/);
   if (m) {
-    const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    const dd = Number(m[1]);
+    const mm = Number(m[2]);
+    let yy = Number(m[3]);
+    if (m[3].length === 2) yy = 2000 + yy; // 25 → 2025
+    const d = new Date(yy, mm - 1, dd);
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   }
   const d = new Date(s);
@@ -164,36 +172,27 @@ const date = (v: unknown): string | null => {
 export function validateChdv(r: Record<string, unknown>): ChdvRow | string {
   const buildingName = txt(r["Toà nhà"]);
   const roomNumber = txt(r["Phòng"]);
-  const fullName = txt(r["Họ và tên khách"]);
-  const depositAmount = num(r["Số tiền cọc"]);
-  const termMonths = num(r["Thời gian HĐ"]);
-  const startDate = date(r["Ngày bắt đầu"]);
-  const endDate = date(r["Ngày kết thúc"]);
-  const monthlyRent = num(r["Giá thuê"]);
-  const paymentDay = num(r["Hạn thanh toán"]);
-
   if (!buildingName) return "Thiếu Toà nhà";
   if (!roomNumber) return "Thiếu Phòng";
-  if (!fullName) return "Thiếu Họ và tên khách";
-  if (!startDate) return "Thiếu/sai Ngày bắt đầu";
-  if (termMonths === null || termMonths < 1) return "Thời gian HĐ phải > 0";
-  if (monthlyRent === null || monthlyRent < 0) return "Giá thuê không hợp lệ";
-  if (paymentDay === null || paymentDay < 1 || paymentDay > 28) return "Hạn thanh toán phải 1-28";
+
+  // Bound checks that only apply when the field IS provided.
+  const paymentDay = num(r["Hạn thanh toán"]);
+  if (paymentDay !== null && (paymentDay < 1 || paymentDay > 28)) return "Hạn thanh toán phải 1-28";
 
   return {
     buildingName,
     roomNumber,
-    fullName,
+    fullName: txt(r["Họ và tên khách"]) ?? undefined,
     idNumber: txt(r["CCCD"]) ?? undefined,
     phone: txt(r["SĐT"]) ?? undefined,
     licensePlate: txt(r["Biển số xe"]) ?? undefined,
-    depositAmount: depositAmount ?? 0,
-    termMonths,
-    startDate,
-    endDate: endDate ?? undefined,
-    monthlyRent,
-    serviceFeeAmount: num(r["Phí dịch vụ"]) ?? 0,
-    paymentDay,
+    depositAmount: num(r["Số tiền cọc"]) ?? undefined,
+    termMonths: num(r["Thời gian HĐ"]) ?? undefined,
+    startDate: date(r["Ngày bắt đầu"]) ?? undefined,
+    endDate: date(r["Ngày kết thúc"]) ?? undefined,
+    monthlyRent: num(r["Giá thuê"]) ?? undefined,
+    serviceFeeAmount: num(r["Phí dịch vụ"]) ?? undefined,
+    paymentDay: paymentDay ?? undefined,
     notes: txt(r["Ghi chú"]) ?? undefined,
   };
 }
@@ -201,34 +200,24 @@ export function validateChdv(r: Record<string, unknown>): ChdvRow | string {
 export function validateVp(r: Record<string, unknown>): VpRow | string {
   const buildingName = txt(r["Toà nhà"]);
   const roomNumber = txt(r["Phòng"]);
-  const companyName = txt(r["Tên công ty"]);
-  const monthlyRent = num(r["Giá thuê (sau VAT)"]);
-  const depositAmount = num(r["Số tiền cọc"]);
-  const termMonths = num(r["Thời gian HĐ"]);
-  const startDate = date(r["Ngày bắt đầu"]);
-  const endDate = date(r["Ngày kết thúc"]);
-  const paymentDay = num(r["Hạn thanh toán"]);
-
   if (!buildingName) return "Thiếu Toà nhà";
   if (!roomNumber) return "Thiếu Phòng";
-  if (!companyName) return "Thiếu Tên công ty";
-  if (!startDate) return "Thiếu/sai Ngày bắt đầu";
-  if (termMonths === null || termMonths < 1) return "Thời gian HĐ phải > 0";
-  if (monthlyRent === null || monthlyRent < 0) return "Giá thuê không hợp lệ";
-  if (paymentDay === null || paymentDay < 1 || paymentDay > 28) return "Hạn thanh toán phải 1-28";
+
+  const paymentDay = num(r["Hạn thanh toán"]);
+  if (paymentDay !== null && (paymentDay < 1 || paymentDay > 28)) return "Hạn thanh toán phải 1-28";
 
   return {
     buildingName,
     roomNumber,
-    companyName,
+    companyName: txt(r["Tên công ty"]) ?? undefined,
     phone: txt(r["SĐT"]) ?? undefined,
     email: txt(r["Email"]) ?? undefined,
-    monthlyRent,
-    depositAmount: depositAmount ?? 0,
-    termMonths,
-    startDate,
-    endDate: endDate ?? undefined,
-    paymentDay,
+    monthlyRent: num(r["Giá thuê (sau VAT)"]) ?? undefined,
+    depositAmount: num(r["Số tiền cọc"]) ?? undefined,
+    termMonths: num(r["Thời gian HĐ"]) ?? undefined,
+    startDate: date(r["Ngày bắt đầu"]) ?? undefined,
+    endDate: date(r["Ngày kết thúc"]) ?? undefined,
+    paymentDay: paymentDay ?? undefined,
     notes: txt(r["Ghi chú"]) ?? undefined,
   };
 }

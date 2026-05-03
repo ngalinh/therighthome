@@ -97,40 +97,48 @@ async function importChdv(r: ChdvRow, userId: string, stats: Stats) {
   const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
   if (roomCreated) stats.rooms++;
 
-  // Customer: match by buildingId + (idNumber if provided, else fullName).
-  let cust = r.idNumber
-    ? await prisma.customer.findFirst({ where: { buildingId: b.id, idNumber: r.idNumber } })
-    : null;
-  if (!cust) {
-    cust = await prisma.customer.findFirst({
-      where: { buildingId: b.id, fullName: r.fullName, type: "INDIVIDUAL" },
-    });
-  }
-  if (!cust) {
-    cust = await prisma.customer.create({
-      data: {
-        buildingId: b.id,
-        type: "INDIVIDUAL",
-        fullName: r.fullName,
-        idNumber: r.idNumber,
-        phone: r.phone,
-        licensePlate: r.licensePlate,
-      },
-    });
-    stats.customers++;
+  // Customer is optional. Only upsert if we have at least a fullName or CCCD.
+  let custId: string | null = null;
+  if (r.fullName || r.idNumber) {
+    let cust = r.idNumber
+      ? await prisma.customer.findFirst({ where: { buildingId: b.id, idNumber: r.idNumber } })
+      : null;
+    if (!cust && r.fullName) {
+      cust = await prisma.customer.findFirst({
+        where: { buildingId: b.id, fullName: r.fullName, type: "INDIVIDUAL" },
+      });
+    }
+    if (!cust) {
+      cust = await prisma.customer.create({
+        data: {
+          buildingId: b.id,
+          type: "INDIVIDUAL",
+          fullName: r.fullName,
+          idNumber: r.idNumber,
+          phone: r.phone,
+          licensePlate: r.licensePlate,
+        },
+      });
+      stats.customers++;
+    }
+    custId = cust.id;
   }
 
-  await createContractIfNew(b.id, room.id, cust.id, {
-    startDate: r.startDate,
-    endDate: r.endDate,
-    termMonths: r.termMonths,
-    paymentDay: r.paymentDay,
-    monthlyRent: r.monthlyRent,
-    vatRate: 0,
-    depositAmount: r.depositAmount,
-    serviceFeeAmount: r.serviceFeeAmount ?? 0,
-    notes: r.notes,
-  }, stats);
+  // Contract requires startDate AND a way to compute endDate (termMonths or
+  // explicit endDate) AND monthlyRent AND paymentDay AND a customer.
+  if (custId && r.startDate && r.monthlyRent !== undefined && r.paymentDay !== undefined && (r.termMonths !== undefined || r.endDate)) {
+    await createContractIfNew(b.id, room.id, custId, {
+      startDate: r.startDate,
+      endDate: r.endDate,
+      termMonths: r.termMonths!,
+      paymentDay: r.paymentDay,
+      monthlyRent: r.monthlyRent,
+      vatRate: 0,
+      depositAmount: r.depositAmount ?? 0,
+      serviceFeeAmount: r.serviceFeeAmount ?? 0,
+      notes: r.notes,
+    }, stats);
+  }
 }
 
 async function importVp(r: VpRow, userId: string, stats: Stats) {
@@ -140,33 +148,39 @@ async function importVp(r: VpRow, userId: string, stats: Stats) {
   const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
   if (roomCreated) stats.rooms++;
 
-  let cust = await prisma.customer.findFirst({
-    where: { buildingId: b.id, companyName: r.companyName, type: "COMPANY" },
-  });
-  if (!cust) {
-    cust = await prisma.customer.create({
-      data: {
-        buildingId: b.id,
-        type: "COMPANY",
-        companyName: r.companyName,
-        phone: r.phone,
-        email: r.email,
-      },
+  let custId: string | null = null;
+  if (r.companyName) {
+    let cust = await prisma.customer.findFirst({
+      where: { buildingId: b.id, companyName: r.companyName, type: "COMPANY" },
     });
-    stats.customers++;
+    if (!cust) {
+      cust = await prisma.customer.create({
+        data: {
+          buildingId: b.id,
+          type: "COMPANY",
+          companyName: r.companyName,
+          phone: r.phone,
+          email: r.email,
+        },
+      });
+      stats.customers++;
+    }
+    custId = cust.id;
   }
 
-  await createContractIfNew(b.id, room.id, cust.id, {
-    startDate: r.startDate,
-    endDate: r.endDate,
-    termMonths: r.termMonths,
-    paymentDay: r.paymentDay,
-    monthlyRent: r.monthlyRent,
-    vatRate: 0.1,
-    depositAmount: r.depositAmount,
-    serviceFeeAmount: 0,
-    notes: r.notes,
-  }, stats);
+  if (custId && r.startDate && r.monthlyRent !== undefined && r.paymentDay !== undefined && (r.termMonths !== undefined || r.endDate)) {
+    await createContractIfNew(b.id, room.id, custId, {
+      startDate: r.startDate,
+      endDate: r.endDate,
+      termMonths: r.termMonths!,
+      paymentDay: r.paymentDay,
+      monthlyRent: r.monthlyRent,
+      vatRate: 0.1,
+      depositAmount: r.depositAmount ?? 0,
+      serviceFeeAmount: 0,
+      notes: r.notes,
+    }, stats);
+  }
 }
 
 type ContractInput = {
