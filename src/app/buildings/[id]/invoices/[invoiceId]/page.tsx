@@ -15,7 +15,10 @@ export default async function InvoiceDetailPage({
   const { id, invoiceId } = await params;
   const perm = await getBuildingPermission(session.user.id, session.user.role, id);
   if (!perm) notFound();
-  const building = await prisma.building.findUnique({ where: { id } });
+  const building = await prisma.building.findUnique({
+    where: { id },
+    include: { setting: true },
+  });
   if (!building) notFound();
   const inv = await prisma.invoice.findUnique({
     where: { id: invoiceId },
@@ -34,6 +37,13 @@ export default async function InvoiceDetailPage({
   const canWrite = await can(session.user.id, session.user.role, id, "invoice.write");
   const canSend = await can(session.user.id, session.user.role, id, "invoice.send");
 
+  // Fall back to current building setting if the invoice's snapshot is 0 —
+  // happens for older invoices generated before the setting was filled in.
+  const settingFallback = {
+    parkingFeePerVehicle: building.setting?.parkingFeePerVehicle.toString() ?? "0",
+    electricityPricePerKwh: building.setting?.electricityPricePerKwh.toString() ?? "0",
+  };
+
   return (
     <AppShell
       user={{ name: session.user.name || "", email: session.user.email || "", role: session.user.role }}
@@ -48,6 +58,7 @@ export default async function InvoiceDetailPage({
         <InvoiceDetail
           invoice={serializeBigInt(inv)}
           buildingType={building.type}
+          settingFallback={settingFallback}
           canWrite={canWrite}
           canSend={canSend}
         />

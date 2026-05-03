@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, roomFloor, compareRooms } from "@/lib/utils";
 
 type Room = {
   id: string;
@@ -16,6 +16,7 @@ type Room = {
   status: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
   customerName: string | null;
   daysLeft: number | null;
+  contractId: string | null;
 };
 
 export function RoomsManager({
@@ -103,12 +104,53 @@ export function RoomsManager({
       {rooms.length === 0 ? (
         <p className="text-sm text-slate-500 text-center py-8">Chưa có phòng nào. {canWrite && "Bấm Thêm phòng để bắt đầu."}</p>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {rooms.map((r) => (
-            <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => deleteRoom(r.id, r.number)} />
-          ))}
-        </div>
+        <FloorGroupedRooms
+          rooms={rooms}
+          buildingId={buildingId}
+          canWrite={canWrite}
+          onDelete={(r) => deleteRoom(r.id, r.number)}
+        />
       )}
+    </div>
+  );
+}
+
+function FloorGroupedRooms({
+  rooms, buildingId, canWrite, onDelete,
+}: {
+  rooms: Room[];
+  buildingId: string;
+  canWrite: boolean;
+  onDelete: (r: Room) => void;
+}) {
+  // Bucket rooms by floor; floor "G" first, then numeric ascending.
+  const byFloor = new Map<string, Room[]>();
+  for (const r of rooms) {
+    const f = roomFloor(r.number);
+    if (!byFloor.has(f)) byFloor.set(f, []);
+    byFloor.get(f)!.push(r);
+  }
+  const floors = Array.from(byFloor.keys()).sort((a, b) => {
+    if (a === "G") return -1;
+    if (b === "G") return 1;
+    return Number(a) - Number(b);
+  });
+  for (const f of floors) byFloor.get(f)!.sort((a, b) => compareRooms(a.number, b.number));
+
+  return (
+    <div className="space-y-3">
+      {floors.map((f) => (
+        <div key={f} className="flex items-start gap-3">
+          <div className="w-6 shrink-0 pt-3 text-xs font-semibold text-slate-400 text-right">
+            {f === "G" ? "G" : `L${f}`}
+          </div>
+          <div className="flex-1 grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
+            {byFloor.get(f)!.map((r) => (
+              <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => onDelete(r)} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -123,15 +165,20 @@ function RoomTile({
   const styles = {
     OCCUPIED: isExpiring
       ? { card: "bg-amber-50 border-amber-200", dot: "bg-amber-400", text: "text-amber-800", accent: "bg-amber-400" }
-      : { card: "bg-rose-50 border-rose-200", dot: "bg-rose-400", text: "text-rose-800", accent: "bg-rose-400" },
+      : { card: "bg-slate-100 border-slate-200", dot: "bg-slate-400", text: "text-slate-700", accent: "bg-slate-400" },
     MAINTENANCE: { card: "bg-slate-100 border-slate-200", dot: "bg-slate-400", text: "text-slate-600", accent: "bg-slate-400" },
     AVAILABLE: { card: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400", text: "text-emerald-800", accent: "bg-emerald-400" },
   };
   const s = styles[room.status] ?? styles.AVAILABLE;
+  // If the room has an active contract, click → contract detail. Otherwise →
+  // contracts list with room filter (so the user can create one).
+  const href = room.contractId
+    ? `/buildings/${buildingId}/contracts/${room.contractId}/edit`
+    : `/buildings/${buildingId}/contracts?room=${room.id}`;
 
   return (
     <div className={cn("relative rounded-xl border p-3 group", s.card)}>
-      <Link href={`/buildings/${buildingId}/contracts?room=${room.id}`} className="block">
+      <Link href={href} className="block">
         <div className="flex items-center justify-between mb-1.5">
           <span className="font-bold text-sm text-slate-900">{room.number}</span>
           <span className={cn("h-2 w-2 rounded-full shrink-0", s.dot)} />

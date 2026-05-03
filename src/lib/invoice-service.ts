@@ -26,14 +26,16 @@ export async function generateMonthlyInvoices(month: number, year: number, build
   const created: string[] = [];
 
   for (const c of contracts) {
-    if (c.endDate < new Date(year, month - 1, 1)) continue;
+    if (!c.isOpenEnded && c.endDate < new Date(year, month - 1, 1)) continue;
 
     const existing = await prisma.invoice.findUnique({
       where: { contractId_month_year: { contractId: c.id, month, year } },
     });
     if (existing) continue;
 
-    const dueDay = c.building.setting?.defaultDueDay ?? c.paymentDay ?? 5;
+    // Prefer the contract's own paymentDay over the building default; the
+    // user expects "Ngày thanh toán hàng tháng" set on each HĐ to apply.
+    const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
     const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
     // Effective rent: yearly override if exists, else monthlyRent

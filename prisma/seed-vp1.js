@@ -6,7 +6,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-const BUILDING_NAME = "VP 1 - Lê Trung Nghĩa";
+const BUILDING_NAME = "30 Lê Trung Nghĩa";
 const BUILDING_ADDRESS = "30 Lê Trung Nghĩa";
 
 const CONTRACTS = [
@@ -161,12 +161,14 @@ const CONTRACTS = [
 
 function pad(n, w = 3) { return String(n).padStart(w, "0"); }
 
-async function nextContractCode(buildingId, startDate) {
+async function nextContractCode(buildingId, startDate, buildingType) {
   const d = new Date(startDate);
-  const ym = `${String(d.getFullYear()).slice(-2)}${pad(d.getMonth() + 1, 2)}`;
-  const prefix = `HD-${ym}-`;
+  const dd = pad(d.getDate(), 2);
+  const mm = pad(d.getMonth() + 1, 2);
+  const yy = String(d.getFullYear()).slice(-2);
+  const prefix = `${buildingType}-${dd}${mm}${yy}-`;
   const last = await prisma.contract.findFirst({
-    where: { buildingId, code: { startsWith: prefix } },
+    where: { code: { startsWith: prefix } },
     orderBy: { code: "desc" },
   });
   const n = last ? parseInt(last.code.slice(prefix.length), 10) : 0;
@@ -221,11 +223,14 @@ async function main() {
       update: { status: "OCCUPIED", area: c.area ?? undefined },
     });
 
+    // Check for ANY contract (not just ACTIVE) with the same room + startDate.
+    // Previously this only checked ACTIVE which meant the worker auto-expiring
+    // a past contract caused seed-vp1 to recreate it on every container start.
     const existing = await prisma.contract.findFirst({
-      where: { roomId: room.id, status: "ACTIVE" },
+      where: { roomId: room.id, startDate: new Date(c.startDate) },
     });
     if (existing) {
-      console.log(`⏭  ${c.room.padEnd(10)} đã có HĐ ACTIVE ${existing.code}, skip`);
+      console.log(`⏭  ${c.room.padEnd(10)} đã có HĐ (${existing.code}, ${existing.status}), skip`);
       continue;
     }
 
@@ -258,7 +263,7 @@ async function main() {
 
     const customer = await prisma.customer.create({ data: customerData });
 
-    const code = await nextContractCode(buildingId, c.startDate);
+    const code = await nextContractCode(buildingId, c.startDate, building.type);
     const termMonths = monthsBetween(c.startDate, c.endDate);
 
     await prisma.contract.create({

@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { ArrowDownCircle, ArrowUpCircle, Trash2, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Transaction = {
   id: string;
@@ -43,7 +44,7 @@ const PARTY_KINDS = [
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function TransactionsClient({
-  buildingId, month, year, transactions, categories, paymentMethods, parties, customers, canWrite,
+  buildingId, month, year, transactions, categories, paymentMethods, parties, customers, rooms, canWrite,
 }: {
   buildingId: string;
   month: number;
@@ -53,6 +54,7 @@ export function TransactionsClient({
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   parties: { id: string; name: string; kind: string }[];
   customers: { id: string; fullName: string | null; companyName: string | null }[];
+  rooms: { id: string; number: string }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -107,16 +109,36 @@ export function TransactionsClient({
             <SelectItem value="EXPENSE">Chi</SelectItem>
           </SelectContent>
         </Select>
-        {canWrite && (
-          <div className="ml-auto flex gap-2">
-            <Button onClick={() => setCreateOpen("INCOME")} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              <ArrowDownCircle className="h-4 w-4" /> Phiếu thu
-            </Button>
-            <Button onClick={() => setCreateOpen("EXPENSE")} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
-              <ArrowUpCircle className="h-4 w-4" /> Phiếu chi
-            </Button>
-          </div>
-        )}
+        <div className="ml-auto flex gap-2">
+          <ExportExcelButton
+            filename={`giao-dich-${month}-${year}.xlsx`}
+            sheets={() => [{
+              name: `T${month}-${year}`,
+              rows: filtered.map((t) => ({
+                "Mã": t.code,
+                "Ngày": formatDateVN(t.date),
+                "Loại": t.type === "INCOME" ? "Thu" : "Chi",
+                "Số tiền": Number(t.amount),
+                "Nội dung": t.content,
+                "Hạng mục": t.category?.name ?? "",
+                "PTTT": t.paymentMethod?.name ?? "",
+                "Đối tượng": t.customer ? (t.customer.fullName || t.customer.companyName || "") : (t.party?.name ?? ""),
+                "Hạch toán BCKD": t.countInBR ? "x" : "",
+                "Ghi chú": t.notes ?? "",
+              })),
+            }]}
+          />
+          {canWrite && (
+            <>
+              <Button onClick={() => setCreateOpen("INCOME")} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <ArrowDownCircle className="h-4 w-4" /> Phiếu thu
+              </Button>
+              <Button onClick={() => setCreateOpen("EXPENSE")} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+                <ArrowUpCircle className="h-4 w-4" /> Phiếu chi
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -144,6 +166,7 @@ export function TransactionsClient({
         paymentMethods={paymentMethods}
         parties={parties}
         customers={customers}
+        rooms={rooms}
         onClose={() => setCreateOpen(null)}
       />
     </div>
@@ -203,7 +226,7 @@ function TransactionRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: (
 }
 
 function CreateDialog({
-  type, buildingId, month, year, categories, paymentMethods, parties, customers, onClose,
+  type, buildingId, month, year, categories, paymentMethods, parties, customers, rooms, onClose,
 }: {
   type: "INCOME" | "EXPENSE" | null;
   buildingId: string;
@@ -213,6 +236,7 @@ function CreateDialog({
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   parties: { id: string; name: string; kind: string }[];
   customers: { id: string; fullName: string | null; companyName: string | null }[];
+  rooms: { id: string; number: string }[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -224,12 +248,21 @@ function CreateDialog({
   const [partyKind, setPartyKind] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [partyId, setPartyId] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
+  // Accounting month/year. null = follows the date field.
+  const [acctMonth, setAcctMonth] = useState<number | null>(null);
+  const [acctYear, setAcctYear] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!type) return null;
   const filteredCategories = categories.filter((c) => c.type === type);
+  const dateObj = new Date(date);
+  const dateMonth = dateObj.getMonth() + 1;
+  const dateYear = dateObj.getFullYear();
+  const effMonth = acctMonth ?? dateMonth;
+  const effYear = acctYear ?? dateYear;
 
   async function submit() {
     const a = parseVNDInput(amount);
@@ -246,9 +279,10 @@ function CreateDialog({
       partyKind: partyKind || undefined,
       customerId: partyKind === "CUSTOMER" && customerId ? customerId : undefined,
       partyId: partyKind && partyKind !== "CUSTOMER" && partyId ? partyId : undefined,
+      roomId: roomId || undefined,
       countInBR,
-      accountingMonth: month,
-      accountingYear: year,
+      accountingMonth: countInBR ? effMonth : month,
+      accountingYear: countInBR ? effYear : year,
       notes,
     };
     const res = await fetch(`/api/buildings/${buildingId}/transactions`, {
@@ -338,6 +372,16 @@ function CreateDialog({
             )}
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">Số phòng (tuỳ chọn)</Label>
+            <Select value={roomId || "_none"} onValueChange={(v) => setRoomId(v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Không gắn phòng —</SelectItem>
+                {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">PTTT</Label>
             <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
               <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
@@ -350,6 +394,32 @@ function CreateDialog({
             <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
             <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
           </label>
+          {countInBR && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tháng hạch toán</Label>
+                <Select value={String(effMonth)} onValueChange={(v) => setAcctMonth(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Năm hạch toán</Label>
+                <Select value={String(effYear)} onValueChange={(v) => setAcctYear(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[dateYear - 1, dateYear, dateYear + 1].map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Ghi chú</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />

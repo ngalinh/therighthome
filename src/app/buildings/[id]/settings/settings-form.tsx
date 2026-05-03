@@ -15,6 +15,7 @@ type Setting = {
   parkingFeePerVehicle: string;
   serviceFeeType: "PER_ROOM" | "PER_PERSON";
   serviceFeeAmount: string;
+  overtimeFeePerHour: string;
   contractTemplateUrl: string | null;
   autoGenerateInvoiceDay: number;
   defaultDueDay: number;
@@ -37,9 +38,11 @@ export function BuildingSettingsForm({
   const [parking, setParking] = useState(setting?.parkingFeePerVehicle ?? "0");
   const [feeType, setFeeType] = useState<"PER_ROOM" | "PER_PERSON">(setting?.serviceFeeType ?? "PER_ROOM");
   const [feeAmt, setFeeAmt] = useState(setting?.serviceFeeAmount ?? "0");
+  const [overtimePerHour, setOvertimePerHour] = useState(setting?.overtimeFeePerHour ?? "0");
   const [autoDay, setAutoDay] = useState(setting?.autoGenerateInvoiceDay ?? 1);
   const [dueDay, setDueDay] = useState(setting?.defaultDueDay ?? 5);
   const [tplUrl, setTplUrl] = useState(setting?.contractTemplateUrl ?? null);
+  const isVP = buildingType === "VP";
 
   async function save() {
     setSaving(true);
@@ -51,6 +54,7 @@ export function BuildingSettingsForm({
         parkingFeePerVehicle: parseVNDInput(parking).toString(),
         serviceFeeType: feeType,
         serviceFeeAmount: parseVNDInput(feeAmt).toString(),
+        overtimeFeePerHour: parseVNDInput(overtimePerHour).toString(),
         autoGenerateInvoiceDay: autoDay,
         defaultDueDay: dueDay,
       }),
@@ -79,7 +83,7 @@ export function BuildingSettingsForm({
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>Phí dịch vụ</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Phí mặc định</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Đơn giá điện (₫/kWh)">
@@ -88,18 +92,27 @@ export function BuildingSettingsForm({
             <Field label="Phí gửi xe (₫/xe/tháng)">
               <VNDInput value={parking} onChange={setParking} disabled={!canWrite} />
             </Field>
-            <Field label="Loại phí dịch vụ">
-              <Select value={feeType} onValueChange={(v) => setFeeType(v as "PER_ROOM" | "PER_PERSON")} disabled={!canWrite}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PER_ROOM">Theo phòng</SelectItem>
-                  <SelectItem value="PER_PERSON">Theo người</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label={`Phí dịch vụ (₫/${feeType === "PER_ROOM" ? "phòng" : "người"}/tháng)`}>
-              <VNDInput value={feeAmt} onChange={setFeeAmt} disabled={!canWrite} />
-            </Field>
+            {!isVP && (
+              <>
+                <Field label="Loại phí dịch vụ">
+                  <Select value={feeType} onValueChange={(v) => setFeeType(v as "PER_ROOM" | "PER_PERSON")} disabled={!canWrite}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PER_ROOM">Theo phòng</SelectItem>
+                      <SelectItem value="PER_PERSON">Theo người</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={`Phí dịch vụ (₫/${feeType === "PER_ROOM" ? "phòng" : "người"}/tháng)`}>
+                  <VNDInput value={feeAmt} onChange={setFeeAmt} disabled={!canWrite} />
+                </Field>
+              </>
+            )}
+            {isVP && (
+              <Field label="Phí ngoài giờ (₫/giờ)">
+                <VNDInput value={overtimePerHour} onChange={setOvertimePerHour} disabled={!canWrite} />
+              </Field>
+            )}
           </div>
         </CardContent>
       </Card>

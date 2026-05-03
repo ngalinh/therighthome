@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader, PageBody } from "@/components/layout/page-header";
 import { InvoicesView } from "./invoices-view";
 import { serializeBigInt } from "@/lib/utils";
+import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
 export default async function InvoicesPage({
   params, searchParams,
@@ -28,6 +29,17 @@ export default async function InvoicesPage({
   const month = Number(sp.month ?? now.getMonth() + 1);
   const year = Number(sp.year ?? now.getFullYear());
 
+  // Lazy auto-generate: when the user views the current month (or earlier
+  // months that haven't had invoices generated yet), make sure invoices exist
+  // for every active contract before listing. Idempotent.
+  const isCurrentOrPast = year < now.getFullYear()
+    || (year === now.getFullYear() && month <= now.getMonth() + 1);
+  if (canWrite && isCurrentOrPast) {
+    await generateMonthlyInvoices(month, year, id).catch((e) => {
+      console.error("[invoices/auto-generate] failed for", id, year, month, e);
+    });
+  }
+
   const invoices = await prisma.invoice.findMany({
     where: {
       buildingId: id,
@@ -43,7 +55,19 @@ export default async function InvoicesPage({
         },
       },
     },
-    orderBy: [{ status: "asc" }, { contract: { room: { number: "asc" } } }],
+    orderBy: [{ dueDate: "asc" }],
+  });
+
+  // Re-sort: OVERDUE first (oldest dueDate → most overdue at top), then
+  // PENDING/PARTIAL by dueDate, then PAID, then CANCELLED.
+  const STATUS_BUCKET: Record<string, number> = {
+    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, CANCELLED: 3,
+  };
+  invoices.sort((a, b) => {
+    const ba = STATUS_BUCKET[a.status] ?? 9;
+    const bb = STATUS_BUCKET[b.status] ?? 9;
+    if (ba !== bb) return ba - bb;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
   const paymentMethods = await prisma.paymentMethod.findMany({

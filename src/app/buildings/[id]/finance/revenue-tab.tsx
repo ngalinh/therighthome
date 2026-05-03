@@ -90,7 +90,7 @@ export async function RevenueTab({
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Doanh thu T{month}/{year}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Sổ Thu T{month}/{year}</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead>

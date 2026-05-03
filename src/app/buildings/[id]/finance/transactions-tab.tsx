@@ -14,16 +14,23 @@ export async function TransactionsTab({
   customers: { id: string; fullName: string | null; companyName: string | null }[];
   canWrite: boolean;
 }) {
-  const transactions = await prisma.transaction.findMany({
-    where: { buildingId, accountingYear: year, accountingMonth: month },
-    include: {
-      category: true,
-      paymentMethod: true,
-      customer: true,
-      party: true,
-    },
-    orderBy: { date: "desc" },
-  });
+  const [transactions, rooms] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { buildingId, accountingYear: year, accountingMonth: month },
+      include: {
+        category: true,
+        paymentMethod: true,
+        customer: true,
+        party: true,
+      },
+      orderBy: { date: "desc" },
+    }),
+    prisma.room.findMany({
+      where: { buildingId },
+      orderBy: { number: "asc" },
+      select: { id: true, number: true },
+    }),
+  ]);
 
   return (
     <TransactionsClient
@@ -35,6 +42,7 @@ export async function TransactionsTab({
       paymentMethods={paymentMethods}
       parties={parties}
       customers={customers}
+      rooms={rooms}
       canWrite={canWrite}
     />
   );

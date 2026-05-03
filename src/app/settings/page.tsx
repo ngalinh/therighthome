@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Lock, KeyRound, Bell, Users, Tag, CreditCard, Building2, ClipboardList } from "lucide-react";
 import { UsersTab } from "./users-tab";
+import { BuildingsTab } from "./buildings-tab";
 import { CategoriesTab } from "./categories-tab";
 import { PaymentMethodsTab } from "./payment-methods-tab";
 import { PartiesTab } from "./parties-tab";
@@ -76,6 +77,11 @@ export default async function GlobalSettingsPage({
                 </TabsTrigger>
               )}
               {isAdmin && (
+                <TabsTrigger value="buildings" className="flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-3 py-2 text-xs font-medium">
+                  <Building2 className="h-3.5 w-3.5" /> Toà nhà
+                </TabsTrigger>
+              )}
+              {isAdmin && (
                 <TabsTrigger value="categories" className="flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-3 py-2 text-xs font-medium">
                   <Tag className="h-3.5 w-3.5" /> Loại thu/chi
                 </TabsTrigger>
@@ -113,6 +119,9 @@ export default async function GlobalSettingsPage({
             <>
               <TabsContent value="users">
                 <UsersTab users={users} buildings={buildings} currentUserId={session.user.id} />
+              </TabsContent>
+              <TabsContent value="buildings">
+                <BuildingsTab buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type }))} />
               </TabsContent>
               <TabsContent value="categories">
                 <CategoriesTab categories={categories} />

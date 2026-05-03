@@ -17,11 +17,11 @@ const BUILDINGS = [
 const TX_CATEGORIES = {
   CHDV: {
     INCOME: ["Tiền thuê phòng", "Tiền điện", "Tiền nước", "Phí gửi xe", "Phí dịch vụ", "Tiền cọc mất", "Khác"],
-    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Khác"],
+    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Khác"],
   },
   VP: {
     INCOME: ["Tiền thuê VP", "Tiền điện", "Phí gửi xe", "Phí dịch vụ", "Phí làm ngoài giờ", "Tiền cọc mất", "Khác"],
-    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Khác"],
+    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Khác"],
   },
 };
 
@@ -115,6 +115,309 @@ async function main() {
   for (const [kind, name] of Object.entries(PARTY_KINDS)) {
     const exists = await prisma.party.findFirst({ where: { kind, name } });
     if (!exists) await prisma.party.create({ data: { kind, name } });
+  }
+
+  // One-off: dedupe contracts that were created multiple times because earlier
+  // versions of seed-vp1 only checked ACTIVE status, so when a contract auto-
+  // expired the next deploy re-created it. Group by (roomId, startDate, monthlyRent),
+  // keep oldest, delete the rest along with any orphan customers.
+  const dedupeDone = await prisma.auditLog.findFirst({
+    where: { action: "DEDUPE_CONTRACTS_v1", entityType: "Contract" },
+  });
+  if (!dedupeDone) {
+    const all = await prisma.contract.findMany({
+      orderBy: { createdAt: "asc" },
+      include: { customers: { select: { customerId: true } } },
+    });
+    const seen = new Map();
+    let removed = 0;
+    for (const c of all) {
+      const key = `${c.roomId}|${c.startDate.toISOString()}|${c.monthlyRent}`;
+      if (seen.has(key)) {
+        // Duplicate — delete it. Need to clean up FKs (no cascade to invoice).
+        const invoiceIds = (
+          await prisma.invoice.findMany({ where: { contractId: c.id }, select: { id: true } })
+        ).map((i) => i.id);
+        if (invoiceIds.length > 0) {
+          await prisma.transaction.updateMany({
+            where: { invoiceId: { in: invoiceIds } },
+            data: { invoiceId: null },
+          });
+          await prisma.invoice.deleteMany({ where: { contractId: c.id } });
+        }
+        const customerIds = c.customers.map((cc) => cc.customerId);
+        await prisma.contract.delete({ where: { id: c.id } });
+        // Delete orphan customers (those that were only attached to this contract)
+        for (const cid of customerIds) {
+          const otherCount = await prisma.contractCustomer.count({ where: { customerId: cid } });
+          if (otherCount === 0) {
+            await prisma.customer.delete({ where: { id: cid } }).catch(() => {});
+          }
+        }
+        removed++;
+      } else {
+        seen.set(key, c);
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "DEDUPE_CONTRACTS_v1", entityType: "Contract", after: { removed } },
+    });
+    if (removed > 0) console.log(`Deduped ${removed} duplicate contracts.`);
+  }
+
+  // One-off renames: address-based names are clearer when several buildings
+  // share a street. Idempotent via AuditLog marker.
+  const renames = [
+    { from: "VP 1 - Lê Trung Nghĩa", to: "30 Lê Trung Nghĩa" },
+    { from: "VP 2 - Lê Trung Nghĩa", to: "60 Lê Trung Nghĩa" },
+  ];
+  const renameMarker = await prisma.auditLog.findFirst({
+    where: { action: "RENAME", entityType: "Buildings_v1" },
+  });
+  if (!renameMarker) {
+    let renamedCount = 0;
+    for (const r of renames) {
+      const b = await prisma.building.findFirst({ where: { name: r.from } });
+      if (b) {
+        await prisma.building.update({ where: { id: b.id }, data: { name: r.to } });
+        console.log(`Renamed building: ${r.from} → ${r.to}`);
+        renamedCount++;
+      }
+    }
+    await prisma.auditLog.create({
+      data: {
+        action: "RENAME",
+        entityType: "Buildings_v1",
+        after: { renamedCount, list: renames },
+      },
+    });
+  }
+
+  // One-off: migrate existing contract codes to new format <TYPE>-DDMMYY-NN.
+  // Numbers are reassigned per (type, day) group ordered by createdAt for
+  // stability. Idempotent via AuditLog marker.
+  const codeMigDone = await prisma.auditLog.findFirst({
+    where: { action: "MIGRATE_CONTRACT_CODES_v2", entityType: "Contract" },
+  });
+  if (!codeMigDone) {
+    const allContracts = await prisma.contract.findMany({
+      include: { building: { select: { type: true } } },
+      orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    });
+    const fmt = (d) => {
+      const z = (n) => String(n).padStart(2, "0");
+      return `${z(d.getDate())}${z(d.getMonth() + 1)}${String(d.getFullYear()).slice(-2)}`;
+    };
+    const groups = new Map();
+    for (const c of allContracts) {
+      const key = `${c.building.type}-${fmt(new Date(c.startDate))}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
+    }
+    let migrated = 0;
+    // To avoid unique-constraint clashes when intermediate codes overlap between
+    // the existing and new schemes, do it in two passes: first set every code to
+    // a temporary unique value, then assign the final codes.
+    for (const c of allContracts) {
+      await prisma.contract.update({
+        where: { id: c.id },
+        data: { code: `__tmp_${c.id}` },
+      });
+    }
+    for (const [prefix, list] of groups) {
+      for (let i = 0; i < list.length; i++) {
+        const newCode = `${prefix}-${String(i + 1).padStart(2, "0")}`;
+        if (list[i].code !== newCode) {
+          await prisma.contract.update({
+            where: { id: list[i].id },
+            data: { code: newCode },
+          });
+          migrated++;
+        }
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "MIGRATE_CONTRACT_CODES_v2", entityType: "Contract", after: { migrated } },
+    });
+    if (migrated > 0) console.log(`Migrated ${migrated} contract codes to new format.`);
+  }
+
+  // One-off: sync existing INVOICES' electricity price + parking fee to match
+  // their building's current setting, then recompute their totals. Idempotent
+  // via AuditLog marker; only runs once per release.
+  const invSyncDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_INVOICE_FEES_v1", entityType: "Invoice" },
+  });
+  if (!invSyncDone) {
+    const invoices = await prisma.invoice.findMany({
+      include: { building: { include: { setting: true } } },
+    });
+    let synced = 0;
+    for (const inv of invoices) {
+      const s = inv.building.setting;
+      if (!s) continue;
+      const newElec = s.electricityPricePerKwh;
+      const newParkPerVeh = s.parkingFeePerVehicle;
+      if (
+        inv.electricityPricePerKwh === newElec &&
+        inv.parkingFeePerVehicle === newParkPerVeh
+      ) continue;
+      // Recompute electricityFee with new price
+      const kwh =
+        inv.electricityStart != null && inv.electricityEnd != null && inv.electricityEnd > inv.electricityStart
+          ? inv.electricityEnd - inv.electricityStart
+          : 0;
+      const newElecFee = BigInt(kwh) * newElec;
+      const newParkingFee = BigInt(inv.parkingCount) * newParkPerVeh;
+      const newTotal = inv.rentAmount + newElecFee + newParkingFee + inv.overtimeFee + inv.serviceFee;
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        data: {
+          electricityPricePerKwh: newElec,
+          parkingFeePerVehicle: newParkPerVeh,
+          electricityFee: newElecFee,
+          parkingFee: newParkingFee,
+          totalAmount: newTotal,
+        },
+      });
+      synced++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_INVOICE_FEES_v1", entityType: "Invoice", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced ${synced} invoices to building fee settings.`);
+  }
+
+  // One-off: sync existing contracts' electricity/parking fees to match their
+  // building's current setting. After this, defaults always come from setting.
+  const feeSyncDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_CONTRACT_FEES", entityType: "Contract" },
+  });
+  if (!feeSyncDone) {
+    const contracts = await prisma.contract.findMany({
+      include: { building: { include: { setting: true } } },
+    });
+    let synced = 0;
+    for (const c of contracts) {
+      const s = c.building.setting;
+      if (!s) continue;
+      if (
+        c.electricityPricePerKwh !== s.electricityPricePerKwh ||
+        c.parkingFeePerVehicle !== s.parkingFeePerVehicle
+      ) {
+        await prisma.contract.update({
+          where: { id: c.id },
+          data: {
+            electricityPricePerKwh: s.electricityPricePerKwh,
+            parkingFeePerVehicle: s.parkingFeePerVehicle,
+          },
+        });
+        synced++;
+      }
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_CONTRACT_FEES", entityType: "Contract", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced ${synced} contracts to building fee settings.`);
+  }
+
+  // One-off: pull parkingCount from contract into invoice when invoice was
+  // created before the contract had parking set. Only patches invoices whose
+  // parkingCount=0 but the contract has >0 — so we don't override invoices
+  // that were intentionally edited to a different count.
+  const invParkDone = await prisma.auditLog.findFirst({
+    where: { action: "SYNC_INVOICE_PARKING_v1", entityType: "Invoice" },
+  });
+  if (!invParkDone) {
+    const candidates = await prisma.invoice.findMany({
+      where: { parkingCount: 0 },
+      include: { contract: { select: { parkingCount: true } } },
+    });
+    let synced = 0;
+    for (const inv of candidates) {
+      const cnt = inv.contract.parkingCount;
+      if (!cnt || cnt <= 0) continue;
+      const newParkingFee = BigInt(cnt) * inv.parkingFeePerVehicle;
+      const newTotal =
+        inv.rentAmount +
+        inv.electricityFee +
+        newParkingFee +
+        inv.overtimeFee +
+        inv.serviceFee;
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        data: {
+          parkingCount: cnt,
+          parkingFee: newParkingFee,
+          totalAmount: newTotal,
+        },
+      });
+      synced++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SYNC_INVOICE_PARKING_v1", entityType: "Invoice", after: { synced } },
+    });
+    if (synced > 0) console.log(`Synced parking on ${synced} invoices from contracts.`);
+  }
+
+  // One-off: contract codes used to always end in -NN. Now -NN is only
+  // appended when there are multiple contracts of the same TYPE on the same
+  // day; a lone contract is just <TYPE>-DDMMYY. Strip the suffix from any
+  // existing code that's the sole member of its (TYPE, day) group.
+  const codeShortenDone = await prisma.auditLog.findFirst({
+    where: { action: "SHORTEN_CONTRACT_CODES_v1", entityType: "Contract" },
+  });
+  if (!codeShortenDone) {
+    const all = await prisma.contract.findMany({ select: { id: true, code: true } });
+    // Group by base = code without trailing "-NN"
+    const groups = new Map();
+    for (const c of all) {
+      const m = c.code.match(/^(.+)-(\d{2})$/);
+      const base = m ? m[1] : c.code;
+      if (!groups.has(base)) groups.set(base, []);
+      groups.get(base).push(c);
+    }
+    let shortened = 0;
+    for (const [base, list] of groups) {
+      if (list.length !== 1) continue;
+      const c = list[0];
+      if (c.code === base) continue;
+      // Make sure the bare base isn't already taken by something else.
+      const clash = await prisma.contract.findFirst({ where: { code: base } });
+      if (clash && clash.id !== c.id) continue;
+      await prisma.contract.update({ where: { id: c.id }, data: { code: base } });
+      shortened++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SHORTEN_CONTRACT_CODES_v1", entityType: "Contract", after: { shortened } },
+    });
+    if (shortened > 0) console.log(`Shortened ${shortened} contract codes (dropped lone -01).`);
+  }
+
+  // One-off: fix dueDate on existing invoices that used the building's
+  // defaultDueDay (which defaulted to 5) instead of the contract's own
+  // paymentDay. New generator code prefers contract.paymentDay; this
+  // migration aligns historical data so the user-visible "Hạn TT" matches
+  // the contract's "Ngày thanh toán hàng tháng".
+  const dueFixDone = await prisma.auditLog.findFirst({
+    where: { action: "FIX_INVOICE_DUE_DAY_v1", entityType: "Invoice" },
+  });
+  if (!dueFixDone) {
+    const all = await prisma.invoice.findMany({
+      include: { contract: { select: { paymentDay: true } } },
+    });
+    let fixed = 0;
+    for (const inv of all) {
+      const wantDay = inv.contract.paymentDay || 5;
+      if (inv.dueDate.getDate() === Math.min(wantDay, 28)) continue;
+      const newDue = new Date(inv.year, inv.month - 1, Math.min(wantDay, 28));
+      await prisma.invoice.update({ where: { id: inv.id }, data: { dueDate: newDue } });
+      fixed++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "FIX_INVOICE_DUE_DAY_v1", entityType: "Invoice", after: { fixed } },
+    });
+    if (fixed > 0) console.log(`Fixed dueDate on ${fixed} invoices.`);
   }
 
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers

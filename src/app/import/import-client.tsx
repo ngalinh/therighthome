@@ -7,13 +7,8 @@ import { Download, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle, X
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type Preview = {
-  buildings: { rows: unknown[]; errors: { row: number; message: string }[] };
-  rooms: { rows: unknown[]; errors: { row: number; message: string }[] };
-  customers: { rows: unknown[]; errors: { row: number; message: string }[] };
-  contracts: { rows: unknown[]; errors: { row: number; message: string }[] };
-  transactions: { rows: unknown[]; errors: { row: number; message: string }[] };
-};
+type SheetPreview = { rows: unknown[]; errors: { row: number; message: string }[] };
+type Preview = { chdv: SheetPreview; vp: SheetPreview };
 
 function StepBadge({ n, active, done }: { n: number; active: boolean; done: boolean }) {
   return (
@@ -82,9 +77,7 @@ export function ImportClient() {
     router.refresh();
   }
 
-  const totalErrors = preview
-    ? preview.buildings.errors.length + preview.rooms.errors.length + preview.customers.errors.length + preview.contracts.errors.length + preview.transactions.errors.length
-    : 0;
+  const totalErrors = preview ? preview.chdv.errors.length + preview.vp.errors.length : 0;
 
   const step = stats ? 3 : preview ? 2 : file ? 1 : 0;
 
@@ -96,7 +89,7 @@ export function ImportClient() {
           <StepBadge n={1} active={step === 0} done={step > 0} />
           <div>
             <h3 className="font-semibold text-slate-900 text-sm">Tải file mẫu Excel</h3>
-            <p className="text-xs text-slate-500 mt-0.5">5 sheet: Toa_nha, Phong, Khach_hang, Hop_dong, Giao_dich</p>
+            <p className="text-xs text-slate-500 mt-0.5">2 sheet: Căn hộ dịch vụ và Văn phòng</p>
           </div>
         </div>
         <Button asChild variant="outline" size="sm" className="ml-10">
@@ -183,11 +176,8 @@ export function ImportClient() {
           </div>
 
           <div className="ml-10 space-y-2 mb-4">
-            <PreviewRow label="Toà nhà" rows={preview.buildings} />
-            <PreviewRow label="Phòng" rows={preview.rooms} />
-            <PreviewRow label="Khách hàng" rows={preview.customers} />
-            <PreviewRow label="Hợp đồng" rows={preview.contracts} />
-            <PreviewRow label="Giao dịch" rows={preview.transactions} />
+            <PreviewRow label="Căn hộ dịch vụ" rows={preview.chdv} />
+            <PreviewRow label="Văn phòng" rows={preview.vp} />
           </div>
 
           <div className="ml-10">
@@ -207,7 +197,7 @@ export function ImportClient() {
           </div>
           <h3 className="text-lg font-bold text-slate-900 mb-1">Import thành công!</h3>
           <p className="text-sm text-slate-500 mb-4">Dữ liệu đã được thêm vào hệ thống</p>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
                 <div className="text-xs text-slate-500 capitalize mb-1">{k}</div>
@@ -221,7 +211,7 @@ export function ImportClient() {
   );
 }
 
-function PreviewRow({ label, rows }: { label: string; rows: { rows: unknown[]; errors: { row: number; message: string }[] } }) {
+function PreviewRow({ label, rows }: { label: string; rows: SheetPreview }) {
   const hasErrors = rows.errors.length > 0;
   return (
     <div className={cn(

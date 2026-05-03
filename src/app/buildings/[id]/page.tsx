@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { formatVND } from "@/lib/utils";
+import { formatVND, compareRooms } from "@/lib/utils";
 import { RoomsManager } from "./rooms-manager";
 import { DeleteBuildingButton } from "./delete-building-button";
+import { RevenueExpenseChart } from "./revenue-expense-chart";
 
 export default async function BuildingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -36,6 +37,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
     },
   });
   if (!building) notFound();
+  building.rooms.sort((a, b) => compareRooms(a.number, b.number));
 
   const canWrite = await can(session.user.id, session.user.role, id, "building.write");
   const isChdv = building.type === "CHDV";
@@ -110,40 +112,81 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
             <QuickLink href={`/buildings/${building.id}/settings`} icon={AlertCircle} label="Cài đặt" gradient="from-slate-500 to-slate-700" />
           </div>
 
-          {/* Rooms map */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-base">Sơ đồ phòng</CardTitle>
-              <div className="flex items-center gap-3 text-xs text-slate-600">
-                <LegendDot colorClass="bg-emerald-500" label="Trống" />
-                <LegendDot colorClass="bg-rose-400" label="Đang thuê" />
-                <LegendDot colorClass="bg-amber-400" label="Sắp HH" />
-                <LegendDot colorClass="bg-slate-300" label="Bảo trì" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <RoomsManager
-                buildingId={building.id}
-                canWrite={canWrite}
-                rooms={building.rooms.map((r) => {
-                  const c = r.contracts[0];
-                  const primary = c?.customers.find((cc) => cc.isPrimary)?.customer;
-                  const daysLeft = c ? Math.ceil((c.endDate.getTime() - Date.now()) / (24 * 3600 * 1000)) : null;
-                  return {
-                    id: r.id,
-                    number: r.number,
-                    status: r.status,
-                    customerName: primary?.fullName || primary?.companyName || null,
-                    daysLeft,
-                  };
-                })}
-              />
-            </CardContent>
-          </Card>
+          {/* Rooms map (left) + revenue chart (right) */}
+          <div className="grid lg:grid-cols-2 gap-5">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-base">Sơ đồ phòng</CardTitle>
+                <div className="flex items-center gap-3 text-xs text-slate-600">
+                  <LegendDot colorClass="bg-emerald-500" label="Trống" />
+                  <LegendDot colorClass="bg-slate-400" label="Đang thuê" />
+                  <LegendDot colorClass="bg-amber-400" label="Sắp HH" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <RoomsManager
+                  buildingId={building.id}
+                  canWrite={canWrite}
+                  rooms={building.rooms.map((r) => {
+                    const c = r.contracts[0];
+                    const primary = c?.customers.find((cc) => cc.isPrimary)?.customer;
+                    const daysLeft = c && !c.isOpenEnded
+                      ? Math.ceil((c.endDate.getTime() - Date.now()) / (24 * 3600 * 1000))
+                      : null;
+                    return {
+                      id: r.id,
+                      number: r.number,
+                      status: r.status,
+                      customerName: primary?.fullName || primary?.companyName || null,
+                      daysLeft,
+                      contractId: c?.id ?? null,
+                    };
+                  })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Thu / Chi 6 tháng gần nhất</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RevenueExpenseChart series={await loadSixMonthSeries(id)} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </PageBody>
     </AppShell>
   );
+}
+
+// Group transactions for the building over the last 6 months (including current).
+async function loadSixMonthSeries(buildingId: string) {
+  const now = new Date();
+  const months: { month: number; year: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+  }
+  const earliest = months[0];
+  const latest = months[5];
+  const txs = await prisma.transaction.findMany({
+    where: {
+      buildingId,
+      countInBR: true,
+      OR: months.map((m) => ({ accountingMonth: m.month, accountingYear: m.year })),
+    },
+    select: { type: true, amount: true, accountingMonth: true, accountingYear: true },
+  });
+  const series = months.map((m) => {
+    const matches = txs.filter((t) => t.accountingMonth === m.month && t.accountingYear === m.year);
+    const income = matches.filter((t) => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
+    const expense = matches.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + Number(t.amount), 0);
+    return { ...m, income, expense };
+  });
+  void earliest; void latest;
+  return series;
 }
 
 const ACCENTS = {

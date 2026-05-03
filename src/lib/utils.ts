@@ -39,6 +39,47 @@ export function addMonths(d: Date, m: number): Date {
   return result;
 }
 
+// Sort key for room numbers. "G01"/"G02" come before any non-G room, and
+// within each group we order by the trailing digits numerically. So the
+// resulting order is e.g. G01, G02, P101, P102, P201, ...
+export function roomSortKey(n: string): [number, number, string] {
+  const trimmed = n.trim();
+  const isGround = /^g/i.test(trimmed);
+  const m = trimmed.match(/(\d+)/);
+  const num = m ? Number(m[1]) : 0;
+  return [isGround ? 0 : 1, num, trimmed];
+}
+
+export function compareRooms(a: string, b: string): number {
+  const [ag, an, at] = roomSortKey(a);
+  const [bg, bn, bt] = roomSortKey(b);
+  if (ag !== bg) return ag - bg;
+  if (an !== bn) return an - bn;
+  return at.localeCompare(bt, "vi");
+}
+
+// Extract a floor identifier from a room number for grouping.
+// "G01" → "G", "P101" → "1", "P603" → "6", "201" → "2".
+export function roomFloor(n: string): string {
+  const trimmed = n.trim();
+  if (/^g/i.test(trimmed)) return "G";
+  const m = trimmed.match(/(\d+)/);
+  if (!m) return trimmed;
+  return m[1].length === 1 ? m[1] : m[1][0];
+}
+
+// Pick the right display name for a customer:
+// - Company → companyName (the registered name) preferred over the contact
+//   person's fullName.
+// - Individual → fullName preferred.
+export function customerDisplayName(
+  c: { type?: string | null; fullName?: string | null; companyName?: string | null } | null | undefined,
+): string {
+  if (!c) return "—";
+  if (c.type === "COMPANY") return c.companyName?.trim() || c.fullName?.trim() || "—";
+  return c.fullName?.trim() || c.companyName?.trim() || "—";
+}
+
 // Recursively reflect what JSON.stringify+parse does to bigints and Dates.
 export type Serialized<T> =
   T extends bigint ? string :

@@ -25,12 +25,12 @@ async function markOverdueInvoices() {
 async function autoExpireContracts() {
   const now = new Date();
   const r = await prisma.contract.updateMany({
-    where: { status: "ACTIVE", endDate: { lt: now } },
+    where: { status: "ACTIVE", isOpenEnded: false, endDate: { lt: now } },
     data: { status: "EXPIRED" },
   });
   // Free rooms whose ACTIVE contracts just expired
   const expired = await prisma.contract.findMany({
-    where: { status: "EXPIRED", endDate: { lt: now } },
+    where: { status: "EXPIRED", isOpenEnded: false, endDate: { lt: now } },
     select: { roomId: true },
   });
   for (const e of expired) {
@@ -68,14 +68,15 @@ async function generateForBuilding(buildingId, month, year) {
   for (const c of contracts) {
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0);
-    if (c.endDate < startOfMonth || c.startDate > endOfMonth) continue;
+    if (!c.isOpenEnded && c.endDate < startOfMonth) continue;
+    if (c.startDate > endOfMonth) continue;
 
     const existing = await prisma.invoice.findUnique({
       where: { contractId_month_year: { contractId: c.id, month, year } },
     });
     if (existing) continue;
 
-    const dueDay = c.building.setting?.defaultDueDay ?? c.paymentDay ?? 5;
+    const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
     const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
     // Effective rent based on contract year
