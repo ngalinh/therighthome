@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, roomFloor, compareRooms } from "@/lib/utils";
 
 type Room = {
   id: string;
@@ -104,12 +104,53 @@ export function RoomsManager({
       {rooms.length === 0 ? (
         <p className="text-sm text-slate-500 text-center py-8">Chưa có phòng nào. {canWrite && "Bấm Thêm phòng để bắt đầu."}</p>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
-          {rooms.map((r) => (
-            <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => deleteRoom(r.id, r.number)} />
-          ))}
-        </div>
+        <FloorGroupedRooms
+          rooms={rooms}
+          buildingId={buildingId}
+          canWrite={canWrite}
+          onDelete={(r) => deleteRoom(r.id, r.number)}
+        />
       )}
+    </div>
+  );
+}
+
+function FloorGroupedRooms({
+  rooms, buildingId, canWrite, onDelete,
+}: {
+  rooms: Room[];
+  buildingId: string;
+  canWrite: boolean;
+  onDelete: (r: Room) => void;
+}) {
+  // Bucket rooms by floor; floor "G" first, then numeric ascending.
+  const byFloor = new Map<string, Room[]>();
+  for (const r of rooms) {
+    const f = roomFloor(r.number);
+    if (!byFloor.has(f)) byFloor.set(f, []);
+    byFloor.get(f)!.push(r);
+  }
+  const floors = Array.from(byFloor.keys()).sort((a, b) => {
+    if (a === "G") return -1;
+    if (b === "G") return 1;
+    return Number(a) - Number(b);
+  });
+  for (const f of floors) byFloor.get(f)!.sort((a, b) => compareRooms(a.number, b.number));
+
+  return (
+    <div className="space-y-3">
+      {floors.map((f) => (
+        <div key={f} className="flex items-start gap-3">
+          <div className="w-8 shrink-0 pt-3 text-xs font-semibold text-slate-400 text-right">
+            {f === "G" ? "G" : `L${f}`}
+          </div>
+          <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
+            {byFloor.get(f)!.map((r) => (
+              <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => onDelete(r)} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -82,7 +82,10 @@ export function InvoicesView({
       body: JSON.stringify({ month, year }),
     });
     setGenerating(false);
-    if (!res.ok) return toast.error("Tạo hoá đơn thất bại");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Tạo hoá đơn thất bại");
+    }
     const { created } = await res.json();
     toast.success(created > 0 ? `Đã tạo ${created} hoá đơn` : "Tất cả HĐ đã tồn tại");
     router.refresh();

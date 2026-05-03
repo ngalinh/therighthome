@@ -58,6 +58,16 @@ export function compareRooms(a: string, b: string): number {
   return at.localeCompare(bt, "vi");
 }
 
+// Extract a floor identifier from a room number for grouping.
+// "G01" → "G", "P101" → "1", "P603" → "6", "201" → "2".
+export function roomFloor(n: string): string {
+  const trimmed = n.trim();
+  if (/^g/i.test(trimmed)) return "G";
+  const m = trimmed.match(/(\d+)/);
+  if (!m) return trimmed;
+  return m[1].length === 1 ? m[1] : m[1][0];
+}
+
 // Recursively reflect what JSON.stringify+parse does to bigints and Dates.
 export type Serialized<T> =
   T extends bigint ? string :

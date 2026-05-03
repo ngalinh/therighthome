@@ -19,6 +19,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const parsed = generateSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const codes = await generateMonthlyInvoices(parsed.data.month, parsed.data.year, id);
-  return NextResponse.json({ created: codes.length, codes });
+  try {
+    const codes = await generateMonthlyInvoices(parsed.data.month, parsed.data.year, id);
+    return NextResponse.json({ created: codes.length, codes });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown";
+    console.error("[invoices/generate] failed:", err);
+    return NextResponse.json({ error: `Tạo hoá đơn lỗi: ${message}` }, { status: 500 });
+  }
 }
