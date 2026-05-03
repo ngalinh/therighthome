@@ -131,7 +131,19 @@ export async function ManageTypePage({
         },
       },
     },
-    orderBy: [{ status: "asc" }, { contract: { room: { number: "asc" } } }],
+    orderBy: [{ dueDate: "asc" }],
+  });
+
+  // Sort: OVERDUE oldest-first, then PENDING/PARTIAL by dueDate, then PAID,
+  // then CANCELLED — surfaces the most overdue invoices at the top.
+  const STATUS_BUCKET: Record<string, number> = {
+    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, CANCELLED: 3,
+  };
+  invoices.sort((a, b) => {
+    const ba = STATUS_BUCKET[a.status] ?? 9;
+    const bb = STATUS_BUCKET[b.status] ?? 9;
+    if (ba !== bb) return ba - bb;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
   // Transactions (filtered by month/year/building).
