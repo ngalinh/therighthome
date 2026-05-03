@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { Receipt, Send, Plus, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Invoice = {
   id: string;
@@ -134,6 +135,31 @@ export function InvoicesView({
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">
+          <ExportExcelButton
+            filename={`hoa-don-${month}-${year}.xlsx`}
+            sheets={() => [{
+              name: `T${month}-${year}`,
+              rows: invoices.map((inv) => {
+                const primary = inv.contract.customers[0]?.customer;
+                const name = customerDisplayName(primary);
+                return {
+                  "Mã HĐ": inv.code,
+                  "Phòng": inv.contract.room.number,
+                  "Khách thuê": name,
+                  "Trạng thái": STATUS[inv.status]?.label ?? inv.status,
+                  "Hạn TT": formatDateVN(inv.dueDate),
+                  "Tiền thuê": Number(inv.rentAmount),
+                  "Tiền điện": Number(inv.electricityFee),
+                  "Phí xe": Number(inv.parkingFee),
+                  "Phí ngoài giờ": Number(inv.overtimeFee),
+                  "Phí dịch vụ": Number(inv.serviceFee),
+                  "Tổng": Number(inv.totalAmount),
+                  "Đã thu": Number(inv.paidAmount),
+                  "Còn lại": Number(BigInt(inv.totalAmount) - BigInt(inv.paidAmount)),
+                };
+              }),
+            }]}
+          />
           {canWrite && (
             <Button onClick={generate} variant="gradient" disabled={generating}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

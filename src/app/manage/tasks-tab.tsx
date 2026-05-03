@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Plus, Edit, Trash2, DollarSign, Loader2, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type BuildingLite = { id: string; name: string; type: "CHDV" | "VP" };
 type RoomLite = { id: string; buildingId: string; number: string };
@@ -55,9 +56,28 @@ export function ManageTasksTab({
         <h2 className="text-base font-semibold flex items-center gap-2">
           <ClipboardList className="h-4 w-4" /> {tasks.length} công việc
         </h2>
-        <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
-          <Plus className="h-4 w-4" /> Thêm công việc
-        </Button>
+        <div className="flex gap-2">
+          <ExportExcelButton
+            filename={`cong-viec-${kind.toLowerCase()}.xlsx`}
+            sheets={() => [{
+              name: `Cong viec ${kind}`,
+              rows: tasks.map((t) => ({
+                "Ngày": formatDateVN(t.date),
+                "Toà nhà": t.building.name,
+                "Phòng": t.room?.number ?? "",
+                "Đối tượng": t.party?.name ?? "",
+                "Công việc": t.taskName,
+                "Tình trạng": t.status === "DONE" ? "Hoàn thành" : "Chờ xử lý",
+                "Chi phí": Number(t.cost),
+                "Đã có phiếu chi": t.expenseTransactionId ? "x" : "",
+                "Ghi chú": t.notes ?? "",
+              })),
+            }]}
+          />
+          <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
+            <Plus className="h-4 w-4" /> Thêm công việc
+          </Button>
+        </div>
       </div>
 
       {tasks.length === 0 ? (

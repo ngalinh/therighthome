@@ -15,6 +15,7 @@ import {
 import { Users, Trash2, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { compareRooms, customerDisplayName } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Customer = {
   id: string;
@@ -70,8 +71,34 @@ export function CustomersTab({
     return compareRooms(latestRoom(a), latestRoom(b));
   });
 
+  function buildExport() {
+    return [{
+      name: "Khach hang",
+      rows: sorted.map((c) => {
+        const latest = c.contractCustomers.find((cc) => cc.contract.status === "ACTIVE")?.contract
+          ?? c.contractCustomers[0]?.contract;
+        return {
+          "Phòng": latest?.room.number ?? "",
+          "Tên": customerDisplayName(c),
+          "Loại": c.type === "COMPANY" ? "Công ty" : "Cá nhân",
+          "Người đại diện": c.type === "COMPANY" ? c.fullName ?? "" : "",
+          "CCCD": c.idNumber ?? "",
+          "MST": c.taxNumber ?? "",
+          "SĐT": c.phone ?? "",
+          "Email": c.email ?? "",
+          "Biển số xe": c.licensePlate ?? "",
+          "Trạng thái": latest?.status ?? "",
+        };
+      }),
+    }];
+  }
+
   return (
     <>
+      <div className="flex justify-end mb-2">
+        <ExportExcelButton filename="khach-hang.xlsx" sheets={buildExport} />
+      </div>
+
       {/* Mobile: card list */}
       <div className="space-y-2 lg:hidden">
         {sorted.map((c) => (

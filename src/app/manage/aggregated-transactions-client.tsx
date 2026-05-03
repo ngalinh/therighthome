@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty";
 import { ArrowDownCircle, ArrowUpCircle, Trash2, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type BuildingLite = { id: string; name: string };
 type RoomLite = { id: string; buildingId: string; number: string };
@@ -126,16 +127,37 @@ export function AggregatedTransactionsClient({
             {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {canWrite && (
-          <div className="ml-auto flex gap-2">
-            <Button onClick={() => setCreateOpen("INCOME")} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              <ArrowDownCircle className="h-4 w-4" /> Phiếu thu
-            </Button>
-            <Button onClick={() => setCreateOpen("EXPENSE")} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
-              <ArrowUpCircle className="h-4 w-4" /> Phiếu chi
-            </Button>
-          </div>
-        )}
+        <div className="ml-auto flex gap-2">
+          <ExportExcelButton
+            filename={`giao-dich-${buildingType.toLowerCase()}-${month}-${year}.xlsx`}
+            sheets={() => [{
+              name: `T${month}-${year}`,
+              rows: filtered.map((t) => ({
+                "Mã": t.code,
+                "Toà nhà": t.building.name,
+                "Ngày": formatDateVN(t.date),
+                "Loại": t.type === "INCOME" ? "Thu" : "Chi",
+                "Số tiền": Number(t.amount),
+                "Nội dung": t.content,
+                "Hạng mục": t.category?.name ?? "",
+                "PTTT": t.paymentMethod?.name ?? "",
+                "Đối tượng": t.customer ? (t.customer.fullName || t.customer.companyName || "") : (t.party?.name ?? ""),
+                "Hạch toán BCKD": t.countInBR ? "x" : "",
+                "Ghi chú": t.notes ?? "",
+              })),
+            }]}
+          />
+          {canWrite && (
+            <>
+              <Button onClick={() => setCreateOpen("INCOME")} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <ArrowDownCircle className="h-4 w-4" /> Phiếu thu
+              </Button>
+              <Button onClick={() => setCreateOpen("EXPENSE")} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+                <ArrowUpCircle className="h-4 w-4" /> Phiếu chi
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">

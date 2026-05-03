@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateVN, formatVND, customerDisplayName } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Contract = {
   id: string;
@@ -44,11 +45,33 @@ export function ExpiringContractsTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-        <AlertTriangle className="h-4 w-4" />
-        <span>
-          {contracts.length} hợp đồng sắp hết hạn trong {daysThreshold} ngày tới.
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex-1 min-w-0">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            {contracts.length} hợp đồng sắp hết hạn trong {daysThreshold} ngày tới.
+          </span>
+        </div>
+        <ExportExcelButton
+          filename={`hd-sap-het-han-${kind.toLowerCase()}.xlsx`}
+          sheets={() => [{
+            name: "HD sap het han",
+            rows: contracts.map((c) => {
+              const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
+              return {
+                "Toà nhà": c.building.name,
+                "Phòng": c.room.number,
+                "Mã HĐ": c.code,
+                "Khách thuê": customerDisplayName(primary),
+                "Bắt đầu": formatDateVN(c.startDate),
+                "Kết thúc": formatDateVN(c.endDate),
+                "Còn (ngày)": Math.ceil((new Date(c.endDate).getTime() - Date.now()) / (24 * 3600 * 1000)),
+                "Giá thuê": Number(c.monthlyRent),
+                "Ghi chú": c.expiringNote ?? "",
+              };
+            }),
+          }]}
+        />
       </div>
 
       {/* Mobile cards */}

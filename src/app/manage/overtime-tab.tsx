@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Plus, Edit, Trash2, DollarSign, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/ui/export-button";
 
 type BuildingLite = { id: string; name: string; type: "CHDV" | "VP" };
 type RoomLite = { id: string; buildingId: string; number: string };
@@ -48,9 +49,27 @@ export function ManageOvertimeTab({
         <h2 className="text-base font-semibold flex items-center gap-2">
           <Clock className="h-4 w-4" /> {overtimes.length} đăng ký
         </h2>
-        <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
-          <Plus className="h-4 w-4" /> Đăng ký
-        </Button>
+        <div className="flex gap-2">
+          <ExportExcelButton
+            filename="lam-ngoai-gio.xlsx"
+            sheets={() => [{
+              name: "Ngoai gio",
+              rows: overtimes.map((o) => ({
+                "Ngày": formatDateVN(o.date),
+                "Toà nhà": o.building.name,
+                "Phòng": o.room?.number ?? "",
+                "Giờ bắt đầu": o.startTime,
+                "Giờ kết thúc": o.endTime,
+                "Phí": Number(o.fee),
+                "Hoá đơn": o.invoice?.code ?? "",
+                "Ghi chú": o.notes ?? "",
+              })),
+            }]}
+          />
+          <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
+            <Plus className="h-4 w-4" /> Đăng ký
+          </Button>
+        </div>
       </div>
 
       {overtimes.length === 0 ? (

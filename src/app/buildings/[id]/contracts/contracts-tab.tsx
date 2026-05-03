@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
+import { ExportExcelButton } from "@/components/ui/export-button";
 import { FileText, Download } from "lucide-react";
 import { formatDateVN, formatVND, compareRooms, customerDisplayName } from "@/lib/utils";
 
@@ -56,8 +57,34 @@ export function ContractsTab({
     return compareRooms(a.room.number, b.room.number);
   });
 
+  function buildExport() {
+    return [{
+      name: "Hop dong",
+      rows: sorted.map((c) => {
+        const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
+        const name = customerDisplayName(primary);
+        const status = STATUS[c.status]?.label ?? c.status;
+        return {
+          "Mã HĐ": c.code,
+          "Phòng": c.room.number,
+          "Khách thuê": name,
+          "Trạng thái": status,
+          "Bắt đầu": formatDateVN(c.startDate),
+          "Kết thúc": formatDateVN(c.endDate),
+          "Giá thuê": Number(c.monthlyRent),
+          "VAT %": Math.round(c.vatRate * 100),
+          "Cọc": Number(c.depositAmount),
+        };
+      }),
+    }];
+  }
+
   return (
     <>
+      <div className="flex justify-end mb-2">
+        <ExportExcelButton filename={`hop-dong-${buildingId}.xlsx`} sheets={buildExport} />
+      </div>
+
       {/* Mobile: card list */}
       <div className="space-y-2 lg:hidden">
         {sorted.map((c) => {
