@@ -263,7 +263,9 @@ function InvoiceTable({
                   <div className="font-mono text-[11px] text-primary">{inv.code}</div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 max-w-[320px] line-clamp-2 break-words" title={name}>{name}</td>
+              <td className="px-3 py-2.5">
+                <div className="line-clamp-2 break-words" style={{ maxWidth: 320, minWidth: 200 }} title={name}>{name}</div>
+              </td>
               <td className="px-3 py-2.5 text-center whitespace-nowrap">
                 <div className="text-sm font-semibold text-slate-800">{formatDateVN(inv.dueDate)}</div>
                 <Badge variant={st.variant} className="text-[10px] whitespace-nowrap mt-1">

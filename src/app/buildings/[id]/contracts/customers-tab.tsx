@@ -196,7 +196,9 @@ function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boo
     <>
       <tr className="border-t hover:bg-slate-50/60">
         <td className="px-3 py-2.5 text-xs font-medium whitespace-nowrap">{latest?.room.number ?? "—"}</td>
-        <td className="px-3 py-2.5 font-medium max-w-[220px] line-clamp-2 break-words" title={name}>{name}</td>
+        <td className="px-3 py-2.5">
+          <div className="font-medium line-clamp-2 break-words" style={{ maxWidth: 220, minWidth: 160 }} title={name}>{name}</div>
+        </td>
         <td className="px-3 py-2.5">
           <Badge variant="outline" className="text-[10px]">
             {customer.type === "COMPANY" ? "Công ty" : "Cá nhân"}

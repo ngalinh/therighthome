@@ -309,14 +309,18 @@ function InvoiceTable({
             : null;
           return (
             <tr key={inv.id} className="border-t hover:bg-slate-50/60">
-              <td className="px-3 py-2.5 max-w-[140px] line-clamp-2 break-words" title={inv.building.name}>{inv.building.name}</td>
+              <td className="px-3 py-2.5">
+                <div className="line-clamp-2 break-words" style={{ maxWidth: 180, minWidth: 140 }} title={inv.building.name}>{inv.building.name}</div>
+              </td>
               <td className="px-3 py-2.5 whitespace-nowrap">
                 <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} className="block hover:underline">
                   <div className="font-semibold text-sm text-slate-900">{inv.contract.room.number}</div>
                   <div className="font-mono text-[11px] text-primary">{inv.code}</div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 max-w-[280px] line-clamp-2 break-words" title={name}>{name}</td>
+              <td className="px-3 py-2.5">
+                <div className="line-clamp-2 break-words" style={{ maxWidth: 320, minWidth: 200 }} title={name}>{name}</div>
+              </td>
               <td className="px-3 py-2.5 text-center whitespace-nowrap">
                 <div className="text-sm font-semibold text-slate-800">{formatDateVN(inv.dueDate)}</div>
                 <Badge variant={st.variant} className="text-[10px] whitespace-nowrap mt-1">

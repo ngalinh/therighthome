@@ -139,7 +139,9 @@ export function ContractsTab({
                   <td className="px-3 py-2.5">
                     <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">{st.label}</Badge>
                   </td>
-                  <td className="px-3 py-2.5 max-w-[220px] line-clamp-2 break-words" title={name}>{name}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="line-clamp-2 break-words" style={{ maxWidth: 220, minWidth: 160 }} title={name}>{name}</div>
+                  </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{c.room.number}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-600">
                     {formatDateVN(c.startDate)} → {c.isOpenEnded ? <span className="text-primary font-medium">Vô thời hạn</span> : formatDateVN(c.endDate)}
