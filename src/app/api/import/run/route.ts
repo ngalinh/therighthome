@@ -244,8 +244,27 @@ async function createContractIfNew(
   const start = new Date(input.startDate);
   const existing = await prisma.contract.findFirst({
     where: { buildingId, roomId, startDate: start },
+    include: { customers: { select: { customerId: true, orderIdx: true } } },
   });
-  if (existing) return;
+
+  if (existing) {
+    // Contract already imported in a previous run. Link any customers
+    // present in this group that aren't already attached.
+    const have = new Set(existing.customers.map((c) => c.customerId));
+    let nextIdx = existing.customers.reduce((m, c) => Math.max(m, c.orderIdx), -1) + 1;
+    for (const cid of customerIds) {
+      if (have.has(cid)) continue;
+      await prisma.contractCustomer.create({
+        data: {
+          contractId: existing.id,
+          customerId: cid,
+          isPrimary: false,
+          orderIdx: nextIdx++,
+        },
+      });
+    }
+    return;
+  }
 
   const end = input.endDate ? new Date(input.endDate) : addMonths(start, input.termMonths);
   const setting = await prisma.buildingSetting.findUnique({ where: { buildingId } });
