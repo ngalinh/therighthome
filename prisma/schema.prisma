@@ -107,6 +107,7 @@ model Room {
   contracts        Contract[]
   maintenanceTasks MaintenanceTask[]
   overtimeRequests OvertimeRequest[]
+  transactions     Transaction[]
 
   @@unique([buildingId, number])
   @@index([buildingId])
@@ -352,6 +353,9 @@ model Transaction {
   customerId String?    // if partyKind = CUSTOMER
   partyId    String?    // if not customer
 
+  // Optional room link (for per-room expenses/income tracking)
+  roomId String?
+
   // Hạch toán vào BCKD
   countInBR        Boolean   @default(true)
   accountingMonth  Int?
@@ -368,6 +372,7 @@ model Transaction {
   paymentMethod   PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   customer        Customer?            @relation(fields: [customerId], references: [id])
   party           Party?               @relation(fields: [partyId], references: [id])
+  room            Room?                @relation(fields: [roomId], references: [id])
   invoice         Invoice?             @relation(fields: [invoiceId], references: [id])
   invoicePayment  InvoicePayment?
   createdBy       User?                @relation(fields: [createdById], references: [id])

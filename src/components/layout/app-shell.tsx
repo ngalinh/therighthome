@@ -21,7 +21,7 @@ const MANAGE_GROUP: NavGroup = {
   icon: ClipboardList,
   basePath: "/manage",
   children: [
-    { href: "/manage/chdv", label: "Căn hộ dịch vụ", icon: Building2 },
+    { href: "/manage/chdv", label: "Căn hộ dịch vụ", icon: Home },
     { href: "/manage/vp", label: "Văn phòng", icon: Building2 },
   ],
 };

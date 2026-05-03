@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
 
 type BuildingLite = { id: string; name: string };
+type RoomLite = { id: string; buildingId: string; number: string };
 type CustomerLite = { id: string; buildingId: string; fullName: string | null; companyName: string | null };
 
 type Transaction = {
@@ -48,11 +49,12 @@ const PARTY_KINDS = [
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function AggregatedTransactionsClient({
-  buildingType, buildings, month, year, buildingFilter,
+  buildingType, buildings, rooms, month, year, buildingFilter,
   transactions, categories, paymentMethods, parties, customers, canWrite,
 }: {
   buildingType: "CHDV" | "VP";
   buildings: BuildingLite[];
+  rooms: RoomLite[];
   month: number;
   year: number;
   buildingFilter: string; // "ALL" or buildingId
@@ -155,6 +157,7 @@ export function AggregatedTransactionsClient({
       <CreateDialog
         type={createOpen}
         buildings={buildings}
+        rooms={rooms}
         defaultBuildingId={buildingFilter !== "ALL" ? buildingFilter : ""}
         month={month}
         year={year}
@@ -222,10 +225,11 @@ function TransactionRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: (
 }
 
 function CreateDialog({
-  type, buildings, defaultBuildingId, month, year, categories, paymentMethods, parties, customers, onClose,
+  type, buildings, rooms, defaultBuildingId, month, year, categories, paymentMethods, parties, customers, onClose,
 }: {
   type: "INCOME" | "EXPENSE" | null;
   buildings: BuildingLite[];
+  rooms: RoomLite[];
   defaultBuildingId: string;
   month: number;
   year: number;
@@ -245,7 +249,10 @@ function CreateDialog({
   const [partyKind, setPartyKind] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [partyId, setPartyId] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
+  const [acctMonth, setAcctMonth] = useState<number | null>(null);
+  const [acctYear, setAcctYear] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -257,8 +264,17 @@ function CreateDialog({
     () => customers.filter((c) => c.buildingId === buildingId),
     [customers, buildingId],
   );
+  const filteredRooms = useMemo(
+    () => rooms.filter((r) => r.buildingId === buildingId),
+    [rooms, buildingId],
+  );
 
   if (!type) return null;
+  const dateObj = new Date(date);
+  const dateMonth = dateObj.getMonth() + 1;
+  const dateYear = dateObj.getFullYear();
+  const effMonth = acctMonth ?? dateMonth;
+  const effYear = acctYear ?? dateYear;
 
   async function submit() {
     if (!buildingId) return toast.error("Chọn toà nhà");
@@ -276,9 +292,10 @@ function CreateDialog({
       partyKind: partyKind || undefined,
       customerId: partyKind === "CUSTOMER" && customerId ? customerId : undefined,
       partyId: partyKind && partyKind !== "CUSTOMER" && partyId ? partyId : undefined,
+      roomId: roomId || undefined,
       countInBR,
-      accountingMonth: month,
-      accountingYear: year,
+      accountingMonth: countInBR ? effMonth : month,
+      accountingYear: countInBR ? effYear : year,
       notes,
     };
     const res = await fetch(`/api/buildings/${buildingId}/transactions`, {
@@ -303,14 +320,26 @@ function CreateDialog({
           <DialogTitle>{type === "INCOME" ? "Phiếu thu" : "Phiếu chi"} mới</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Toà nhà</Label>
-            <Select value={buildingId} onValueChange={(v) => { setBuildingId(v); setCustomerId(""); }}>
-              <SelectTrigger><SelectValue placeholder="Chọn toà nhà" /></SelectTrigger>
-              <SelectContent>
-                {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Toà nhà</Label>
+              <Select value={buildingId} onValueChange={(v) => { setBuildingId(v); setCustomerId(""); setRoomId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Chọn toà nhà" /></SelectTrigger>
+                <SelectContent>
+                  {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Số phòng (tuỳ chọn)</Label>
+              <Select value={roomId || "_none"} onValueChange={(v) => setRoomId(v === "_none" ? "" : v)} disabled={!buildingId}>
+                <SelectTrigger><SelectValue placeholder={buildingId ? "—" : "Chọn toà nhà trước"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— Không gắn phòng —</SelectItem>
+                  {filteredRooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -389,6 +418,32 @@ function CreateDialog({
             <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
             <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
           </label>
+          {countInBR && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tháng hạch toán</Label>
+                <Select value={String(effMonth)} onValueChange={(v) => setAcctMonth(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Năm hạch toán</Label>
+                <Select value={String(effYear)} onValueChange={(v) => setAcctYear(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[dateYear - 1, dateYear, dateYear + 1].map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Ghi chú</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
