@@ -12,6 +12,8 @@ const updateSchema = z.object({
   overtimeFee: z.string().optional(),
   serviceFee: z.string().optional(),
   rentAmount: z.string().optional(),
+  parkingFeePerVehicle: z.string().optional(),
+  electricityPricePerKwh: z.string().optional(),
   notes: z.string().nullable().optional(),
   dueDate: z.string().optional(),
 });
@@ -28,6 +30,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const parsed = updateSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
+
+  // Bring fee snapshots up-to-date BEFORE recompute so the new total uses
+  // the user-visible rates (older invoices may have parkingFeePerVehicle=0
+  // even though the building setting has a value now).
+  if (d.parkingFeePerVehicle !== undefined || d.electricityPricePerKwh !== undefined) {
+    await prisma.invoice.update({
+      where: { id },
+      data: {
+        ...(d.parkingFeePerVehicle !== undefined ? { parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle) } : {}),
+        ...(d.electricityPricePerKwh !== undefined ? { electricityPricePerKwh: BigInt(d.electricityPricePerKwh) } : {}),
+      },
+    });
+  }
 
   await recomputeInvoice(id, {
     electricityStart: d.electricityStart,

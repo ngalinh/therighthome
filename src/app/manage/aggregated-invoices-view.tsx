@@ -284,10 +284,9 @@ function InvoiceTable({
     <table className="w-full text-sm">
       <thead>
         <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-          <th className="px-3 py-2.5 text-left">Mã HĐ</th>
+          <th className="px-3 py-2.5 text-left">Phòng / Mã HĐ</th>
           <th className="px-3 py-2.5 text-left">Toà nhà</th>
           <th className="px-3 py-2.5 text-left">Khách thuê</th>
-          <th className="px-3 py-2.5 text-left">Phòng</th>
           <th className="px-3 py-2.5 text-left">Tình trạng</th>
           <th className="px-3 py-2.5 text-left">Hạn TT</th>
           <th className="px-3 py-2.5 text-right">Tiền thuê</th>
@@ -311,12 +310,14 @@ function InvoiceTable({
             : null;
           return (
             <tr key={inv.id} className="border-t hover:bg-slate-50/60">
-              <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">
-                <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} className="text-primary hover:underline">{inv.code}</Link>
+              <td className="px-3 py-2.5 whitespace-nowrap">
+                <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} className="block hover:underline">
+                  <div className="font-semibold text-sm text-slate-900">{inv.contract.room.number}</div>
+                  <div className="font-mono text-[11px] text-primary">{inv.code}</div>
+                </Link>
               </td>
               <td className="px-3 py-2.5 max-w-[180px] truncate" title={inv.building.name}>{inv.building.name}</td>
-              <td className="px-3 py-2.5 max-w-[160px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
-              <td className="px-3 py-2.5 whitespace-nowrap">{inv.contract.room.number}</td>
+              <td className="px-3 py-2.5 max-w-[260px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
               <td className="px-3 py-2.5">
                 <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">
                   {st.label}{overdueDays !== null && ` ${overdueDays}d`}

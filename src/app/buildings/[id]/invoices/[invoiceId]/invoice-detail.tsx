@@ -51,10 +51,11 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 };
 
 export function InvoiceDetail({
-  invoice, buildingType, canWrite, canSend,
+  invoice, buildingType, settingFallback, canWrite, canSend,
 }: {
   invoice: Invoice;
   buildingType: "CHDV" | "VP";
+  settingFallback: { parkingFeePerVehicle: string; electricityPricePerKwh: string };
   canWrite: boolean;
   canSend: boolean;
 }) {
@@ -73,12 +74,24 @@ export function InvoiceDetail({
   const primary = invoice.contract.customers.find((c) => c.isPrimary)?.customer;
   const st = STATUS[invoice.status] ?? { label: invoice.status, variant: "secondary" as const };
 
+  // Snapshot fee fallbacks: if the invoice was created when the building
+  // setting was empty, fall back to the current setting so the user can
+  // still see Phí xe / Tiền điện when they enter a count or meter reading.
+  const effectiveParkingFeePerVehicle =
+    invoice.parkingFeePerVehicle !== "0"
+      ? BigInt(invoice.parkingFeePerVehicle)
+      : BigInt(settingFallback.parkingFeePerVehicle);
+  const effectiveElectricityPrice =
+    invoice.electricityPricePerKwh !== "0"
+      ? BigInt(invoice.electricityPricePerKwh)
+      : BigInt(settingFallback.electricityPricePerKwh);
+
   // Live compute preview
   const elecStartN = elecStart ? Number(elecStart) : null;
   const elecEndN = elecEnd ? Number(elecEnd) : null;
   const kwh = elecStartN !== null && elecEndN !== null && elecEndN > elecStartN ? elecEndN - elecStartN : 0;
-  const elecFee = BigInt(kwh) * BigInt(invoice.electricityPricePerKwh);
-  const parkingFee = BigInt(parkingCount) * BigInt(invoice.parkingFeePerVehicle);
+  const elecFee = BigInt(kwh) * effectiveElectricityPrice;
+  const parkingFee = BigInt(parkingCount) * effectiveParkingFeePerVehicle;
   // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
   const totalPreview = BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee);
   const remaining = BigInt(invoice.totalAmount) - BigInt(invoice.paidAmount);
@@ -92,6 +105,10 @@ export function InvoiceDetail({
         electricityStart: elecStart ? Number(elecStart) : null,
         electricityEnd: elecEnd ? Number(elecEnd) : null,
         parkingCount,
+        // Bring the snapshots up to the current effective rate so the saved
+        // total reflects what the user sees on screen.
+        parkingFeePerVehicle: effectiveParkingFeePerVehicle.toString(),
+        electricityPricePerKwh: effectiveElectricityPrice.toString(),
         overtimeFee: parseVNDInput(overtime).toString(),
         serviceFee: parseVNDInput(serviceFee).toString(),
         notes,
