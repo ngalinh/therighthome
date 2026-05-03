@@ -6,8 +6,18 @@
       <stop offset="100%" stop-color="#ec4899"/>
     </linearGradient>
   </defs>
-  <rect width="192" height="192" rx="40" fill="url(#g)"/>
-  <path d="M48 88 L96 52 L144 88 L144 144 L112 144 L112 112 L80 112 L80 144 L48 144 Z"
-        fill="none" stroke="white" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
-  <circle cx="96" cy="76" r="4" fill="white"/>
+  <rect width="192" height="192" rx="42" fill="url(#g)"/>
+  <!-- Key body -->
+  <g fill="white">
+    <!-- Head ring -->
+    <circle cx="70" cy="96" r="33"/>
+    <!-- Stem -->
+    <rect x="94" y="90" width="60" height="12"/>
+    <!-- Far tooth -->
+    <rect x="142" y="96" width="12" height="19" rx="3"/>
+    <!-- Near tooth -->
+    <rect x="124" y="96" width="10" height="13" rx="2"/>
+  </g>
+  <!-- Key hole -->
+  <circle cx="70" cy="96" r="12" fill="#8b5cf6"/>
 </svg>
