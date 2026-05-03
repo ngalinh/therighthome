@@ -206,6 +206,7 @@ export async function ManageTypePage({
             <AggregatedTransactionsClient
               buildingType={kind}
               buildings={buildingsLite}
+              rooms={rooms}
               month={month}
               year={year}
               buildingFilter={buildingFilter}
