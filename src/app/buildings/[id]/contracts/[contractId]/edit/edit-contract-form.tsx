@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 
 type ContractCustomer = {
   id: string;
@@ -102,6 +103,8 @@ export function EditContractForm({
   // Upload + view contract file
   const [contractFileUrl, setContractFileUrl] = useState(contract.contractFileUrl);
   const [uploading, setUploading] = useState(false);
+  const [removingFile, setRemovingFile] = useState(false);
+  const [contractFileZoom, setContractFileZoom] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -115,6 +118,15 @@ export function EditContractForm({
     const { url } = await res.json();
     setContractFileUrl(url);
     toast.success("Đã upload");
+  }
+  async function removeFile() {
+    if (!confirm("Xoá file hợp đồng đã upload?")) return;
+    setRemovingFile(true);
+    const res = await fetch(`/api/contracts/${contract.id}/upload`, { method: "DELETE" });
+    setRemovingFile(false);
+    if (!res.ok) return toast.error("Xoá thất bại");
+    setContractFileUrl(null);
+    toast.success("Đã xoá file");
   }
   const fileExt = contractFileUrl ? contractFileUrl.split(".").pop()?.toLowerCase() : null;
   const isPdf = fileExt === "pdf";
@@ -221,7 +233,8 @@ export function EditContractForm({
       return toast.error(err.error || "Lưu thất bại");
     }
     toast.success("Đã lưu thay đổi");
-    router.push(`/buildings/${buildingId}/contracts`);
+    // Stay on the detail page so the user can keep editing without
+    // bouncing back to the list.
     router.refresh();
   }
 
@@ -282,7 +295,7 @@ export function EditContractForm({
           </CardHeader>
           <CardContent className="space-y-3">
             {contractFileUrl ? (
-              <>
+              <div className="relative">
                 {isPdf ? (
                   <iframe
                     src={contractFileUrl}
@@ -290,7 +303,13 @@ export function EditContractForm({
                     title="Hợp đồng PDF"
                   />
                 ) : isImage ? (
-                  <img src={contractFileUrl} alt="HĐ" className="w-full rounded-lg border" />
+                  <button
+                    type="button"
+                    onClick={() => setContractFileZoom(true)}
+                    className="block w-full cursor-zoom-in"
+                  >
+                    <img src={contractFileUrl} alt="HĐ" className="w-full rounded-lg border" />
+                  </button>
                 ) : (
                   <a
                     href={contractFileUrl}
@@ -301,18 +320,21 @@ export function EditContractForm({
                     <FileText className="h-4 w-4" /> Mở file
                   </a>
                 )}
-                <a
-                  href={contractFileUrl}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-xs text-primary underline block"
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  disabled={removingFile}
+                  className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+                  aria-label="Xoá file"
+                  title="Xoá file"
                 >
-                  Mở tab mới
-                </a>
-              </>
+                  {removingFile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             ) : (
               <p className="text-xs text-slate-500">Chưa có file. Upload PDF hoặc ảnh HĐ đã ký.</p>
             )}
+            <ImageLightbox src={contractFileZoom && isImage ? contractFileUrl : null} alt="Hợp đồng" onClose={() => setContractFileZoom(false)} />
             <input
               ref={fileInputRef}
               type="file"

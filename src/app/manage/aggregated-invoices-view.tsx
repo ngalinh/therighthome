@@ -315,7 +315,7 @@ function InvoiceTable({
                 <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} className="text-primary hover:underline">{inv.code}</Link>
               </td>
               <td className="px-3 py-2.5 max-w-[180px] truncate" title={inv.building.name}>{inv.building.name}</td>
-              <td className="px-3 py-2.5 max-w-[160px] truncate" title={name}>{name}</td>
+              <td className="px-3 py-2.5 max-w-[160px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
               <td className="px-3 py-2.5 whitespace-nowrap">{inv.contract.room.number}</td>
               <td className="px-3 py-2.5">
                 <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">

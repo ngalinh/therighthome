@@ -22,3 +22,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   await prisma.contract.update({ where: { id }, data: { contractFileUrl: url } });
   return NextResponse.json({ url });
 }
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await ctx.params;
+  const c = await prisma.contract.findUnique({ where: { id } });
+  if (!c) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await can(session.user.id, session.user.role, c.buildingId, "contract.write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  await prisma.contract.update({ where: { id }, data: { contractFileUrl: null } });
+  return NextResponse.json({ ok: true });
+}

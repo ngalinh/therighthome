@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Camera, Send, X as XIcon, Save } from "lucide-react";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
 
 type Invoice = {
@@ -329,6 +330,8 @@ function PhotoUploadField({
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [localPhoto, setLocalPhoto] = useState(photoUrl);
+  const [zoom, setZoom] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -361,20 +364,51 @@ function PhotoUploadField({
     }
   }
 
+  async function removePhoto() {
+    if (!confirm("Xoá ảnh này?")) return;
+    setRemoving(true);
+    const res = await fetch(`/api/invoices/${invoiceId}/electricity-photo?which=${which}`, { method: "DELETE" });
+    setRemoving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Xoá thất bại");
+    }
+    setLocalPhoto(null);
+    toast.success("Đã xoá ảnh");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
       <Input type="number" inputMode="numeric" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="0" />
       {localPhoto ? (
-        <a href={localPhoto} target="_blank" rel="noopener" className="block group">
-          <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 cursor-zoom-in">
+        <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 group">
+          <button
+            type="button"
+            onClick={() => setZoom(true)}
+            className="block w-full h-full cursor-zoom-in"
+          >
             <img src={localPhoto} alt={label} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
             <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
               <span className="text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">Click để xem to</span>
             </div>
-          </div>
-        </a>
+          </button>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={removePhoto}
+              disabled={removing}
+              className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+              aria-label="Xoá ảnh"
+              title="Xoá ảnh"
+            >
+              {removing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
       ) : null}
+      <ImageLightbox src={zoom ? localPhoto : null} alt={label} onClose={() => setZoom(false)} />
       {!disabled && (
         // Use a <label> wrapping the file input → native click flows through,
         // works reliably on iOS PWA + Android Chrome where programmatic
