@@ -394,6 +394,32 @@ async function main() {
     if (shortened > 0) console.log(`Shortened ${shortened} contract codes (dropped lone -01).`);
   }
 
+  // One-off: fix dueDate on existing invoices that used the building's
+  // defaultDueDay (which defaulted to 5) instead of the contract's own
+  // paymentDay. New generator code prefers contract.paymentDay; this
+  // migration aligns historical data so the user-visible "Hạn TT" matches
+  // the contract's "Ngày thanh toán hàng tháng".
+  const dueFixDone = await prisma.auditLog.findFirst({
+    where: { action: "FIX_INVOICE_DUE_DAY_v1", entityType: "Invoice" },
+  });
+  if (!dueFixDone) {
+    const all = await prisma.invoice.findMany({
+      include: { contract: { select: { paymentDay: true } } },
+    });
+    let fixed = 0;
+    for (const inv of all) {
+      const wantDay = inv.contract.paymentDay || 5;
+      if (inv.dueDate.getDate() === Math.min(wantDay, 28)) continue;
+      const newDue = new Date(inv.year, inv.month - 1, Math.min(wantDay, 28));
+      await prisma.invoice.update({ where: { id: inv.id }, data: { dueDate: newDue } });
+      fixed++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "FIX_INVOICE_DUE_DAY_v1", entityType: "Invoice", after: { fixed } },
+    });
+    if (fixed > 0) console.log(`Fixed dueDate on ${fixed} invoices.`);
+  }
+
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
   // user explicitly wants gone). Marker via AuditLog so it only runs once.
   const cleanupDone = await prisma.auditLog.findFirst({

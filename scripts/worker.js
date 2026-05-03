@@ -76,7 +76,7 @@ async function generateForBuilding(buildingId, month, year) {
     });
     if (existing) continue;
 
-    const dueDay = c.building.setting?.defaultDueDay ?? c.paymentDay ?? 5;
+    const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
     const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
     // Effective rent based on contract year
