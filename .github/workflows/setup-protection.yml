@@ -1,12 +1,9 @@
 name: Setup main branch protection
 
-# Auto-runs once when this file lands on main, then on demand.
-# Uses GITHUB_TOKEN (App token) with administration:write to PUT a branch
-# protection rule that requires the "build" check on main. Idempotent.
+# Run on demand only. The protection rule is already in place; we don't need
+# this to fire on every push (which generates "No jobs were run" failure
+# emails when the path filter doesn't match).
 on:
-  push:
-    branches: [main]
-    paths: [.github/workflows/setup-protection.yml]
   workflow_dispatch:
 
 permissions:
