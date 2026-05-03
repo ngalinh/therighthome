@@ -46,6 +46,25 @@ export function readWorkbook(buf: Buffer): XLSX.WorkBook {
   return XLSX.read(buf, { type: "buffer", cellDates: true });
 }
 
+// Expand merged cells in-place: copy the anchor (top-left) cell's value into
+// every cell of the merge range. This way users can vertically-merge the
+// "Toà nhà" / "Phòng" columns when several rows share the same value.
+function expandMerges(ws: XLSX.WorkSheet): void {
+  const merges = ws["!merges"] as XLSX.Range[] | undefined;
+  if (!merges || merges.length === 0) return;
+  for (const m of merges) {
+    const anchorAddr = XLSX.utils.encode_cell(m.s);
+    const anchor = ws[anchorAddr];
+    if (!anchor) continue;
+    for (let r = m.s.r; r <= m.e.r; r++) {
+      for (let c = m.s.c; c <= m.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (addr !== anchorAddr) ws[addr] = { ...anchor };
+      }
+    }
+  }
+}
+
 export function parseSheet<T>(
   wb: XLSX.WorkBook,
   sheetName: string,
@@ -53,6 +72,7 @@ export function parseSheet<T>(
 ): ExcelImportResult<T> {
   const ws = wb.Sheets[sheetName];
   if (!ws) return { rows: [], errors: [] };
+  expandMerges(ws);
   const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null, raw: false });
   const rows: T[] = [];
   const errors: { row: number; message: string }[] = [];
