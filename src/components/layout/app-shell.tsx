@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, Upload,
+  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, Upload, KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -198,9 +198,7 @@ function BrandHeader() {
     <div className="px-5 py-5 border-b border-slate-100">
       <Link href="/" className="flex items-center gap-2.5">
         <div className="h-9 w-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-md">
-          <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
-            <path d="M5 11 L12 6 L19 11 L19 19 L14 19 L14 14 L10 14 L10 19 L5 19 Z"/>
-          </svg>
+          <KeyRound className="h-5 w-5 text-white" />
         </div>
         <div className="flex flex-col leading-tight">
           <span className="font-bold gradient-text text-base">The Right Home</span>

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
@@ -69,86 +68,91 @@ export function ContractsTab({
         const vatPct = Math.round(c.vatRate * 100);
         const vatAmount = (rent * BigInt(Math.round(c.vatRate * 100))) / 100n;
         const deposit = BigInt(c.depositAmount);
+        const isActive = c.status === "ACTIVE";
         return (
-          <Card key={c.id}>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-start gap-3 justify-between">
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-slate-500">{c.code}</span>
-                    <Badge variant={st.variant}>{st.label}</Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                    <span className="flex items-center gap-1.5">
-                      <User className="h-4 w-4 text-slate-400" /> {name}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-slate-600">
-                      Phòng <span className="font-medium">{c.room.number}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 text-slate-600">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
-                      <Receipt className="h-3.5 w-3.5" />
-                      {formatVND(rent)} /tháng
-                      {vatPct > 0 && (
-                        <span className="text-slate-500 font-normal">
-                          {" "}(đã VAT {vatPct}%, gồm {formatVND(vatAmount)})
-                        </span>
-                      )}
-                    </span>
-                    {deposit > 0n && (
-                      <span className="text-slate-600">
-                        Cọc: <span className="font-medium">{formatVND(deposit)}</span>
-                      </span>
-                    )}
-                  </div>
+          <div
+            key={c.id}
+            className="flex overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(99,102,241,0.08)]"
+          >
+            {/* Left accent bar */}
+            <div className={`w-1 shrink-0 ${isActive ? "bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500" : "bg-slate-200"}`} />
+
+            <div className="flex-1 min-w-0 p-4">
+              {/* Top row: code + badge */}
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-semibold text-slate-500 tracking-wide">{c.code}</span>
+                  <Badge variant={st.variant}>{st.label}</Badge>
                 </div>
-                <div className="flex flex-wrap gap-1.5 items-center">
+                <div className="flex flex-wrap gap-1.5 items-center shrink-0">
                   {c.generatedDocxUrl && (
-                    <a
-                      href={c.generatedDocxUrl}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-xs text-primary flex items-center gap-1 hover:underline"
-                    >
-                      <Download className="h-3.5 w-3.5" /> HĐ.docx
+                    <a href={c.generatedDocxUrl} target="_blank" rel="noopener"
+                      className="text-xs text-primary flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/8 hover:bg-primary/15 transition-colors font-medium">
+                      <Download className="h-3 w-3" /> DOCX
                     </a>
                   )}
                   {c.contractFileUrl && (
-                    <a
-                      href={c.contractFileUrl}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-xs text-primary flex items-center gap-1 hover:underline"
-                    >
-                      <FileText className="h-3.5 w-3.5" /> HĐ ký
+                    <a href={c.contractFileUrl} target="_blank" rel="noopener"
+                      className="text-xs text-primary flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/8 hover:bg-primary/15 transition-colors font-medium">
+                      <FileText className="h-3 w-3" /> HĐ ký
                     </a>
                   )}
                   {canWrite && (
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="h-7 text-xs px-2.5">
                       <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`}>
                         <Edit className="h-3.5 w-3.5" /> Sửa
                       </Link>
                     </Button>
                   )}
-                  {canWrite && c.status === "ACTIVE" && (
-                    <Button
-                      onClick={() => setTerminateOpen(c)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                    >
+                  {canWrite && isActive && (
+                    <Button onClick={() => setTerminateOpen(c)} variant="ghost" size="sm"
+                      className="h-7 text-xs px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50">
                       <XCircle className="h-3.5 w-3.5" /> Kết thúc
                     </Button>
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Tenant name */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="h-7 w-7 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <span className="font-semibold text-slate-900 text-sm">{name}</span>
+              </div>
+
+              {/* Room + dates */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
+                <span className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+                  Phòng <span className="font-semibold text-slate-700 ml-0.5">{c.room.number}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  {formatDateVN(c.startDate)} → {formatDateVN(c.endDate)}
+                </span>
+              </div>
+
+              {/* Rent + deposit */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                  <Receipt className="h-3.5 w-3.5" />
+                  {formatVND(rent)}/tháng
+                  {vatPct > 0 && <span className="font-normal text-slate-500">(VAT {vatPct}%)</span>}
+                </span>
+                {deposit > 0n && (
+                  <span className="text-xs text-slate-500">
+                    Cọc: <span className="font-semibold text-slate-700">{formatVND(deposit)}</span>
+                  </span>
+                )}
+                {vatPct > 0 && rent > 0n && (
+                  <span className="text-xs text-slate-400 hidden sm:inline">
+                    ({formatVND(rent - vatAmount)} + {formatVND(vatAmount)} VAT)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         );
       })}
 
