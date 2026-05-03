@@ -17,6 +17,7 @@ const updateSchema = z.object({
   serviceFeeAmount: z.string().optional(),
   electricityPricePerKwh: z.string().optional(),
   notes: z.string().nullable().optional(),
+  expiringNote: z.string().nullable().optional(),
   yearlyRents: z
     .array(z.object({ yearIndex: z.number().int().min(1).max(20), rent: z.string() }))
     .optional(),
@@ -38,14 +39,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const d = parsed.data;
 
   const updateData: Record<string, unknown> = {};
-  if (d.startDate) {
-    updateData.startDate = new Date(d.startDate);
+  // Only recompute endDate when startDate or termMonths *actually* changed.
+  // Otherwise an extended contract (endDate set independently via the Gia
+  // hạn flow) would be silently rolled back to startDate + original term
+  // every time the user clicks Lưu on the detail form.
+  const newStart = d.startDate ? new Date(d.startDate) : null;
+  const startDateChanged = newStart && newStart.getTime() !== c.startDate.getTime();
+  const termChanged = d.termMonths !== undefined && d.termMonths !== c.termMonths;
+  if (startDateChanged || termChanged) {
+    const start = newStart ?? c.startDate;
     const term = d.termMonths ?? c.termMonths;
-    updateData.endDate = addMonths(new Date(d.startDate), term);
+    updateData.startDate = start;
     updateData.termMonths = term;
-  } else if (d.termMonths !== undefined) {
-    updateData.termMonths = d.termMonths;
-    updateData.endDate = addMonths(c.startDate, d.termMonths);
+    updateData.endDate = addMonths(start, term);
   }
   if (d.paymentDay !== undefined) updateData.paymentDay = d.paymentDay;
   if (d.monthlyRent !== undefined) updateData.monthlyRent = BigInt(d.monthlyRent);
@@ -58,6 +64,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (d.electricityPricePerKwh !== undefined)
     updateData.electricityPricePerKwh = BigInt(d.electricityPricePerKwh);
   if (d.notes !== undefined) updateData.notes = d.notes;
+  if (d.expiringNote !== undefined) updateData.expiringNote = d.expiringNote;
 
   await prisma.$transaction(async (tx) => {
     if (Object.keys(updateData).length > 0) {

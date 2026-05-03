@@ -16,7 +16,7 @@ type Contract = {
   startDate: string;
   endDate: string;
   monthlyRent: string;
-  notes: string | null;
+  expiringNote: string | null;
   building: { id: string; name: string };
   room: { number: string };
   customers: {
@@ -119,7 +119,7 @@ function ContractRow({ contract }: { contract: Contract }) {
         {formatVND(rent)}
       </td>
       <td className="px-3 py-2.5" style={{ minWidth: 240 }}>
-        <NotesEditor contractId={contract.id} initial={contract.notes ?? ""} />
+        <NotesEditor contractId={contract.id} initial={contract.expiringNote ?? ""} />
       </td>
     </tr>
   );
@@ -152,7 +152,7 @@ function ContractCard({ contract }: { contract: Contract }) {
             </Badge>
           </div>
         </div>
-        <NotesEditor contractId={contract.id} initial={contract.notes ?? ""} />
+        <NotesEditor contractId={contract.id} initial={contract.expiringNote ?? ""} />
       </CardContent>
     </Card>
   );
@@ -169,7 +169,7 @@ function NotesEditor({ contractId, initial }: { contractId: string; initial: str
     const res = await fetch(`/api/contracts/${contractId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: value || null }),
+      body: JSON.stringify({ expiringNote: value || null }),
     });
     setSaving(false);
     if (!res.ok) {

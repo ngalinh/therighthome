@@ -195,6 +195,10 @@ model Contract {
 
   status            ContractStatus @default(ACTIVE)
   notes             String?
+  // Independent note for the "Hợp đồng sắp hết hạn" dashboard tab. Decoupled
+  // from `notes` so contract-renewal follow-ups don't pollute the main HĐ
+  // notes (and vice versa).
+  expiringNote      String?
   contractFileUrl   String?  // user-uploaded signed contract
   generatedDocxUrl  String?  // auto-generated from template
 

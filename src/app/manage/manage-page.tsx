@@ -172,7 +172,7 @@ export async function ManageTypePage({
 
   // Expiring contracts (< threshold days from now).
   const thresholdDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + expiringDaysThreshold);
-  const expiringContracts = await prisma.contract.findMany({
+  const expiringContractsRaw = await prisma.contract.findMany({
     where: {
       buildingId: { in: buildingIds },
       status: "ACTIVE",
@@ -189,6 +189,17 @@ export async function ManageTypePage({
       },
     },
   });
+  const expiringContracts = expiringContractsRaw.map((c) => ({
+    id: c.id,
+    code: c.code,
+    startDate: c.startDate,
+    endDate: c.endDate,
+    monthlyRent: c.monthlyRent,
+    expiringNote: c.expiringNote,
+    building: c.building,
+    room: c.room,
+    customers: c.customers,
+  }));
 
   const buildingsLite = buildings.map((b) => ({ id: b.id, name: b.name, type: b.type }));
   const tasksS = serializeBigInt(tasks);
