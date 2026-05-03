@@ -4,9 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { listAccessibleBuildings } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageBody } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, FileText, Receipt, AlertCircle, Plus, ArrowRight, TrendingUp, Wallet, Bell } from "lucide-react";
+import {
+  Building2, FileText, Receipt, AlertCircle, Plus, ArrowRight,
+  TrendingUp, Wallet, Bell, ChevronRight, Clock, Sparkles, DollarSign,
+} from "lucide-react";
 import Link from "next/link";
 import { formatVND } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,9 +36,7 @@ export default async function DashboardPage() {
         where: { buildingId: { in: buildingIds }, month, year },
         select: { totalAmount: true, paidAmount: true, status: true },
       }),
-      prisma.invoice.count({
-        where: { buildingId: { in: buildingIds }, status: "OVERDUE" },
-      }),
+      prisma.invoice.count({ where: { buildingId: { in: buildingIds }, status: "OVERDUE" } }),
       prisma.contract.findMany({
         where: {
           buildingId: { in: buildingIds },
@@ -50,42 +51,41 @@ export default async function DashboardPage() {
 
   const totalDue = monthlyInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = monthlyInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
-
   const firstName = session.user.name?.split(" ").pop() || "";
 
   return (
     <AppShell user={{ name: session.user.name || "", email: session.user.email || "", role }}>
-      {/* Mobile hero header */}
-      <div className="lg:hidden bg-gradient-brand text-white px-5 pt-4 pb-16 relative overflow-hidden">
-        <div
-          className="absolute pointer-events-none"
-          style={{ top: -60, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.12)", filter: "blur(30px)" }}
-        />
-        <div className="flex items-center justify-between mb-5">
+      {/* ── Mobile hero ── */}
+      <div className="lg:hidden bg-gradient-brand text-white px-5 pt-5 pb-16 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 pointer-events-none" />
+        <div className="absolute bottom-0 left-8 w-32 h-32 rounded-full bg-white/6 pointer-events-none" />
+        <div className="flex items-center justify-between mb-5 relative">
           <div>
-            <p className="text-sm text-white/80 mb-0.5">Xin chào,</p>
+            <p className="text-sm text-white/75 mb-0.5">Xin chào,</p>
             <h1 className="text-2xl font-bold tracking-tight">{firstName} ✨</h1>
           </div>
           <div className="flex items-center gap-2.5">
             <div className="relative w-10 h-10 rounded-[14px] bg-white/20 flex items-center justify-center">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-pink-400 border-2 border-white" />
+              {overdueInvoices > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-400 border-2 border-white/80" />
+              )}
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-rose-400 flex items-center justify-center text-white font-bold text-sm">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-rose-400 flex items-center justify-center text-white font-bold text-sm shadow-sm">
               {(session.user.name || "?").charAt(0).toUpperCase()}
             </div>
           </div>
         </div>
-        <div
-          className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[14px] text-sm"
-          style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}
-        >
-          <svg className="h-4 w-4 opacity-80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-          <span className="text-white/80">Tìm phòng, hợp đồng, khách thuê…</span>
+        <div className="relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-[14px] text-sm"
+          style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}>
+          <svg className="h-4 w-4 opacity-75" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <span className="text-white/75">Tìm phòng, hợp đồng, khách thuê…</span>
         </div>
       </div>
 
-      {/* Desktop page header */}
+      {/* ── Desktop header ── */}
       <div className="hidden lg:block bg-gradient-to-br from-indigo-50 to-pink-50 px-8 py-6 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -115,8 +115,8 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {/* Mobile: 2 warm-mint stat cards overlapping hero */}
+          <div className="space-y-5">
+            {/* Mobile: warm-mint stat cards floating over hero */}
             <div className="lg:hidden grid grid-cols-2 gap-3 -mt-10">
               <MobileStatCard
                 gradient="linear-gradient(135deg, #fbbf24 0%, #fb7185 50%, #ec4899 100%)"
@@ -124,7 +124,6 @@ export default async function DashboardPage() {
                 label="Doanh thu tháng"
                 value={formatVND(totalPaid)}
                 delta={`/${formatVND(totalDue)}`}
-                icon={Wallet}
               />
               <MobileStatCard
                 gradient="linear-gradient(135deg, #5eead4 0%, #93c5fd 50%, #818cf8 100%)"
@@ -132,7 +131,6 @@ export default async function DashboardPage() {
                 label="Phòng đang thuê"
                 value={`${occupiedRooms}/${totalRooms}`}
                 delta={`${totalRooms > 0 ? Math.round(occupiedRooms / totalRooms * 100) : 0}%`}
-                icon={Building2}
               />
             </div>
 
@@ -144,34 +142,63 @@ export default async function DashboardPage() {
               <StatTile gradient="from-rose-500 to-pink-500" icon={AlertCircle} label="Quá hạn" value={String(overdueInvoices)} hint="Hoá đơn cần xử lý" />
             </div>
 
-            {/* Mobile: 2 more mini stats */}
-            <div className="lg:hidden grid grid-cols-2 gap-3">
-              <MiniStatCard icon={FileText} label="Hợp đồng HĐ" value={String(activeContracts)} sub="Đang hoạt động" color="text-indigo-600" bg="bg-indigo-50" />
-              <MiniStatCard icon={AlertCircle} label="Quá hạn" value={String(overdueInvoices)} sub="Hoá đơn" color="text-rose-600" bg="bg-rose-50" />
+            {/* Quick actions */}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Thao tác nhanh</h2>
+              <div className="grid grid-cols-4 gap-2.5">
+                {buildings[0] && (
+                  <>
+                    <QuickAction href={`/buildings/${buildings[0].id}/contracts/new`} icon={FileText} label="Tạo HĐ" color="#6366f1" />
+                    <QuickAction href={`/buildings/${buildings[0].id}/invoices`} icon={Receipt} label="Hoá đơn" color="#a855f7" />
+                    <QuickAction href={`/buildings/${buildings[0].id}/finance`} icon={DollarSign} label="Phiếu thu" color="#10b981" />
+                    <QuickAction href={`/buildings/${buildings[0].id}/finance?tab=pnl`} icon={TrendingUp} label="Báo cáo" color="#0ea5e9" />
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Buildings grid */}
+            {/* Sparkline revenue chart */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Doanh thu 6 tháng</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-0.5">{formatVND(totalPaid)}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                  <TrendingUp className="h-3 w-3" /> Tháng {month}/{year}
+                </span>
+              </div>
+              <Sparkline />
+              <div className="flex justify-between mt-2 text-[10px] font-semibold text-slate-400">
+                {Array.from({ length: 6 }, (_, i) => {
+                  const m = ((month - 5 + i + 12) % 12) + 1;
+                  return <span key={i}>T{m}</span>;
+                })}
+              </div>
+            </div>
+
+            {/* Buildings horizontal scroll */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base lg:text-lg font-semibold">Toà nhà của bạn</h2>
+                <h2 className="text-base font-semibold">Toà nhà của bạn</h2>
                 <Link href="/buildings" className="text-sm text-primary flex items-center gap-1 font-medium">
                   Tất cả <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
                 {buildings.slice(0, 6).map((b) => (
-                  <Link key={b.id} href={`/buildings/${b.id}`}>
-                    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(99,102,241,0.12)] hover:shadow-lg transition-shadow overflow-hidden">
+                  <Link key={b.id} href={`/buildings/${b.id}`} className="shrink-0 lg:shrink w-[200px] lg:w-auto">
+                    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                       <div className={`h-1.5 ${b.type === "CHDV" ? "bg-gradient-chdv" : "bg-gradient-vp"}`} />
                       <div className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-2.5">
-                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-white ${b.type === "CHDV" ? "bg-gradient-chdv" : "bg-gradient-vp"}`}>
-                            <Building2 className="h-5 w-5" />
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-bold ${b.type === "CHDV" ? "bg-gradient-chdv" : "bg-gradient-vp"}`}>
+                            {b.name.slice(0, 2).toUpperCase()}
                           </div>
-                          <Badge variant={b.type === "CHDV" ? "chdv" : "vp"}>{b.type === "CHDV" ? "Căn hộ DV" : "Văn phòng"}</Badge>
+                          <Badge variant={b.type === "CHDV" ? "chdv" : "vp"} className="text-[10px]">{b.type}</Badge>
                         </div>
-                        <h3 className="font-semibold text-sm leading-tight">{b.name}</h3>
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-1">{b.address}</p>
+                        <h3 className="font-semibold text-sm leading-tight line-clamp-1">{b.name}</h3>
+                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{b.address}</p>
                       </div>
                     </div>
                   </Link>
@@ -179,41 +206,40 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            {/* Expiring contracts */}
-            {expiring.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <AlertCircle className="h-4 w-4 text-amber-500" /> Hợp đồng sắp hết hạn (30 ngày)
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-1.5">
-                    {expiring.map((c) => {
-                      const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
-                      const name = primary?.fullName || primary?.companyName || "—";
-                      const days = Math.ceil((c.endDate.getTime() - Date.now()) / (24 * 3600 * 1000));
-                      return (
-                        <Link
-                          key={c.id}
-                          href={`/buildings/${c.buildingId}/contracts`}
-                          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">{name}</div>
-                            <div className="text-xs text-slate-500 truncate">{c.building.name} · Phòng {c.room.number}</div>
-                          </div>
-                          <Badge variant={days <= 7 ? "destructive" : "warning"}>
-                            {days <= 0 ? "Hết hạn" : `Còn ${days} ngày`}
-                          </Badge>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Alerts */}
+            {(overdueInvoices > 0 || expiring.length > 0) && (
+              <div>
+                <h2 className="text-base font-semibold mb-3">Cần xử lý</h2>
+                <div className="space-y-2">
+                  {overdueInvoices > 0 && (
+                    <AlertRow
+                      icon={AlertCircle}
+                      color="#ef4444"
+                      title={`${overdueInvoices} hoá đơn quá hạn`}
+                      desc="Cần xử lý ngay"
+                      badge={String(overdueInvoices)}
+                      href={buildings[0] ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE` : "/buildings"}
+                    />
+                  )}
+                  {expiring.length > 0 && (
+                    <AlertRow
+                      icon={Clock}
+                      color="#f59e0b"
+                      title={`${expiring.length} hợp đồng sắp hết hạn`}
+                      desc="Trong 30 ngày tới"
+                      badge={String(expiring.length)}
+                      href={buildings[0] ? `/buildings/${buildings[0].id}/contracts` : "/buildings"}
+                    />
+                  )}
+                  <AlertRow
+                    icon={Sparkles}
+                    color="#8b5cf6"
+                    title={`${activeContracts} hợp đồng đang hoạt động`}
+                    desc={`${occupiedRooms}/${totalRooms} phòng · T${month}/${year}`}
+                    href="/buildings"
+                  />
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -222,17 +248,13 @@ export default async function DashboardPage() {
   );
 }
 
-function MobileStatCard({
-  gradient, shadow, label, value, delta, icon: Icon,
-}: {
-  gradient: string; shadow: string; label: string; value: string; delta: string; icon: typeof Building2;
+function MobileStatCard({ gradient, shadow, label, value, delta }: {
+  gradient: string; shadow: string; label: string; value: string; delta: string;
 }) {
   return (
-    <div
-      className="rounded-[20px] p-4 text-white relative overflow-hidden"
-      style={{ background: gradient, boxShadow: `0 14px 28px -10px ${shadow}` }}
-    >
-      <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full bg-white/18" />
+    <div className="rounded-[20px] p-4 text-white relative overflow-hidden"
+      style={{ background: gradient, boxShadow: `0 14px 28px -10px ${shadow}` }}>
+      <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full bg-white/15" />
       <div className="relative">
         <p className="text-[11px] font-semibold opacity-90 mb-1">{label}</p>
         <p className="text-xl font-bold tracking-tight leading-tight">{value}</p>
@@ -244,37 +266,81 @@ function MobileStatCard({
   );
 }
 
-function MiniStatCard({
-  icon: Icon, label, value, sub, color, bg,
-}: {
-  icon: typeof FileText; label: string; value: string; sub: string; color: string; bg: string;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm">
-      <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg mb-2 ${bg} ${color}`}>
-        <Icon className="h-3.5 w-3.5" /> {label}
-      </div>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
-      <div className="text-xs text-slate-500 mt-0.5">{sub}</div>
-    </div>
-  );
-}
-
-function StatTile({
-  gradient, icon: Icon, label, value, hint,
-}: {
+function StatTile({ gradient, icon: Icon, label, value, hint }: {
   gradient: string; icon: typeof Building2; label: string; value: string; hint?: string;
 }) {
   return (
     <div className={`stat-tile bg-gradient-to-br ${gradient}`}>
-      <div className="absolute -right-4 -top-4 opacity-15">
-        <Icon className="h-24 w-24" />
-      </div>
+      <div className="absolute -right-4 -top-4 opacity-15"><Icon className="h-24 w-24" /></div>
       <div className="relative">
         <div className="text-xs uppercase tracking-wider text-white/80 font-medium">{label}</div>
         <div className="text-2xl lg:text-3xl font-bold mt-1 leading-tight">{value}</div>
         {hint && <div className="text-xs text-white/80 mt-1">{hint}</div>}
       </div>
     </div>
+  );
+}
+
+function QuickAction({ href, icon: Icon, label, color }: {
+  href: string; icon: typeof FileText; label: string; color: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="bg-white rounded-2xl p-3 flex flex-col items-center gap-2 border border-slate-100 hover:shadow-md transition-shadow">
+        <div className="w-9 h-9 rounded-[12px] flex items-center justify-center" style={{ background: color + "18", color }}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <span className="text-[11px] font-semibold text-slate-700 text-center">{label}</span>
+      </div>
+    </Link>
+  );
+}
+
+function AlertRow({ icon: Icon, color, title, desc, badge, href }: {
+  icon: typeof AlertCircle; color: string; title: string; desc: string; badge?: string; href: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-100 hover:shadow-sm transition-all">
+        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0" style={{ background: color + "15", color }}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">{title}</p>
+          <p className="text-xs text-slate-500">{desc}</p>
+        </div>
+        {badge && (
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: color }}>{badge}</span>
+        )}
+        <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
+      </div>
+    </Link>
+  );
+}
+
+/* Simple static sparkline - decorative */
+function Sparkline() {
+  const pts = [40, 65, 45, 80, 60, 90, 75, 95, 70, 100, 85, 110];
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const w = 400, h = 64;
+  const xs = pts.map((_, i) => (i / (pts.length - 1)) * w);
+  const ys = pts.map((v) => h - ((v - min) / (max - min)) * (h - 8) - 4);
+  const line = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
+  const fill = `${line} L${w},${h} L0,${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="sg1" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+        <linearGradient id="sg2" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#ec4899" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={fill} fill="url(#sg2)" />
+      <path d={line} fill="none" stroke="url(#sg1)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r="4" fill="white" stroke="#ec4899" strokeWidth="2" />
+    </svg>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { ExportExcelButton } from "@/components/ui/export-button";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Calendar, Receipt } from "lucide-react";
 import { formatDateVN, formatVND, compareRooms, customerDisplayName } from "@/lib/utils";
 
 type Contract = {
@@ -33,7 +33,6 @@ const STATUS: Record<string, { label: string; variant: "default" | "success" | "
   TERMINATED_LOST_DEPOSIT: { label: "Mất cọc", variant: "destructive" },
 };
 
-// Sort: ACTIVE first, then others; secondary key = room number (G first).
 const STATUS_ORDER: Record<string, number> = {
   ACTIVE: 0, EXPIRED: 1, TERMINATED: 2, TERMINATED_LOST_DEPOSIT: 3,
 };
@@ -85,7 +84,7 @@ export function ContractsTab({
         <ExportExcelButton filename={`hop-dong-${buildingId}.xlsx`} sheets={buildExport} />
       </div>
 
-      {/* Mobile: card list */}
+      {/* Mobile: card list with gradient left bar */}
       <div className="space-y-2 lg:hidden">
         {sorted.map((c) => {
           const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
@@ -94,39 +93,47 @@ export function ContractsTab({
           const rent = BigInt(c.monthlyRent);
           const vatPct = Math.round(c.vatRate * 100);
           const deposit = BigInt(c.depositAmount);
+          const isActive = c.status === "ACTIVE";
           return (
-            <Link key={c.id} href={`/buildings/${buildingId}/contracts/${c.id}/edit`} className="block">
-              <Card className="hover:bg-slate-50 transition-colors">
-                <CardContent className="p-4">
-                  <div className="min-w-0 mb-2">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-mono text-primary hover:underline">{c.code}</span>
-                      <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
-                    </div>
-                    <div className="font-medium text-sm">{name}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Phòng <strong className="text-slate-700">{c.room.number}</strong> · {formatDateVN(c.startDate)} → {c.isOpenEnded ? "Vô thời hạn" : formatDateVN(c.endDate)}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs pt-2 border-t">
-                    <span className="font-medium text-emerald-700">
-                      {formatVND(rent)}/tháng
-                      {vatPct > 0 && <span className="text-slate-500 font-normal"> (đã VAT {vatPct}%)</span>}
+            <Link
+              key={c.id}
+              href={`/buildings/${buildingId}/contracts/${c.id}/edit`}
+              className="flex overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow"
+            >
+              {/* Gradient left bar */}
+              <div className={`w-1 shrink-0 ${isActive ? "bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500" : "bg-slate-200"}`} />
+              <div className="flex-1 min-w-0 p-4">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-xs font-mono font-semibold text-slate-500 tracking-wide">{c.code}</span>
+                  <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                </div>
+                <div className="font-semibold text-sm text-slate-900 mb-0.5">{name}</div>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+                  Phòng <strong className="text-slate-700 ml-0.5">{c.room.number}</strong>
+                  <span className="mx-1">·</span>
+                  <Calendar className="h-3 w-3" />
+                  {formatDateVN(c.startDate)} → {c.isOpenEnded ? <span className="text-primary font-medium ml-0.5">Vô thời hạn</span> : formatDateVN(c.endDate)}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs pt-2 border-t border-slate-100">
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                    <Receipt className="h-3 w-3" />
+                    {formatVND(rent)}/tháng
+                    {vatPct > 0 && <span className="text-slate-500 font-normal">(VAT {vatPct}%)</span>}
+                  </span>
+                  {deposit > 0n && <span className="text-slate-600">Cọc: <strong>{formatVND(deposit)}</strong></span>}
+                  {(c.generatedDocxUrl || c.contractFileUrl) && (
+                    <span className="flex gap-2 ml-auto">
+                      {c.generatedDocxUrl && (
+                        <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><Download className="h-3.5 w-3.5" /></a>
+                      )}
+                      {c.contractFileUrl && (
+                        <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><FileText className="h-3.5 w-3.5" /></a>
+                      )}
                     </span>
-                    {deposit > 0n && <span className="text-slate-600">Cọc: <strong>{formatVND(deposit)}</strong></span>}
-                    {(c.generatedDocxUrl || c.contractFileUrl) && (
-                      <span className="flex gap-2 ml-auto">
-                        {c.generatedDocxUrl && (
-                          <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><Download className="h-3.5 w-3.5" /></a>
-                        )}
-                        {c.contractFileUrl && (
-                          <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><FileText className="h-3.5 w-3.5" /></a>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                </div>
+              </div>
             </Link>
           );
         })}

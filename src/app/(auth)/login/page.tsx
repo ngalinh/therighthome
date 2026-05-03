@@ -2,7 +2,7 @@
 import { signIn } from "next-auth/react";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Loader2, ArrowRight, Mail, Lock, Eye, EyeOff, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -59,9 +59,7 @@ function LoginInner() {
             className="flex items-center justify-center mb-5"
             style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(255,255,255,0.18)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.3)" }}
           >
-            <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
-              <path d="M5 11 L12 6 L19 11 L19 19 L14 19 L14 14 L10 14 L10 19 L5 19 Z" />
-            </svg>
+            <KeyRound className="h-7 w-7" />
           </div>
           <h1 className="text-3xl font-bold leading-tight tracking-tight mb-2">The Right Home</h1>
           <p className="text-base text-white/85">Quản lý CHDV và văn phòng cho thuê</p>
@@ -89,9 +87,7 @@ function LoginInner() {
           />
           <div className="relative text-white max-w-md">
             <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center mb-6 border border-white/25">
-              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
-                <path d="M5 11 L12 6 L19 11 L19 19 L14 19 L14 14 L10 14 L10 19 L5 19 Z" />
-              </svg>
+              <KeyRound className="h-7 w-7" />
             </div>
             <h1 className="text-4xl font-bold leading-tight mb-3 tracking-tight">The Right Home</h1>
             <p className="text-lg text-white/90 leading-relaxed">
