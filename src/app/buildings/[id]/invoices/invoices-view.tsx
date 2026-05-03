@@ -40,7 +40,7 @@ type Invoice = {
 
 const STATUS: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "destructive" }> = {
   PENDING: { label: "Chờ thanh toán", variant: "warning" },
-  PARTIAL: { label: "Thanh toán 1 phần", variant: "warning" },
+  PARTIAL: { label: "TT một phần", variant: "warning" },
   PAID: { label: "Đã thanh toán", variant: "success" },
   OVERDUE: { label: "Quá hạn", variant: "destructive" },
   CANCELLED: { label: "Đã huỷ", variant: "secondary" },
@@ -235,8 +235,7 @@ function InvoiceTable({
         <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
           <th className="px-3 py-2.5 text-left">Phòng / Mã HĐ</th>
           <th className="px-3 py-2.5 text-left">Khách thuê</th>
-          <th className="px-3 py-2.5 text-left">Tình trạng</th>
-          <th className="px-3 py-2.5 text-left">Hạn TT</th>
+          <th className="px-3 py-2.5 text-left">Hạn TT / Tình trạng</th>
           <th className="px-3 py-2.5 text-right">Tiền thuê</th>
           <th className="px-3 py-2.5 text-right">Tiền điện</th>
           <th className="px-3 py-2.5 text-right">Phí xe</th>
@@ -264,13 +263,13 @@ function InvoiceTable({
                   <div className="font-mono text-[11px] text-primary">{inv.code}</div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 max-w-[260px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
-              <td className="px-3 py-2.5">
-                <Badge variant={st.variant} className="text-[10px] whitespace-nowrap">
+              <td className="px-3 py-2.5 max-w-[320px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
+              <td className="px-3 py-2.5 whitespace-nowrap">
+                <div className="text-xs text-slate-700">{formatDateVN(inv.dueDate)}</div>
+                <Badge variant={st.variant} className="text-[10px] whitespace-nowrap mt-1">
                   {st.label}{overdueDays !== null && ` ${overdueDays}d`}
                 </Badge>
               </td>
-              <td className="px-3 py-2.5 whitespace-nowrap text-xs">{formatDateVN(inv.dueDate)}</td>
               <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.rentAmount))}</td>
               <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.electricityFee))}</td>
               <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.parkingFee))}</td>
