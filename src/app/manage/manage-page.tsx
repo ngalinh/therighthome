@@ -11,6 +11,7 @@ import { ManageTasksTab } from "./tasks-tab";
 import { ManageOvertimeTab } from "./overtime-tab";
 import { AggregatedInvoicesView } from "./aggregated-invoices-view";
 import { AggregatedTransactionsClient } from "./aggregated-transactions-client";
+import { ExpiringContractsTab } from "./expiring-contracts-tab";
 import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
 export async function ManageTypePage({
@@ -34,7 +35,8 @@ export async function ManageTypePage({
   const buildings = accessible.filter((b) => b.type === kind);
   const buildingIds = buildings.map((b) => b.id);
 
-  const tab = searchParams.tab ?? "tasks";
+  const tab = searchParams.tab ?? "invoices";
+  const expiringDaysThreshold = kind === "VP" ? 50 : 30;
   const now = new Date();
   const month = Number(searchParams.month ?? now.getMonth() + 1);
   const year = Number(searchParams.year ?? now.getFullYear());
@@ -168,12 +170,33 @@ export async function ManageTypePage({
     orderBy: { createdAt: "desc" },
   });
 
+  // Expiring contracts (< threshold days from now).
+  const thresholdDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + expiringDaysThreshold);
+  const expiringContracts = await prisma.contract.findMany({
+    where: {
+      buildingId: { in: buildingIds },
+      status: "ACTIVE",
+      isOpenEnded: false,
+      endDate: { lte: thresholdDate, gte: now },
+    },
+    orderBy: { endDate: "asc" },
+    include: {
+      building: { select: { id: true, name: true } },
+      room: { select: { number: true } },
+      customers: {
+        where: { isPrimary: true },
+        include: { customer: { select: { type: true, fullName: true, companyName: true } } },
+      },
+    },
+  });
+
   const buildingsLite = buildings.map((b) => ({ id: b.id, name: b.name, type: b.type }));
   const tasksS = serializeBigInt(tasks);
   const overtimesS = serializeBigInt(overtimes);
   const partiesS = serializeBigInt(parties);
   const invoicesS = serializeBigInt(invoices);
   const transactionsS = serializeBigInt(transactions);
+  const expiringContractsS = serializeBigInt(expiringContracts);
 
   const title = kind === "CHDV" ? "Quản lý — Căn hộ dịch vụ" : "Quản lý — Văn phòng";
 
@@ -184,9 +207,10 @@ export async function ManageTypePage({
         <Tabs defaultValue={tab} className="w-full">
           <div className="overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 mb-4">
             <TabsList className="inline-flex">
-              <TabsTrigger value="tasks">Công việc</TabsTrigger>
               <TabsTrigger value="invoices">Hoá đơn</TabsTrigger>
               <TabsTrigger value="transactions">Giao dịch</TabsTrigger>
+              <TabsTrigger value="tasks">Công việc</TabsTrigger>
+              <TabsTrigger value="contracts">Hợp đồng</TabsTrigger>
               {kind === "VP" && <TabsTrigger value="overtime">Làm ngoài giờ</TabsTrigger>}
             </TabsList>
           </div>
@@ -198,6 +222,13 @@ export async function ManageTypePage({
               rooms={rooms}
               parties={partiesS}
               tasks={tasksS}
+            />
+          </TabsContent>
+          <TabsContent value="contracts">
+            <ExpiringContractsTab
+              kind={kind}
+              contracts={expiringContractsS}
+              daysThreshold={expiringDaysThreshold}
             />
           </TabsContent>
           <TabsContent value="invoices">
