@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
 
@@ -677,6 +677,7 @@ function CustomerItem({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const c = cc.customer;
   const name = c.fullName || c.companyName || "—";
   const sub: string[] = [];
@@ -700,27 +701,160 @@ function CustomerItem({
   }
 
   return (
-    <div className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm truncate">{name}</span>
-          {cc.isPrimary && <Badge variant="default" className="text-[10px]">Đại diện</Badge>}
+    <>
+      <div className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm truncate">{name}</span>
+            {cc.isPrimary && <Badge variant="default" className="text-[10px]">Đại diện</Badge>}
+          </div>
+          {sub.length > 0 && (
+            <div className="text-[11px] text-slate-500 truncate">{sub.join(" · ")}</div>
+          )}
         </div>
-        {sub.length > 0 && (
-          <div className="text-[11px] text-slate-500 truncate">{sub.join(" · ")}</div>
-        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => setEditOpen(true)}
+            className="p-1 text-slate-400 hover:text-primary"
+            aria-label="Sửa khách"
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+          {canRemove && (
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+              aria-label="Xoá khách"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
       </div>
-      {canRemove && (
-        <button
-          onClick={remove}
-          disabled={busy}
-          className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-50"
-          aria-label="Xoá khách"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-        </button>
+      {editOpen && (
+        <EditCustomerDialog
+          customer={c}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); onChanged(); }}
+        />
       )}
-    </div>
+    </>
+  );
+}
+
+function EditCustomerDialog({
+  customer, onClose, onSaved,
+}: {
+  customer: ContractCustomer["customer"];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState<"INDIVIDUAL" | "COMPANY">(customer.type);
+  const [fullName, setFullName] = useState(customer.fullName ?? "");
+  const [idNumber, setIdNumber] = useState(customer.idNumber ?? "");
+  const [companyName, setCompanyName] = useState(customer.companyName ?? "");
+  const [taxNumber, setTaxNumber] = useState(customer.taxNumber ?? "");
+  const [phone, setPhone] = useState(customer.phone ?? "");
+  const [email, setEmail] = useState(customer.email ?? "");
+  const [licensePlate, setLicensePlate] = useState(customer.licensePlate ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (type === "INDIVIDUAL" && !fullName.trim()) return toast.error("Nhập Họ và tên");
+    if (type === "COMPANY" && !companyName.trim()) return toast.error("Nhập Tên công ty");
+    setSaving(true);
+    const res = await fetch(`/api/customers/${customer.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        fullName: fullName.trim() || null,
+        idNumber: idNumber.trim() || null,
+        companyName: companyName.trim() || null,
+        taxNumber: taxNumber.trim() || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        licensePlate: licensePlate.trim() || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Lưu thất bại");
+    }
+    toast.success("Đã lưu");
+    onSaved();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Sửa thông tin khách</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Loại khách</Label>
+            <Select value={type} onValueChange={(v) => setType(v as "INDIVIDUAL" | "COMPANY")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INDIVIDUAL">Cá nhân</SelectItem>
+                <SelectItem value="COMPANY">Công ty</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {type === "INDIVIDUAL" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Họ và tên</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CCCD</Label>
+                <Input value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">SĐT</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email</Label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Biển số xe</Label>
+                <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Tên công ty</Label>
+                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">MST</Label>
+                <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">SĐT</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Email</Label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Lưu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
