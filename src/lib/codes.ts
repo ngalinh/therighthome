@@ -9,13 +9,14 @@ function ymPart(date = new Date()) {
 }
 
 /**
- * Contract code format: <TYPE>-DDMMYY-NN
- * - TYPE = building.type (CHDV | VP)
- * - DDMMYY = day/month/year of contract startDate
- * - NN = sequential number among all contracts of the same TYPE that started
- *   on the same day (across all buildings of that type), 2 digits
+ * Contract code: <TYPE>-DDMMYY when this is the FIRST contract of that
+ * (type, day) combination across all buildings of the type. The second
+ * contract on the same day causes the first one to be renamed to -01 and
+ * the new one becomes -02. Subsequent contracts continue -03, -04, ...
  *
- * Example: CHDV-051225-01, VP-191224-02
+ * Examples:
+ *   First CHDV contract on 5/12/25 → CHDV-051225
+ *   Second CHDV contract same day  → CHDV-051225-01 (renamed) + CHDV-051225-02
  */
 export async function nextContractCode(buildingId: string, startDate: Date): Promise<string> {
   const building = await prisma.building.findUnique({
@@ -26,13 +27,34 @@ export async function nextContractCode(buildingId: string, startDate: Date): Pro
   const dd = pad(startDate.getDate(), 2);
   const mm = pad(startDate.getMonth() + 1, 2);
   const yy = String(startDate.getFullYear()).slice(-2);
-  const prefix = `${building.type}-${dd}${mm}${yy}-`;
-  const last = await prisma.contract.findFirst({
-    where: { code: { startsWith: prefix } },
-    orderBy: { code: "desc" },
+  const base = `${building.type}-${dd}${mm}${yy}`;
+  const prefix = `${base}-`;
+
+  const sameDay = await prisma.contract.findMany({
+    where: {
+      OR: [{ code: base }, { code: { startsWith: prefix } }],
+    },
+    select: { id: true, code: true },
   });
-  const lastN = last ? parseInt(last.code.slice(prefix.length), 10) : 0;
-  return `${prefix}${pad(lastN + 1, 2)}`;
+
+  if (sameDay.length === 0) return base;
+
+  // If a bare "BASE" exists, promote it to BASE-01 so the new one can be -02.
+  const bareIdx = sameDay.findIndex((c) => c.code === base);
+  if (bareIdx >= 0) {
+    await prisma.contract.update({
+      where: { id: sameDay[bareIdx].id },
+      data: { code: `${base}-01` },
+    });
+  }
+
+  let maxN = bareIdx >= 0 ? 1 : 0;
+  for (const c of sameDay) {
+    if (c.code === base) continue;
+    const n = Number(c.code.slice(prefix.length));
+    if (Number.isFinite(n) && n > maxN) maxN = n;
+  }
+  return `${base}-${pad(maxN + 1, 2)}`;
 }
 
 export async function nextInvoiceCode(buildingId: string, month: number, year: number): Promise<string> {

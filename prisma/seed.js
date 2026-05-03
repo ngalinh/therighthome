@@ -360,6 +360,40 @@ async function main() {
     if (synced > 0) console.log(`Synced parking on ${synced} invoices from contracts.`);
   }
 
+  // One-off: contract codes used to always end in -NN. Now -NN is only
+  // appended when there are multiple contracts of the same TYPE on the same
+  // day; a lone contract is just <TYPE>-DDMMYY. Strip the suffix from any
+  // existing code that's the sole member of its (TYPE, day) group.
+  const codeShortenDone = await prisma.auditLog.findFirst({
+    where: { action: "SHORTEN_CONTRACT_CODES_v1", entityType: "Contract" },
+  });
+  if (!codeShortenDone) {
+    const all = await prisma.contract.findMany({ select: { id: true, code: true } });
+    // Group by base = code without trailing "-NN"
+    const groups = new Map();
+    for (const c of all) {
+      const m = c.code.match(/^(.+)-(\d{2})$/);
+      const base = m ? m[1] : c.code;
+      if (!groups.has(base)) groups.set(base, []);
+      groups.get(base).push(c);
+    }
+    let shortened = 0;
+    for (const [base, list] of groups) {
+      if (list.length !== 1) continue;
+      const c = list[0];
+      if (c.code === base) continue;
+      // Make sure the bare base isn't already taken by something else.
+      const clash = await prisma.contract.findFirst({ where: { code: base } });
+      if (clash && clash.id !== c.id) continue;
+      await prisma.contract.update({ where: { id: c.id }, data: { code: base } });
+      shortened++;
+    }
+    await prisma.auditLog.create({
+      data: { action: "SHORTEN_CONTRACT_CODES_v1", entityType: "Contract", after: { shortened } },
+    });
+    if (shortened > 0) console.log(`Shortened ${shortened} contract codes (dropped lone -01).`);
+  }
+
   // One-off cleanup: remove buildings with 0 rooms (default seed leftovers
   // user explicitly wants gone). Marker via AuditLog so it only runs once.
   const cleanupDone = await prisma.auditLog.findFirst({

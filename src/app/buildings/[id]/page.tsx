@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { formatVND } from "@/lib/utils";
+import { formatVND, compareRooms } from "@/lib/utils";
 import { RoomsManager } from "./rooms-manager";
 import { DeleteBuildingButton } from "./delete-building-button";
 
@@ -36,6 +36,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
     },
   });
   if (!building) notFound();
+  building.rooms.sort((a, b) => compareRooms(a.number, b.number));
 
   const canWrite = await can(session.user.id, session.user.role, id, "building.write");
   const isChdv = building.type === "CHDV";
@@ -135,6 +136,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
                     status: r.status,
                     customerName: primary?.fullName || primary?.companyName || null,
                     daysLeft,
+                    contractId: c?.id ?? null,
                   };
                 })}
               />

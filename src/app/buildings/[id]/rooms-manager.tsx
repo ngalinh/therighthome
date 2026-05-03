@@ -16,6 +16,7 @@ type Room = {
   status: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
   customerName: string | null;
   daysLeft: number | null;
+  contractId: string | null;
 };
 
 export function RoomsManager({
@@ -128,10 +129,15 @@ function RoomTile({
     AVAILABLE: { card: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400", text: "text-emerald-800", accent: "bg-emerald-400" },
   };
   const s = styles[room.status] ?? styles.AVAILABLE;
+  // If the room has an active contract, click → contract detail. Otherwise →
+  // contracts list with room filter (so the user can create one).
+  const href = room.contractId
+    ? `/buildings/${buildingId}/contracts/${room.contractId}/edit`
+    : `/buildings/${buildingId}/contracts?room=${room.id}`;
 
   return (
     <div className={cn("relative rounded-xl border p-3 group", s.card)}>
-      <Link href={`/buildings/${buildingId}/contracts?room=${room.id}`} className="block">
+      <Link href={href} className="block">
         <div className="flex items-center justify-between mb-1.5">
           <span className="font-bold text-sm text-slate-900">{room.number}</span>
           <span className={cn("h-2 w-2 rounded-full shrink-0", s.dot)} />

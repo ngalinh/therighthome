@@ -39,6 +39,25 @@ export function addMonths(d: Date, m: number): Date {
   return result;
 }
 
+// Sort key for room numbers. "G01"/"G02" come before any non-G room, and
+// within each group we order by the trailing digits numerically. So the
+// resulting order is e.g. G01, G02, P101, P102, P201, ...
+export function roomSortKey(n: string): [number, number, string] {
+  const trimmed = n.trim();
+  const isGround = /^g/i.test(trimmed);
+  const m = trimmed.match(/(\d+)/);
+  const num = m ? Number(m[1]) : 0;
+  return [isGround ? 0 : 1, num, trimmed];
+}
+
+export function compareRooms(a: string, b: string): number {
+  const [ag, an, at] = roomSortKey(a);
+  const [bg, bn, bt] = roomSortKey(b);
+  if (ag !== bg) return ag - bg;
+  if (an !== bn) return an - bn;
+  return at.localeCompare(bt, "vi");
+}
+
 // Recursively reflect what JSON.stringify+parse does to bigints and Dates.
 export type Serialized<T> =
   T extends bigint ? string :

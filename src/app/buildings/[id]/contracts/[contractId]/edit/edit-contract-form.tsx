@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
 
@@ -33,6 +33,7 @@ type ContractCustomer = {
 type Contract = {
   id: string;
   code: string;
+  status: string;
   contractFileUrl: string | null;
   startDate: string;
   endDate: string;
@@ -156,6 +157,22 @@ export function EditContractForm({
   const preVATAmount = rentBigInt - vatAmount;
 
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  async function handleDelete() {
+    setActionBusy(true);
+    const res = await fetch(`/api/contracts/${contract.id}`, { method: "DELETE" });
+    setActionBusy(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success(`Đã xoá HĐ ${contract.code}`);
+    router.push(`/buildings/${buildingId}/contracts`);
+    router.refresh();
+  }
 
   function addYearlyRent() {
     const nextIdx = (yearlyRents.length > 0 ? Math.max(...yearlyRents.map((y) => y.yearIndex)) : 0) + 1;
@@ -495,14 +512,26 @@ export function EditContractForm({
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
-            <X className="h-4 w-4" /> Huỷ
-          </Button>
-          <Button variant="gradient" onClick={submit} disabled={submitting}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Lưu thay đổi
-          </Button>
+        <div className="flex flex-wrap justify-between gap-2">
+          <div className="flex gap-2">
+            {contract.status === "ACTIVE" && (
+              <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                <XCircle className="h-4 w-4" /> Kết thúc HĐ
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+              <Trash2 className="h-4 w-4" /> Xoá HĐ
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
+              <X className="h-4 w-4" /> Huỷ
+            </Button>
+            <Button variant="gradient" onClick={submit} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Lưu thay đổi
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -513,7 +542,117 @@ export function EditContractForm({
         defaultType={buildingType === "VP" ? "COMPANY" : "INDIVIDUAL"}
         onAdded={() => router.refresh()}
       />
+
+      <TerminateContractDialog
+        open={terminateOpen}
+        onClose={() => setTerminateOpen(false)}
+        contract={contract}
+        onDone={() => { router.push(`/buildings/${buildingId}/contracts`); router.refresh(); }}
+      />
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-rose-600">Xoá hợp đồng</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm space-y-2">
+            <p>Xoá vĩnh viễn hợp đồng <strong className="font-mono">{contract.code}</strong> không?</p>
+            <p className="text-xs text-slate-500">
+              Sẽ xoá kèm tất cả hoá đơn của HĐ này. Giao dịch liên quan sẽ tự gỡ liên kết invoice (vẫn giữ được record).
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>Huỷ</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={actionBusy}>
+              {actionBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Xoá vĩnh viễn
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function TerminateContractDialog({
+  open, onClose, contract, onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contract: { id: string; code: string; depositAmount: string };
+  onDone: () => void;
+}) {
+  const [reason, setReason] = useState<"EXPIRED" | "TERMINATED_LOST_DEPOSIT">("EXPIRED");
+  const [terminatedAt, setTerminatedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [refund, setRefund] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const lostDeposit = reason === "TERMINATED_LOST_DEPOSIT";
+
+  async function submit() {
+    setLoading(true);
+    const res = await fetch(`/api/contracts/${contract.id}/terminate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason,
+        terminatedAt,
+        depositRefund: !lostDeposit && refund ? parseVNDInput(refund).toString() : undefined,
+      }),
+    });
+    setLoading(false);
+    if (!res.ok) return toast.error("Có lỗi");
+    toast.success(lostDeposit ? "Đã kết thúc HĐ — tiền cọc đã hạch toán vào doanh thu" : "Đã kết thúc HĐ");
+    onClose();
+    onDone();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Kết thúc HĐ {contract.code}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Lý do</Label>
+            <Select value={reason} onValueChange={(v) => setReason(v as "EXPIRED" | "TERMINATED_LOST_DEPOSIT")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EXPIRED">Hết hạn HĐ (trả cọc)</SelectItem>
+                <SelectItem value="TERMINATED_LOST_DEPOSIT">Dừng thuê (mất cọc)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Ngày kết thúc</Label>
+            <Input type="date" value={terminatedAt} onChange={(e) => setTerminatedAt(e.target.value)} />
+          </div>
+          {lostDeposit ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+              Tiền cọc <strong>{formatVND(BigInt(contract.depositAmount))}</strong> sẽ tự động hạch toán vào doanh thu (loại "Tiền cọc mất").
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tiền cọc đã trả lại (₫)</Label>
+              <Input
+                inputMode="numeric"
+                value={refund ? formatNumber(parseVNDInput(refund)) : ""}
+                onChange={(e) => setRefund(e.target.value)}
+                placeholder={formatNumber(BigInt(contract.depositAmount))}
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="destructive" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Xác nhận kết thúc
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

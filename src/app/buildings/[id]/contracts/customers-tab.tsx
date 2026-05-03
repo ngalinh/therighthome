@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Trash2, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
+import { compareRooms } from "@/lib/utils";
 
 type Customer = {
   id: string;
@@ -56,10 +57,17 @@ export function CustomersTab({
     return <EmptyState icon={Users} title="Chưa có khách hàng" description="Khách hàng sẽ tự động được thêm khi tạo hợp đồng." />;
   }
 
+  // Active customers first, then sort by their latest contract's room number
+  // (G first, then numeric).
+  function latestRoom(c: Customer): string {
+    const active = c.contractCustomers.find((cc) => cc.contract.status === "ACTIVE");
+    return active?.contract.room.number ?? c.contractCustomers[0]?.contract.room.number ?? "";
+  }
   const sorted = [...customers].sort((a, b) => {
     const aActive = a.contractCustomers.some((cc) => cc.contract.status === "ACTIVE") ? 0 : 1;
     const bActive = b.contractCustomers.some((cc) => cc.contract.status === "ACTIVE") ? 0 : 1;
-    return aActive - bActive;
+    if (aActive !== bActive) return aActive - bActive;
+    return compareRooms(latestRoom(a), latestRoom(b));
   });
 
   return (
@@ -77,12 +85,12 @@ export function CustomersTab({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <th className="px-3 py-2.5 text-left">Phòng</th>
                 <th className="px-3 py-2.5 text-left">Tên</th>
                 <th className="px-3 py-2.5 text-left">Loại</th>
                 <th className="px-3 py-2.5 text-left">CCCD/MST</th>
                 <th className="px-3 py-2.5 text-left">SĐT</th>
                 <th className="px-3 py-2.5 text-left">Email</th>
-                <th className="px-3 py-2.5 text-left">Phòng</th>
                 <th className="px-3 py-2.5 text-left">Trạng thái</th>
                 <th className="px-3 py-2.5 text-right">Thao tác</th>
               </tr>
@@ -187,6 +195,7 @@ function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boo
   return (
     <>
       <tr className="border-t hover:bg-slate-50/60">
+        <td className="px-3 py-2.5 text-xs font-medium whitespace-nowrap">{latest?.room.number ?? "—"}</td>
         <td className="px-3 py-2.5 font-medium max-w-[200px] truncate" title={name}>{name}</td>
         <td className="px-3 py-2.5">
           <Badge variant="outline" className="text-[10px]">
@@ -198,7 +207,6 @@ function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boo
         </td>
         <td className="px-3 py-2.5 text-xs whitespace-nowrap">{customer.phone || "—"}</td>
         <td className="px-3 py-2.5 text-xs max-w-[180px] truncate" title={customer.email ?? ""}>{customer.email || "—"}</td>
-        <td className="px-3 py-2.5 text-xs whitespace-nowrap">{latest?.room.number ?? "—"}</td>
         <td className="px-3 py-2.5">
           {status ? <Badge variant={status.variant} className="text-[10px] whitespace-nowrap">{status.label}</Badge> : "—"}
         </td>
