@@ -284,10 +284,10 @@ function InvoiceTable({
     <table className="w-full text-sm">
       <thead>
         <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-          <th className="px-3 py-2.5 text-left">Phòng / Mã HĐ</th>
           <th className="px-3 py-2.5 text-left">Toà nhà</th>
+          <th className="px-3 py-2.5 text-left">Phòng / Mã HĐ</th>
           <th className="px-3 py-2.5 text-left">Khách thuê</th>
-          <th className="px-3 py-2.5 text-left">Hạn TT / Tình trạng</th>
+          <th className="px-3 py-2.5 text-center">Hạn TT / Tình trạng</th>
           <th className="px-3 py-2.5 text-right">Tiền thuê</th>
           <th className="px-3 py-2.5 text-right">Tiền điện</th>
           <th className="px-3 py-2.5 text-right">Phí xe</th>
@@ -309,16 +309,16 @@ function InvoiceTable({
             : null;
           return (
             <tr key={inv.id} className="border-t hover:bg-slate-50/60">
+              <td className="px-3 py-2.5 max-w-[140px] line-clamp-2 break-words" title={inv.building.name}>{inv.building.name}</td>
               <td className="px-3 py-2.5 whitespace-nowrap">
                 <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} className="block hover:underline">
                   <div className="font-semibold text-sm text-slate-900">{inv.contract.room.number}</div>
                   <div className="font-mono text-[11px] text-primary">{inv.code}</div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 max-w-[120px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={inv.building.name}>{inv.building.name}</td>
-              <td className="px-3 py-2.5 max-w-[320px] [overflow-wrap:anywhere] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden" title={name}>{name}</td>
-              <td className="px-3 py-2.5 whitespace-nowrap">
-                <div className="text-xs text-slate-700">{formatDateVN(inv.dueDate)}</div>
+              <td className="px-3 py-2.5 max-w-[280px] line-clamp-2 break-words" title={name}>{name}</td>
+              <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                <div className="text-sm font-semibold text-slate-800">{formatDateVN(inv.dueDate)}</div>
                 <Badge variant={st.variant} className="text-[10px] whitespace-nowrap mt-1">
                   {st.label}{overdueDays !== null && ` ${overdueDays}d`}
                 </Badge>
