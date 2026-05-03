@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  readWorkbook, parseSheet, SHEET_NAMES,
-  validateBuilding, validateRoom, validateCustomer, validateContract, validateTransaction,
+  readWorkbook, parseSheet, SHEETS,
+  validateChdv, validateVp,
+  type ChdvRow, type VpRow,
 } from "@/lib/excel-import";
-import { nextContractCode, nextTransactionCode } from "@/lib/codes";
+import { nextContractCode } from "@/lib/codes";
 import { addMonths } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+type Stats = { buildings: number; rooms: number; customers: number; contracts: number };
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -22,202 +25,24 @@ export async function POST(req: NextRequest) {
   const buf = Buffer.from(await f.arrayBuffer());
   const wb = readWorkbook(buf);
 
-  const buildings = parseSheet(wb, SHEET_NAMES.BUILDINGS, validateBuilding);
-  const rooms = parseSheet(wb, SHEET_NAMES.ROOMS, validateRoom);
-  const customers = parseSheet(wb, SHEET_NAMES.CUSTOMERS, validateCustomer);
-  const contracts = parseSheet(wb, SHEET_NAMES.CONTRACTS, validateContract);
-  const transactions = parseSheet(wb, SHEET_NAMES.TRANSACTIONS, validateTransaction);
+  const chdv = parseSheet(wb, SHEETS.CHDV, validateChdv);
+  const vp = parseSheet(wb, SHEETS.VP, validateVp);
 
   const allErrors = [
-    ...buildings.errors.map((e) => ({ sheet: "Toa_nha", ...e })),
-    ...rooms.errors.map((e) => ({ sheet: "Phong", ...e })),
-    ...customers.errors.map((e) => ({ sheet: "Khach_hang", ...e })),
-    ...contracts.errors.map((e) => ({ sheet: "Hop_dong", ...e })),
-    ...transactions.errors.map((e) => ({ sheet: "Giao_dich", ...e })),
+    ...chdv.errors.map((e) => ({ sheet: SHEETS.CHDV, ...e })),
+    ...vp.errors.map((e) => ({ sheet: SHEETS.VP, ...e })),
   ];
   if (allErrors.length > 0) {
     return NextResponse.json({ error: "Có lỗi trong file", details: allErrors }, { status: 400 });
   }
 
-  const stats = { buildings: 0, rooms: 0, customers: 0, contracts: 0, transactions: 0 };
-  const buildingIdByName = new Map<string, string>();
+  const stats: Stats = { buildings: 0, rooms: 0, customers: 0, contracts: 0 };
 
-  // 1. Buildings
-  for (const b of buildings.rows) {
-    const existing = await prisma.building.findFirst({ where: { name: b.name } });
-    if (existing) {
-      buildingIdByName.set(b.name, existing.id);
-      // grant ADMIN ownership if missing
-      await prisma.userBuildingPermission.upsert({
-        where: { userId_buildingId: { userId: session.user.id, buildingId: existing.id } },
-        create: { userId: session.user.id, buildingId: existing.id, permission: "OWNER" },
-        update: {},
-      });
-      continue;
-    }
-    const created = await prisma.building.create({
-      data: {
-        name: b.name,
-        address: b.address,
-        type: b.type,
-        setting: { create: {} },
-        permissions: { create: { userId: session.user.id, permission: "OWNER" } },
-      },
-    });
-    buildingIdByName.set(b.name, created.id);
-    stats.buildings++;
+  for (const r of chdv.rows) {
+    await importChdv(r, session.user.id, stats);
   }
-
-  // 2. Rooms
-  for (const r of rooms.rows) {
-    const bId = buildingIdByName.get(r.buildingName) ?? (await prisma.building.findFirst({ where: { name: r.buildingName } }))?.id;
-    if (!bId) continue;
-    buildingIdByName.set(r.buildingName, bId);
-    await prisma.room.upsert({
-      where: { buildingId_number: { buildingId: bId, number: r.number } },
-      create: { buildingId: bId, number: r.number },
-      update: {},
-    });
-    stats.rooms++;
-  }
-
-  // 3. Customers — index by buildingId+name
-  const customerIdByKey = new Map<string, string>();
-  for (const c of customers.rows) {
-    const bId = buildingIdByName.get(c.buildingName) ?? (await prisma.building.findFirst({ where: { name: c.buildingName } }))?.id;
-    if (!bId) continue;
-    buildingIdByName.set(c.buildingName, bId);
-    const name = c.type === "INDIVIDUAL" ? c.fullName! : c.companyName!;
-    const key = `${bId}::${name}`;
-    if (customerIdByKey.has(key)) continue;
-    const existing = await prisma.customer.findFirst({
-      where: {
-        buildingId: bId,
-        OR: [{ fullName: name }, { companyName: name }],
-      },
-    });
-    if (existing) {
-      customerIdByKey.set(key, existing.id);
-      continue;
-    }
-    const created = await prisma.customer.create({
-      data: {
-        buildingId: bId,
-        type: c.type,
-        fullName: c.fullName,
-        idNumber: c.idNumber,
-        phone: c.phone,
-        email: c.email,
-        licensePlate: c.licensePlate,
-        companyName: c.companyName,
-        taxNumber: c.taxNumber,
-      },
-    });
-    customerIdByKey.set(key, created.id);
-    stats.customers++;
-  }
-
-  // 4. Contracts
-  for (const k of contracts.rows) {
-    const bId = buildingIdByName.get(k.buildingName) ?? (await prisma.building.findFirst({ where: { name: k.buildingName } }))?.id;
-    if (!bId) continue;
-    const room = await prisma.room.findUnique({ where: { buildingId_number: { buildingId: bId, number: k.roomNumber } } });
-    if (!room) continue;
-    const customerKey = `${bId}::${k.customerName}`;
-    let custId = customerIdByKey.get(customerKey);
-    if (!custId) {
-      const existing = await prisma.customer.findFirst({
-        where: { buildingId: bId, OR: [{ fullName: k.customerName }, { companyName: k.customerName }] },
-      });
-      if (existing) custId = existing.id;
-    }
-    if (!custId) continue;
-
-    // Skip if contract already exists for this room+customer+startDate
-    const existing = await prisma.contract.findFirst({
-      where: { buildingId: bId, roomId: room.id, startDate: new Date(k.startDate) },
-    });
-    if (existing) continue;
-
-    const start = new Date(k.startDate);
-    const end = addMonths(start, k.termMonths);
-    const code = await nextContractCode(bId, start);
-    await prisma.contract.create({
-      data: {
-        buildingId: bId,
-        roomId: room.id,
-        code,
-        startDate: start,
-        endDate: end,
-        termMonths: k.termMonths,
-        paymentDay: k.paymentDay,
-        monthlyRent: BigInt(Math.round(k.monthlyRent)),
-        vatRate: k.vatRate ?? 0,
-        depositAmount: BigInt(Math.round(k.depositAmount ?? 0)),
-        electricityPricePerKwh: BigInt(Math.round(k.electricityPricePerKwh ?? 3500)),
-        parkingCount: k.parkingCount ?? 0,
-        parkingFeePerVehicle: BigInt(Math.round(k.parkingFeePerVehicle ?? 0)),
-        serviceFeeAmount: BigInt(Math.round(k.serviceFeeAmount ?? 0)),
-        status: "ACTIVE",
-        customers: {
-          create: [{ customerId: custId, isPrimary: true, orderIdx: 0 }],
-        },
-      },
-    });
-    await prisma.room.update({ where: { id: room.id }, data: { status: "OCCUPIED" } });
-    stats.contracts++;
-  }
-
-  // 5. Transactions
-  for (const t of transactions.rows) {
-    const bId = buildingIdByName.get(t.buildingName) ?? (await prisma.building.findFirst({ where: { name: t.buildingName } }))?.id;
-    if (!bId) continue;
-    const cat = t.categoryName
-      ? await prisma.transactionCategory.findFirst({ where: { name: t.categoryName, type: t.type } })
-      : null;
-    const pm = t.paymentMethodName
-      ? await prisma.paymentMethod.findFirst({ where: { name: t.paymentMethodName } })
-      : null;
-    let customerId: string | undefined;
-    let partyId: string | undefined;
-    let partyKind: "CUSTOMER" | "OTHER" | undefined;
-    if (t.partyName) {
-      const cust = await prisma.customer.findFirst({
-        where: { buildingId: bId, OR: [{ fullName: t.partyName }, { companyName: t.partyName }] },
-      });
-      if (cust) {
-        customerId = cust.id;
-        partyKind = "CUSTOMER";
-      } else {
-        const party = await prisma.party.findFirst({ where: { name: t.partyName } });
-        if (party) {
-          partyId = party.id;
-          partyKind = "OTHER";
-        }
-      }
-    }
-    const date = new Date(t.date);
-    const code = await nextTransactionCode(bId, t.type);
-    await prisma.transaction.create({
-      data: {
-        buildingId: bId,
-        code,
-        date,
-        type: t.type,
-        amount: BigInt(Math.round(t.amount)),
-        content: t.content,
-        categoryId: cat?.id,
-        paymentMethodId: pm?.id,
-        customerId,
-        partyId,
-        partyKind,
-        countInBR: t.countInBR ?? true,
-        accountingMonth: date.getMonth() + 1,
-        accountingYear: date.getFullYear(),
-        createdById: session.user.id,
-      },
-    });
-    stats.transactions++;
+  for (const r of vp.rows) {
+    await importVp(r, session.user.id, stats);
   }
 
   await prisma.auditLog.create({
@@ -230,4 +55,172 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, stats });
+}
+
+async function ensureBuilding(name: string, type: "CHDV" | "VP", userId: string) {
+  let b = await prisma.building.findFirst({ where: { name } });
+  if (!b) {
+    b = await prisma.building.create({
+      data: {
+        name,
+        address: name,
+        type,
+        setting: { create: {} },
+        permissions: { create: { userId, permission: "OWNER" } },
+      },
+    });
+    return { b, created: true };
+  }
+  await prisma.userBuildingPermission.upsert({
+    where: { userId_buildingId: { userId, buildingId: b.id } },
+    create: { userId, buildingId: b.id, permission: "OWNER" },
+    update: {},
+  });
+  return { b, created: false };
+}
+
+async function ensureRoom(buildingId: string, number: string) {
+  const existing = await prisma.room.findUnique({
+    where: { buildingId_number: { buildingId, number } },
+  });
+  if (existing) return { room: existing, created: false };
+  const room = await prisma.room.create({
+    data: { buildingId, number, status: "AVAILABLE" },
+  });
+  return { room, created: true };
+}
+
+async function importChdv(r: ChdvRow, userId: string, stats: Stats) {
+  const { b, created: bCreated } = await ensureBuilding(r.buildingName, "CHDV", userId);
+  if (bCreated) stats.buildings++;
+
+  const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
+  if (roomCreated) stats.rooms++;
+
+  // Customer: match by buildingId + (idNumber if provided, else fullName).
+  let cust = r.idNumber
+    ? await prisma.customer.findFirst({ where: { buildingId: b.id, idNumber: r.idNumber } })
+    : null;
+  if (!cust) {
+    cust = await prisma.customer.findFirst({
+      where: { buildingId: b.id, fullName: r.fullName, type: "INDIVIDUAL" },
+    });
+  }
+  if (!cust) {
+    cust = await prisma.customer.create({
+      data: {
+        buildingId: b.id,
+        type: "INDIVIDUAL",
+        fullName: r.fullName,
+        idNumber: r.idNumber,
+        phone: r.phone,
+        licensePlate: r.licensePlate,
+      },
+    });
+    stats.customers++;
+  }
+
+  await createContractIfNew(b.id, room.id, cust.id, {
+    startDate: r.startDate,
+    endDate: r.endDate,
+    termMonths: r.termMonths,
+    paymentDay: r.paymentDay,
+    monthlyRent: r.monthlyRent,
+    vatRate: 0,
+    depositAmount: r.depositAmount,
+    serviceFeeAmount: r.serviceFeeAmount ?? 0,
+    notes: r.notes,
+  }, stats);
+}
+
+async function importVp(r: VpRow, userId: string, stats: Stats) {
+  const { b, created: bCreated } = await ensureBuilding(r.buildingName, "VP", userId);
+  if (bCreated) stats.buildings++;
+
+  const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
+  if (roomCreated) stats.rooms++;
+
+  let cust = await prisma.customer.findFirst({
+    where: { buildingId: b.id, companyName: r.companyName, type: "COMPANY" },
+  });
+  if (!cust) {
+    cust = await prisma.customer.create({
+      data: {
+        buildingId: b.id,
+        type: "COMPANY",
+        companyName: r.companyName,
+        phone: r.phone,
+        email: r.email,
+      },
+    });
+    stats.customers++;
+  }
+
+  await createContractIfNew(b.id, room.id, cust.id, {
+    startDate: r.startDate,
+    endDate: r.endDate,
+    termMonths: r.termMonths,
+    paymentDay: r.paymentDay,
+    monthlyRent: r.monthlyRent,
+    vatRate: 0.1,
+    depositAmount: r.depositAmount,
+    serviceFeeAmount: 0,
+    notes: r.notes,
+  }, stats);
+}
+
+type ContractInput = {
+  startDate: string;
+  endDate?: string;
+  termMonths: number;
+  paymentDay: number;
+  monthlyRent: number;
+  vatRate: number;
+  depositAmount: number;
+  serviceFeeAmount: number;
+  notes?: string;
+};
+
+async function createContractIfNew(
+  buildingId: string,
+  roomId: string,
+  customerId: string,
+  input: ContractInput,
+  stats: Stats,
+) {
+  const start = new Date(input.startDate);
+  const existing = await prisma.contract.findFirst({
+    where: { buildingId, roomId, startDate: start },
+  });
+  if (existing) return;
+
+  const end = input.endDate ? new Date(input.endDate) : addMonths(start, input.termMonths);
+  const setting = await prisma.buildingSetting.findUnique({ where: { buildingId } });
+  const elec = setting?.electricityPricePerKwh ?? BigInt(3500);
+  const parking = setting?.parkingFeePerVehicle ?? BigInt(0);
+  const code = await nextContractCode(buildingId, start);
+
+  await prisma.contract.create({
+    data: {
+      buildingId,
+      roomId,
+      code,
+      startDate: start,
+      endDate: end,
+      termMonths: input.termMonths,
+      paymentDay: input.paymentDay,
+      monthlyRent: BigInt(Math.round(input.monthlyRent)),
+      vatRate: input.vatRate,
+      depositAmount: BigInt(Math.round(input.depositAmount)),
+      electricityPricePerKwh: elec,
+      parkingCount: 0,
+      parkingFeePerVehicle: parking,
+      serviceFeeAmount: BigInt(Math.round(input.serviceFeeAmount)),
+      notes: input.notes,
+      status: "ACTIVE",
+      customers: { create: [{ customerId, isPrimary: true, orderIdx: 0 }] },
+    },
+  });
+  await prisma.room.update({ where: { id: roomId }, data: { status: "OCCUPIED" } });
+  stats.contracts++;
 }

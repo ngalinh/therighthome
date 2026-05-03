@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
-  readWorkbook, parseSheet, SHEET_NAMES,
-  validateBuilding, validateRoom, validateCustomer, validateContract, validateTransaction,
+  readWorkbook, parseSheet, SHEETS,
+  validateChdv, validateVp,
 } from "@/lib/excel-import";
 
 export const runtime = "nodejs";
@@ -19,17 +19,8 @@ export async function POST(req: NextRequest) {
   const buf = Buffer.from(await f.arrayBuffer());
   const wb = readWorkbook(buf);
 
-  const buildings = parseSheet(wb, SHEET_NAMES.BUILDINGS, validateBuilding);
-  const rooms = parseSheet(wb, SHEET_NAMES.ROOMS, validateRoom);
-  const customers = parseSheet(wb, SHEET_NAMES.CUSTOMERS, validateCustomer);
-  const contracts = parseSheet(wb, SHEET_NAMES.CONTRACTS, validateContract);
-  const transactions = parseSheet(wb, SHEET_NAMES.TRANSACTIONS, validateTransaction);
+  const chdv = parseSheet(wb, SHEETS.CHDV, validateChdv);
+  const vp = parseSheet(wb, SHEETS.VP, validateVp);
 
-  return NextResponse.json({
-    buildings,
-    rooms,
-    customers,
-    contracts,
-    transactions,
-  });
+  return NextResponse.json({ chdv, vp });
 }

@@ -7,13 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
-type Preview = {
-  buildings: { rows: unknown[]; errors: { row: number; message: string }[] };
-  rooms: { rows: unknown[]; errors: { row: number; message: string }[] };
-  customers: { rows: unknown[]; errors: { row: number; message: string }[] };
-  contracts: { rows: unknown[]; errors: { row: number; message: string }[] };
-  transactions: { rows: unknown[]; errors: { row: number; message: string }[] };
-};
+type SheetPreview = { rows: unknown[]; errors: { row: number; message: string }[] };
+type Preview = { chdv: SheetPreview; vp: SheetPreview };
 
 export function ImportClient() {
   const router = useRouter();
@@ -59,9 +54,7 @@ export function ImportClient() {
     router.refresh();
   }
 
-  const totalErrors = preview
-    ? preview.buildings.errors.length + preview.rooms.errors.length + preview.customers.errors.length + preview.contracts.errors.length + preview.transactions.errors.length
-    : 0;
+  const totalErrors = preview ? preview.chdv.errors.length + preview.vp.errors.length : 0;
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -69,7 +62,8 @@ export function ImportClient() {
         <CardHeader><CardTitle>1. Tải mẫu Excel</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-slate-600">
-            File mẫu có 5 sheet: <strong>Toa_nha</strong>, <strong>Phong</strong>, <strong>Khach_hang</strong>, <strong>Hop_dong</strong>, <strong>Giao_dich</strong>. Điền dữ liệu vào, để trống sheet không cần. Sheet không cần thì có thể xoá.
+            File mẫu có 2 sheet: <strong>Căn hộ dịch vụ</strong> và <strong>Văn phòng</strong>. Mỗi dòng sẽ tạo
+            (hoặc cập nhật) Toà nhà → Phòng → Khách → Hợp đồng. Sheet không cần thì để trống.
           </p>
           <Button asChild variant="outline">
             <a href="/api/import/template"><Download className="h-4 w-4" /> Tải file mẫu .xlsx</a>
@@ -112,11 +106,8 @@ export function ImportClient() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <PreviewRow label="Toà nhà" rows={preview.buildings} />
-            <PreviewRow label="Phòng" rows={preview.rooms} />
-            <PreviewRow label="Khách hàng" rows={preview.customers} />
-            <PreviewRow label="Hợp đồng" rows={preview.contracts} />
-            <PreviewRow label="Giao dịch" rows={preview.transactions} />
+            <PreviewRow label="Căn hộ dịch vụ" rows={preview.chdv} />
+            <PreviewRow label="Văn phòng" rows={preview.vp} />
             <Button onClick={runImport} disabled={totalErrors > 0 || importing} variant="gradient" className="w-full">
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
               {totalErrors > 0 ? `Sửa lỗi trước (${totalErrors})` : "Import vào hệ thống"}
@@ -131,7 +122,7 @@ export function ImportClient() {
             <div className="text-center space-y-3">
               <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto" />
               <h3 className="text-lg font-semibold">Import thành công</h3>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {Object.entries(stats).map(([k, v]) => (
                   <div key={k} className="rounded-lg bg-slate-50 p-3">
                     <div className="text-xs text-slate-500 capitalize">{k}</div>
@@ -147,7 +138,7 @@ export function ImportClient() {
   );
 }
 
-function PreviewRow({ label, rows }: { label: string; rows: { rows: unknown[]; errors: { row: number; message: string }[] } }) {
+function PreviewRow({ label, rows }: { label: string; rows: SheetPreview }) {
   return (
     <div className="rounded-xl border p-3">
       <div className="flex items-center justify-between">
