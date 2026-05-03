@@ -38,11 +38,15 @@ export async function POST(req: NextRequest) {
 
   const stats: Stats = { buildings: 0, rooms: 0, customers: 0, contracts: 0 };
 
-  for (const r of chdv.rows) {
-    await importChdv(r, session.user.id, stats);
+  // Group consecutive rows by (buildingName + roomNumber + startDate). Each
+  // group is a contract with one or more customers — the first row provides
+  // contract terms + the primary customer; subsequent rows are extra
+  // tenants/co-renters on the SAME contract.
+  for (const group of groupRows(chdv.rows)) {
+    await importChdvGroup(group, session.user.id, stats);
   }
-  for (const r of vp.rows) {
-    await importVp(r, session.user.id, stats);
+  for (const group of groupRows(vp.rows)) {
+    await importVpGroup(group, session.user.id, stats);
   }
 
   await prisma.auditLog.create({
@@ -55,6 +59,28 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ ok: true, stats });
+}
+
+function groupKey(r: { buildingName: string; roomNumber: string; startDate?: string }): string {
+  return `${r.buildingName}::${r.roomNumber}::${r.startDate ?? ""}`;
+}
+
+function groupRows<T extends { buildingName: string; roomNumber: string; startDate?: string }>(rows: T[]): T[][] {
+  const groups: T[][] = [];
+  let cur: T[] = [];
+  let curKey = "";
+  for (const r of rows) {
+    const k = groupKey(r);
+    if (k !== curKey) {
+      if (cur.length) groups.push(cur);
+      cur = [r];
+      curKey = k;
+    } else {
+      cur.push(r);
+    }
+  }
+  if (cur.length) groups.push(cur);
+  return groups;
 }
 
 async function ensureBuilding(name: string, type: "CHDV" | "VP", userId: string) {
@@ -90,97 +116,110 @@ async function ensureRoom(buildingId: string, number: string) {
   return { room, created: true };
 }
 
-async function importChdv(r: ChdvRow, userId: string, stats: Stats) {
-  const { b, created: bCreated } = await ensureBuilding(r.buildingName, "CHDV", userId);
-  if (bCreated) stats.buildings++;
-
-  const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
-  if (roomCreated) stats.rooms++;
-
-  // Customer is optional. Only upsert if we have at least a fullName or CCCD.
-  let custId: string | null = null;
-  if (r.fullName || r.idNumber) {
-    let cust = r.idNumber
-      ? await prisma.customer.findFirst({ where: { buildingId: b.id, idNumber: r.idNumber } })
-      : null;
-    if (!cust && r.fullName) {
-      cust = await prisma.customer.findFirst({
-        where: { buildingId: b.id, fullName: r.fullName, type: "INDIVIDUAL" },
-      });
-    }
-    if (!cust) {
-      cust = await prisma.customer.create({
-        data: {
-          buildingId: b.id,
-          type: "INDIVIDUAL",
-          fullName: r.fullName,
-          idNumber: r.idNumber,
-          phone: r.phone,
-          licensePlate: r.licensePlate,
-        },
-      });
-      stats.customers++;
-    }
-    custId = cust.id;
+async function ensureChdvCustomer(buildingId: string, r: ChdvRow, stats: Stats): Promise<string | null> {
+  if (!r.fullName && !r.idNumber) return null;
+  let cust = r.idNumber
+    ? await prisma.customer.findFirst({ where: { buildingId, idNumber: r.idNumber } })
+    : null;
+  if (!cust && r.fullName) {
+    cust = await prisma.customer.findFirst({
+      where: { buildingId, fullName: r.fullName, type: "INDIVIDUAL" },
+    });
   }
-
-  // Contract requires startDate AND a way to compute endDate (termMonths or
-  // explicit endDate) AND monthlyRent AND paymentDay AND a customer.
-  if (custId && r.startDate && r.monthlyRent !== undefined && r.paymentDay !== undefined && (r.termMonths !== undefined || r.endDate)) {
-    await createContractIfNew(b.id, room.id, custId, {
-      startDate: r.startDate,
-      endDate: r.endDate,
-      termMonths: r.termMonths!,
-      paymentDay: r.paymentDay,
-      monthlyRent: r.monthlyRent,
-      vatRate: 0,
-      depositAmount: r.depositAmount ?? 0,
-      serviceFeeAmount: r.serviceFeeAmount ?? 0,
-      notes: r.notes,
-    }, stats);
+  if (!cust) {
+    cust = await prisma.customer.create({
+      data: {
+        buildingId,
+        type: "INDIVIDUAL",
+        fullName: r.fullName,
+        idNumber: r.idNumber,
+        phone: r.phone,
+        licensePlate: r.licensePlate,
+      },
+    });
+    stats.customers++;
   }
+  return cust.id;
 }
 
-async function importVp(r: VpRow, userId: string, stats: Stats) {
-  const { b, created: bCreated } = await ensureBuilding(r.buildingName, "VP", userId);
-  if (bCreated) stats.buildings++;
+async function ensureVpCustomer(buildingId: string, r: VpRow, stats: Stats): Promise<string | null> {
+  if (!r.companyName) return null;
+  let cust = await prisma.customer.findFirst({
+    where: { buildingId, companyName: r.companyName, type: "COMPANY" },
+  });
+  if (!cust) {
+    cust = await prisma.customer.create({
+      data: {
+        buildingId,
+        type: "COMPANY",
+        companyName: r.companyName,
+        phone: r.phone,
+        email: r.email,
+      },
+    });
+    stats.customers++;
+  }
+  return cust.id;
+}
 
-  const { room, created: roomCreated } = await ensureRoom(b.id, r.roomNumber);
+async function importChdvGroup(group: ChdvRow[], userId: string, stats: Stats) {
+  const head = group[0];
+  const { b, created: bCreated } = await ensureBuilding(head.buildingName, "CHDV", userId);
+  if (bCreated) stats.buildings++;
+  const { room, created: roomCreated } = await ensureRoom(b.id, head.roomNumber);
   if (roomCreated) stats.rooms++;
 
-  let custId: string | null = null;
-  if (r.companyName) {
-    let cust = await prisma.customer.findFirst({
-      where: { buildingId: b.id, companyName: r.companyName, type: "COMPANY" },
-    });
-    if (!cust) {
-      cust = await prisma.customer.create({
-        data: {
-          buildingId: b.id,
-          type: "COMPANY",
-          companyName: r.companyName,
-          phone: r.phone,
-          email: r.email,
-        },
-      });
-      stats.customers++;
-    }
-    custId = cust.id;
+  const customerIds: string[] = [];
+  for (const r of group) {
+    const id = await ensureChdvCustomer(b.id, r, stats);
+    if (id && !customerIds.includes(id)) customerIds.push(id);
   }
 
-  if (custId && r.startDate && r.monthlyRent !== undefined && r.paymentDay !== undefined && (r.termMonths !== undefined || r.endDate)) {
-    await createContractIfNew(b.id, room.id, custId, {
-      startDate: r.startDate,
-      endDate: r.endDate,
-      termMonths: r.termMonths!,
-      paymentDay: r.paymentDay,
-      monthlyRent: r.monthlyRent,
-      vatRate: 0.1,
-      depositAmount: r.depositAmount ?? 0,
-      serviceFeeAmount: 0,
-      notes: r.notes,
-    }, stats);
+  if (customerIds.length === 0) return;
+  if (!head.startDate || head.monthlyRent === undefined || head.paymentDay === undefined) return;
+  if (head.termMonths === undefined && !head.endDate) return;
+
+  await createContractIfNew(b.id, room.id, customerIds, {
+    startDate: head.startDate,
+    endDate: head.endDate,
+    termMonths: head.termMonths!,
+    paymentDay: head.paymentDay,
+    monthlyRent: head.monthlyRent,
+    vatRate: 0,
+    depositAmount: head.depositAmount ?? 0,
+    serviceFeeAmount: head.serviceFeeAmount ?? 0,
+    notes: head.notes,
+  }, stats);
+}
+
+async function importVpGroup(group: VpRow[], userId: string, stats: Stats) {
+  const head = group[0];
+  const { b, created: bCreated } = await ensureBuilding(head.buildingName, "VP", userId);
+  if (bCreated) stats.buildings++;
+  const { room, created: roomCreated } = await ensureRoom(b.id, head.roomNumber);
+  if (roomCreated) stats.rooms++;
+
+  const customerIds: string[] = [];
+  for (const r of group) {
+    const id = await ensureVpCustomer(b.id, r, stats);
+    if (id && !customerIds.includes(id)) customerIds.push(id);
   }
+
+  if (customerIds.length === 0) return;
+  if (!head.startDate || head.monthlyRent === undefined || head.paymentDay === undefined) return;
+  if (head.termMonths === undefined && !head.endDate) return;
+
+  await createContractIfNew(b.id, room.id, customerIds, {
+    startDate: head.startDate,
+    endDate: head.endDate,
+    termMonths: head.termMonths!,
+    paymentDay: head.paymentDay,
+    monthlyRent: head.monthlyRent,
+    vatRate: 0.1,
+    depositAmount: head.depositAmount ?? 0,
+    serviceFeeAmount: 0,
+    notes: head.notes,
+  }, stats);
 }
 
 type ContractInput = {
@@ -198,7 +237,7 @@ type ContractInput = {
 async function createContractIfNew(
   buildingId: string,
   roomId: string,
-  customerId: string,
+  customerIds: string[],
   input: ContractInput,
   stats: Stats,
 ) {
@@ -232,7 +271,13 @@ async function createContractIfNew(
       serviceFeeAmount: BigInt(Math.round(input.serviceFeeAmount)),
       notes: input.notes,
       status: "ACTIVE",
-      customers: { create: [{ customerId, isPrimary: true, orderIdx: 0 }] },
+      customers: {
+        create: customerIds.map((cid, i) => ({
+          customerId: cid,
+          isPrimary: i === 0,
+          orderIdx: i,
+        })),
+      },
     },
   });
   await prisma.room.update({ where: { id: roomId }, data: { status: "OCCUPIED" } });

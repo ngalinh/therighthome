@@ -24,7 +24,19 @@ export default async function EditContractPage({
       include: {
         room: true,
         yearlyRents: { orderBy: { yearIndex: "asc" } },
-        customers: { include: { customer: true }, orderBy: { orderIdx: "asc" } },
+        customers: {
+          include: {
+            customer: {
+              select: {
+                id: true, type: true,
+                fullName: true, companyName: true,
+                idNumber: true, taxNumber: true,
+                phone: true, email: true, licensePlate: true,
+              },
+            },
+          },
+          orderBy: { orderIdx: "asc" },
+        },
       },
     }),
     prisma.transactionCategory.findFirst({

@@ -6,9 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
+
+type ContractCustomer = {
+  id: string;
+  isPrimary: boolean;
+  orderIdx: number;
+  customer: {
+    id: string;
+    type: "INDIVIDUAL" | "COMPANY";
+    fullName: string | null;
+    companyName: string | null;
+    idNumber: string | null;
+    taxNumber: string | null;
+    phone: string | null;
+    email: string | null;
+    licensePlate: string | null;
+  };
+};
 
 type Contract = {
   id: string;
@@ -28,7 +48,7 @@ type Contract = {
   notes: string | null;
   room: { number: string };
   yearlyRents: { yearIndex: number; rent: string }[];
-  customers: { isPrimary: boolean; customer: { fullName: string | null; companyName: string | null } }[];
+  customers: ContractCustomer[];
 };
 
 export function EditContractForm({
@@ -135,8 +155,7 @@ export function EditContractForm({
   const vatAmount = (rentBigInt * BigInt(Math.round(vatRate * 100))) / 10000n;
   const preVATAmount = rentBigInt - vatAmount;
 
-  const primaryCustomer = contract.customers.find((c) => c.isPrimary)?.customer;
-  const customerName = primaryCustomer?.fullName || primaryCustomer?.companyName || "—";
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   function addYearlyRent() {
     const nextIdx = (yearlyRents.length > 0 ? Math.max(...yearlyRents.map((y) => y.yearIndex)) : 0) + 1;
@@ -197,7 +216,26 @@ export function EditContractForm({
           <CardContent className="space-y-2 text-sm">
             <Row label="Mã HĐ" value={contract.code} />
             <Row label="Phòng" value={contract.room.number} />
-            <Row label="Khách thuê" value={customerName} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>Khách thuê ({contract.customers.length})</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => setAddCustomerOpen(true)}>
+              <UserPlus className="h-3.5 w-3.5" /> Thêm
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {contract.customers.map((cc) => (
+              <CustomerItem
+                key={cc.id}
+                cc={cc}
+                contractId={contract.id}
+                canRemove={contract.customers.length > 1}
+                onChanged={() => router.refresh()}
+              />
+            ))}
           </CardContent>
         </Card>
 
@@ -467,7 +505,198 @@ export function EditContractForm({
           </Button>
         </div>
       </div>
+
+      <AddCustomerDialog
+        open={addCustomerOpen}
+        onClose={() => setAddCustomerOpen(false)}
+        contractId={contract.id}
+        defaultType={buildingType === "VP" ? "COMPANY" : "INDIVIDUAL"}
+        onAdded={() => router.refresh()}
+      />
     </div>
+  );
+}
+
+function CustomerItem({
+  cc, contractId, canRemove, onChanged,
+}: {
+  cc: ContractCustomer;
+  contractId: string;
+  canRemove: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const c = cc.customer;
+  const name = c.fullName || c.companyName || "—";
+  const sub: string[] = [];
+  if (c.idNumber) sub.push(`CCCD ${c.idNumber}`);
+  if (c.taxNumber) sub.push(`MST ${c.taxNumber}`);
+  if (c.phone) sub.push(c.phone);
+  if (c.email) sub.push(c.email);
+  if (c.licensePlate) sub.push(c.licensePlate);
+
+  async function remove() {
+    if (!confirm(`Xoá khách "${name}" khỏi hợp đồng?`)) return;
+    setBusy(true);
+    const res = await fetch(`/api/contracts/${contractId}/customers/${cc.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Xoá thất bại");
+    }
+    toast.success("Đã xoá khách");
+    onChanged();
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm truncate">{name}</span>
+          {cc.isPrimary && <Badge variant="default" className="text-[10px]">Đại diện</Badge>}
+        </div>
+        {sub.length > 0 && (
+          <div className="text-[11px] text-slate-500 truncate">{sub.join(" · ")}</div>
+        )}
+      </div>
+      {canRemove && (
+        <button
+          onClick={remove}
+          disabled={busy}
+          className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+          aria-label="Xoá khách"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AddCustomerDialog({
+  open, onClose, contractId, defaultType, onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contractId: string;
+  defaultType: "INDIVIDUAL" | "COMPANY";
+  onAdded: () => void;
+}) {
+  const [type, setType] = useState<"INDIVIDUAL" | "COMPANY">(defaultType);
+  const [fullName, setFullName] = useState("");
+  const [idNumber, setIdNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [licensePlate, setLicensePlate] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function reset() {
+    setType(defaultType);
+    setFullName(""); setIdNumber(""); setPhone(""); setEmail(""); setLicensePlate("");
+    setCompanyName(""); setTaxNumber("");
+  }
+
+  async function submit() {
+    if (type === "INDIVIDUAL" && !fullName.trim()) return toast.error("Nhập Họ và tên");
+    if (type === "COMPANY" && !companyName.trim()) return toast.error("Nhập Tên công ty");
+    setSaving(true);
+    const res = await fetch(`/api/contracts/${contractId}/customers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        fullName: type === "INDIVIDUAL" ? fullName.trim() : undefined,
+        idNumber: idNumber.trim() || undefined,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        licensePlate: licensePlate.trim() || undefined,
+        companyName: type === "COMPANY" ? companyName.trim() : undefined,
+        taxNumber: taxNumber.trim() || undefined,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Lưu thất bại");
+    }
+    toast.success("Đã thêm khách");
+    reset();
+    onClose();
+    onAdded();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Thêm khách thuê</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Loại khách</Label>
+            <Select value={type} onValueChange={(v) => setType(v as "INDIVIDUAL" | "COMPANY")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INDIVIDUAL">Cá nhân</SelectItem>
+                <SelectItem value="COMPANY">Công ty</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {type === "INDIVIDUAL" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs">Họ và tên</Label>
+                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">CCCD</Label>
+                  <Input value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SĐT</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Biển số xe</Label>
+                  <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Tên công ty</Label>
+                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">MST</Label>
+                <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">SĐT</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Email</Label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { reset(); onClose(); }}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Thêm khách
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
