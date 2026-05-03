@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty";
 import { FileText, Download } from "lucide-react";
-import { formatDateVN, formatVND, compareRooms } from "@/lib/utils";
+import { formatDateVN, formatVND, compareRooms, customerDisplayName } from "@/lib/utils";
 
 type Contract = {
   id: string;
@@ -62,7 +62,7 @@ export function ContractsTab({
       <div className="space-y-2 lg:hidden">
         {sorted.map((c) => {
           const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
-          const name = primary?.fullName || primary?.companyName || "—";
+          const name = customerDisplayName(primary);
           const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
           const rent = BigInt(c.monthlyRent);
           const vatPct = Math.round(c.vatRate * 100);
@@ -124,7 +124,7 @@ export function ContractsTab({
           <tbody>
             {sorted.map((c) => {
               const primary = c.customers.find((cc) => cc.isPrimary)?.customer;
-              const name = primary?.fullName || primary?.companyName || "—";
+              const name = customerDisplayName(primary);
               const st = STATUS[c.status] ?? { label: c.status, variant: "secondary" as const };
               const rent = BigInt(c.monthlyRent);
               const vatPct = Math.round(c.vatRate * 100);

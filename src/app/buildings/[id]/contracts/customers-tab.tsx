@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Trash2, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
-import { compareRooms } from "@/lib/utils";
+import { compareRooms, customerDisplayName } from "@/lib/utils";
 
 type Customer = {
   id: string;
@@ -110,7 +110,7 @@ export function CustomersTab({
 function CustomerCardMobile({ customer, canWrite }: { customer: Customer; canWrite: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const name = customer.fullName || customer.companyName || "—";
+  const name = customerDisplayName(customer);
   const latest =
     customer.contractCustomers.find((cc) => cc.contract.status === "ACTIVE")?.contract ??
     customer.contractCustomers[0]?.contract;
@@ -174,7 +174,7 @@ function CustomerCardMobile({ customer, canWrite }: { customer: Customer; canWri
 function CustomerRow({ customer, canWrite }: { customer: Customer; canWrite: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const name = customer.fullName || customer.companyName || "—";
+  const name = customerDisplayName(customer);
   const latest =
     customer.contractCustomers.find((cc) => cc.contract.status === "ACTIVE")?.contract ??
     customer.contractCustomers[0]?.contract;
@@ -312,8 +312,8 @@ function EditCustomerDialog({ customer, onClose }: { customer: Customer; onClose
                 <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Người liên hệ</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện / liên hệ" />
+                <Label className="text-xs">Người đại diện</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện" />
               </div>
             </div>
           )}

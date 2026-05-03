@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit } from "lucide-react";
 import { toast } from "sonner";
-import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
+import { addMonths, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 
 type ContractCustomer = {
@@ -701,8 +701,10 @@ function CustomerItem({
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const c = cc.customer;
-  const name = c.fullName || c.companyName || "—";
+  const name = customerDisplayName(c);
   const sub: string[] = [];
+  // For company customers, surface the contact person on the sub-line.
+  if (c.type === "COMPANY" && c.fullName) sub.push(`Đại diện: ${c.fullName}`);
   if (c.idNumber) sub.push(`CCCD ${c.idNumber}`);
   if (c.taxNumber) sub.push(`MST ${c.taxNumber}`);
   if (c.phone) sub.push(c.phone);
@@ -853,6 +855,10 @@ function EditCustomerDialog({
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
               </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Người đại diện</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện" />
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">MST</Label>
                 <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
@@ -914,7 +920,8 @@ function AddCustomerDialog({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type,
-        fullName: type === "INDIVIDUAL" ? fullName.trim() : undefined,
+        // For COMPANY: fullName is the contact person ("Người đại diện").
+        fullName: fullName.trim() || undefined,
         idNumber: idNumber.trim() || undefined,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
@@ -979,6 +986,10 @@ function AddCustomerDialog({
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Người đại diện</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">MST</Label>

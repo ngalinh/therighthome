@@ -68,6 +68,18 @@ export function roomFloor(n: string): string {
   return m[1].length === 1 ? m[1] : m[1][0];
 }
 
+// Pick the right display name for a customer:
+// - Company → companyName (the registered name) preferred over the contact
+//   person's fullName.
+// - Individual → fullName preferred.
+export function customerDisplayName(
+  c: { type?: string | null; fullName?: string | null; companyName?: string | null } | null | undefined,
+): string {
+  if (!c) return "—";
+  if (c.type === "COMPANY") return c.companyName?.trim() || c.fullName?.trim() || "—";
+  return c.fullName?.trim() || c.companyName?.trim() || "—";
+}
+
 // Recursively reflect what JSON.stringify+parse does to bigints and Dates.
 export type Serialized<T> =
   T extends bigint ? string :

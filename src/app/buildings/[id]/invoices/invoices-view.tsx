@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { EmptyState } from "@/components/ui/empty";
 import { Receipt, Send, Plus, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 
 type Invoice = {
   id: string;
@@ -34,7 +34,7 @@ type Invoice = {
   contract: {
     id: string;
     room: { number: string };
-    customers: { customer: { fullName: string | null; companyName: string | null; email: string | null } }[];
+    customers: { customer: { type: string; fullName: string | null; companyName: string | null; email: string | null } }[];
   };
 };
 
@@ -249,7 +249,7 @@ function InvoiceTable({
       <tbody>
         {invoices.map((inv) => {
           const primary = inv.contract.customers[0]?.customer;
-          const name = primary?.fullName || primary?.companyName || "—";
+          const name = customerDisplayName(primary);
           const st = STATUS[inv.status] ?? { label: inv.status, variant: "secondary" as const };
           const remaining = BigInt(inv.totalAmount) - BigInt(inv.paidAmount);
           const overdueDays = inv.status === "OVERDUE"
@@ -317,7 +317,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
   onPay: () => void;
 }) {
   const primary = inv.contract.customers[0]?.customer;
-  const name = primary?.fullName || primary?.companyName || "—";
+  const name = customerDisplayName(primary);
   const st = STATUS[inv.status] ?? { label: inv.status, variant: "secondary" as const };
   const remaining = BigInt(inv.totalAmount) - BigInt(inv.paidAmount);
   const overdueDays = inv.status === "OVERDUE" ? Math.max(1, Math.ceil((Date.now() - new Date(inv.dueDate).getTime()) / (24 * 3600 * 1000))) : null;

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Camera, Send, X as XIcon, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
-import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 
 type Invoice = {
   id: string;
@@ -37,7 +37,7 @@ type Invoice = {
   notes: string | null;
   contract: {
     room: { number: string };
-    customers: { isPrimary: boolean; customer: { fullName: string | null; companyName: string | null; email: string | null } }[];
+    customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null } }[];
   };
   payments: { id: string; amount: string; paidAt: string; transaction: { code: string } }[];
 };
@@ -158,7 +158,7 @@ export function InvoiceDetail({
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-white/75">Hoá đơn · {invoice.code}</p>
                 <h3 className="text-lg font-bold mt-0.5">
-                  Phòng {invoice.contract.room.number} · {primary?.fullName || primary?.companyName}
+                  Phòng {invoice.contract.room.number} · {customerDisplayName(primary)}
                 </h3>
               </div>
               <Badge className="bg-white/20 text-white border-white/30 text-xs">
