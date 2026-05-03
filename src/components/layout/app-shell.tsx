@@ -3,19 +3,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, ClipboardList,
+  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, ChevronDown, ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string };
+type NavGroup = { label: string; icon: typeof Home; basePath: string; children: NavItem[] };
 
 const TOP_NAV: NavItem[] = [
   { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" },
   { href: "/buildings", label: "Toà nhà", icon: Building2 },
-  { href: "/manage", label: "Quản lý", icon: ClipboardList },
-  { href: "/settings", label: "Cài đặt chung", icon: Settings },
 ];
+
+const MANAGE_GROUP: NavGroup = {
+  label: "Quản lý",
+  icon: ClipboardList,
+  basePath: "/manage",
+  children: [
+    { href: "/manage/chdv", label: "Căn hộ dịch vụ", icon: Building2 },
+    { href: "/manage/vp", label: "Văn phòng", icon: Building2 },
+  ],
+};
+
+const SETTINGS_NAV: NavItem = { href: "/settings", label: "Cài đặt chung", icon: Settings };
 
 export function AppShell({
   children,
@@ -28,6 +39,12 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+  const isManageActive = pathname.startsWith(MANAGE_GROUP.basePath);
+  const [manageExpanded, setManageExpanded] = useState(isManageActive);
 
   const insideBuilding = buildingNav;
   const buildingItems: NavItem[] = insideBuilding
@@ -39,11 +56,6 @@ export function AppShell({
         { href: `/buildings/${insideBuilding.buildingId}/settings`, label: "Cài đặt", icon: Settings },
       ]
     : [];
-
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(href + "/");
-  };
 
   const isChdv = insideBuilding?.type === "CHDV";
   const buildingGradient = isChdv ? "bg-gradient-chdv" : "bg-gradient-vp";
@@ -58,6 +70,14 @@ export function AppShell({
           {TOP_NAV.map((it) => (
             <NavLink key={it.href} {...it} active={isActive(it.href)} />
           ))}
+          <NavGroupItem
+            group={MANAGE_GROUP}
+            active={isManageActive}
+            expanded={manageExpanded}
+            onToggle={() => setManageExpanded((v) => !v)}
+            isActive={isActive}
+          />
+          <NavLink {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
           {insideBuilding && (
             <>
               <div className={cn(
@@ -111,6 +131,15 @@ export function AppShell({
               {TOP_NAV.map((it) => (
                 <NavLink key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
               ))}
+              <NavGroupItem
+                group={MANAGE_GROUP}
+                active={isManageActive}
+                expanded={manageExpanded}
+                onToggle={() => setManageExpanded((v) => !v)}
+                isActive={isActive}
+                onChildClick={() => setMobileOpen(false)}
+              />
+              <NavLink {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
               {insideBuilding && (
                 <>
                   <div className={cn(
@@ -170,12 +199,18 @@ export function AppShell({
       {!insideBuilding && (
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-4">
-            {TOP_NAV.map((it) => {
+            {[
+              ...TOP_NAV,
+              { href: MANAGE_GROUP.children[0].href, label: MANAGE_GROUP.label, icon: MANAGE_GROUP.icon, activePrefix: MANAGE_GROUP.basePath },
+              SETTINGS_NAV,
+            ].map((it) => {
               const Icon = it.icon;
-              const active = isActive(it.href);
+              const active = it.activePrefix === MANAGE_GROUP.basePath
+                ? pathname.startsWith(MANAGE_GROUP.basePath)
+                : isActive(it.href);
               return (
                 <Link
-                  key={it.href}
+                  key={it.label}
                   href={it.href}
                   className={cn(
                     "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
@@ -221,6 +256,48 @@ function SectionLabel({ children, className }: { children: React.ReactNode; clas
   return (
     <div className={cn("text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-3 mt-2 mb-1", className)}>
       {children}
+    </div>
+  );
+}
+
+function NavGroupItem({
+  group, active, expanded, onToggle, isActive, onChildClick,
+}: {
+  group: NavGroup;
+  active: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  isActive: (href: string) => boolean;
+  onChildClick?: () => void;
+}) {
+  const Icon = group.icon;
+  const open = expanded || active;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+          active ? "bg-gradient-brand/10 text-primary" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+        )}
+      >
+        <Icon className={cn("h-4.5 w-4.5", active ? "text-primary" : "text-slate-400")} />
+        <span className="flex-1 text-left">{group.label}</span>
+        {open ? <ChevronDown className="h-3.5 w-3.5 opacity-60" /> : <ChevronRight className="h-3.5 w-3.5 opacity-50" />}
+      </button>
+      {open && (
+        <div className="mt-0.5 ml-3 pl-3 border-l border-slate-100 space-y-0.5">
+          {group.children.map((c) => (
+            <NavLink
+              key={c.href}
+              {...c}
+              active={isActive(c.href)}
+              onClick={onChildClick}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
