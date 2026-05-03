@@ -183,6 +183,10 @@ model Contract {
   vatRate      Float        @default(0) // 0 for CHDV, 0.1 for VP usually
   depositAmount BigInt      @default(0)
 
+  // Open-ended contract: stays ACTIVE until manually terminated, regardless
+  // of endDate. Used for rolling/indefinite leases.
+  isOpenEnded  Boolean      @default(false)
+
   // Snapshot from settings at contract creation (for invoice generation)
   electricityPricePerKwh BigInt @default(0)
   parkingCount           Int    @default(0)

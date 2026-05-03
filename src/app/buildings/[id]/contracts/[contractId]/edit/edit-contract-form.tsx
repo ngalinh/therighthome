@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND } from "@/lib/utils";
 
@@ -46,6 +46,7 @@ type Contract = {
   parkingCount: number;
   parkingFeePerVehicle: string;
   serviceFeeAmount: string;
+  isOpenEnded: boolean;
   notes: string | null;
   room: { number: string };
   yearlyRents: { yearIndex: number; rent: string }[];
@@ -159,6 +160,7 @@ export function EditContractForm({
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [terminateOpen, setTerminateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [extendOpen, setExtendOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
   async function handleDelete() {
@@ -513,7 +515,10 @@ export function EditContractForm({
         </Card>
 
         <div className="flex flex-wrap justify-between gap-2">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setExtendOpen(true)}>
+              <RefreshCw className="h-4 w-4" /> Gia hạn
+            </Button>
             {contract.status === "ACTIVE" && (
               <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
                 <XCircle className="h-4 w-4" /> Kết thúc HĐ
@@ -548,6 +553,13 @@ export function EditContractForm({
         onClose={() => setTerminateOpen(false)}
         contract={contract}
         onDone={() => { router.push(`/buildings/${buildingId}/contracts`); router.refresh(); }}
+      />
+
+      <ExtendContractDialog
+        open={extendOpen}
+        onClose={() => setExtendOpen(false)}
+        contract={contract}
+        onDone={() => router.refresh()}
       />
 
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
@@ -870,5 +882,119 @@ function VNDInput({ value, onChange, disabled }: { value: string; onChange: (v: 
       placeholder="0"
       disabled={disabled}
     />
+  );
+}
+
+function ExtendContractDialog({
+  open, onClose, contract, onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contract: { id: string; code: string; endDate: string; monthlyRent: string; isOpenEnded: boolean };
+  onDone: () => void;
+}) {
+  const [openEnded, setOpenEnded] = useState(contract.isOpenEnded);
+  const [restartDate, setRestartDate] = useState(contract.endDate.slice(0, 10));
+  const [extensionMonths, setExtensionMonths] = useState(12);
+  const [newRent, setNewRent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const newEnd = useMemo(() => {
+    if (openEnded || !restartDate) return "";
+    return addMonths(new Date(restartDate), extensionMonths).toISOString().slice(0, 10);
+  }, [openEnded, restartDate, extensionMonths]);
+
+  async function submit() {
+    if (!openEnded && extensionMonths < 1) return toast.error("Số tháng gia hạn phải > 0");
+    setLoading(true);
+    const body: Record<string, unknown> = {};
+    if (openEnded) {
+      body.isOpenEnded = true;
+    } else {
+      body.startDate = restartDate;
+      body.extensionMonths = extensionMonths;
+    }
+    if (newRent.trim()) {
+      const v = parseVNDInput(newRent);
+      if (v > 0n) body.monthlyRent = v.toString();
+    }
+    const res = await fetch(`/api/contracts/${contract.id}/extend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success(openEnded ? "Đã chuyển sang HĐ vô thời hạn" : "Đã gia hạn HĐ");
+    onClose();
+    onDone();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Gia hạn HĐ {contract.code}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg bg-slate-50">
+            <input
+              type="checkbox"
+              checked={openEnded}
+              onChange={(e) => setOpenEnded(e.target.checked)}
+              className="rounded"
+            />
+            <span>Hợp đồng vô thời hạn (active đến khi kết thúc thủ công)</span>
+          </label>
+
+          <div className={openEnded ? "opacity-50 pointer-events-none" : ""}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ngày bắt đầu gia hạn</Label>
+                <Input
+                  type="date"
+                  value={restartDate}
+                  onChange={(e) => setRestartDate(e.target.value)}
+                  disabled={openEnded}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Số tháng gia hạn</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={extensionMonths}
+                  onChange={(e) => setExtensionMonths(Number(e.target.value))}
+                  disabled={openEnded}
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Ngày kết thúc (tự động)</Label>
+                <Input value={newEnd} disabled />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Giá thuê mới (₫/tháng) — để trống nếu không đổi</Label>
+            <VNDInput value={newRent} onChange={setNewRent} />
+            <p className="text-[11px] text-slate-500">
+              Đang là {formatVND(BigInt(contract.monthlyRent))}/tháng.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Xác nhận
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

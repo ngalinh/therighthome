@@ -26,7 +26,7 @@ export async function generateMonthlyInvoices(month: number, year: number, build
   const created: string[] = [];
 
   for (const c of contracts) {
-    if (c.endDate < new Date(year, month - 1, 1)) continue;
+    if (!c.isOpenEnded && c.endDate < new Date(year, month - 1, 1)) continue;
 
     const existing = await prisma.invoice.findUnique({
       where: { contractId_month_year: { contractId: c.id, month, year } },

@@ -129,7 +129,9 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
                 rooms={building.rooms.map((r) => {
                   const c = r.contracts[0];
                   const primary = c?.customers.find((cc) => cc.isPrimary)?.customer;
-                  const daysLeft = c ? Math.ceil((c.endDate.getTime() - Date.now()) / (24 * 3600 * 1000)) : null;
+                  const daysLeft = c && !c.isOpenEnded
+                    ? Math.ceil((c.endDate.getTime() - Date.now()) / (24 * 3600 * 1000))
+                    : null;
                   return {
                     id: r.id,
                     number: r.number,
