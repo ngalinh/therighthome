@@ -39,6 +39,7 @@ export async function DebtTab({
         startDate: { lte: monthEnd },
       },
       include: {
+        room: { select: { number: true } },
         customers: {
           where: { isPrimary: true },
           include: { customer: { select: { type: true, fullName: true, companyName: true } } },
@@ -98,14 +99,14 @@ export async function DebtTab({
     if (!include) continue;
 
     const customer = c.customers[0]?.customer;
-    const name = `Khách hàng — ${customerDisplayName(customer)}`;
+    const detail = `Tiền cọc HĐ ${c.code} — ${customerDisplayName(customer)} — Phòng ${c.room.number}`;
     rows.set(`dep-${c.id}`, {
       key: `dep-${c.id}`,
-      name,
+      name: "Khách hàng",
       opening: 0n,
       payable: c.depositAmount,
       paid,
-      details: [`Tiền cọc HĐ ${c.code}`],
+      details: [detail],
     });
   }
 
