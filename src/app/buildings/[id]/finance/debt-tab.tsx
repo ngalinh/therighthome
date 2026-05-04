@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND } from "@/lib/utils";
+import { formatVND, customerDisplayName } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 
 /**
@@ -25,10 +25,28 @@ export async function DebtTab({
   month: number;
   year: number;
 }) {
-  const expenses = await prisma.transaction.findMany({
-    where: { buildingId, accountingYear: year, accountingMonth: month, type: "EXPENSE" },
-    include: { party: true, customer: true, paymentMethod: true },
-  });
+  const monthEnd = new Date(year, month, 0, 23, 59, 59);
+
+  const [expenses, depositContracts] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { buildingId, accountingYear: year, accountingMonth: month, type: "EXPENSE" },
+      include: { party: true, customer: true, paymentMethod: true },
+    }),
+    prisma.contract.findMany({
+      where: {
+        buildingId,
+        depositAmount: { gt: 0 },
+        startDate: { lte: monthEnd },
+      },
+      include: {
+        customers: {
+          where: { isPrimary: true },
+          include: { customer: { select: { type: true, fullName: true, companyName: true } } },
+        },
+      },
+      orderBy: { startDate: "asc" },
+    }),
+  ]);
 
   const partyIds = Array.from(new Set(expenses.map((e) => e.partyId).filter(Boolean))) as string[];
   const openings = await prisma.openingBalance.findMany({
@@ -52,6 +70,45 @@ export async function DebtTab({
     cur.details.push(e.content);
     rows.set(key, cur);
   }
+
+  // Add a synthetic row per contract whose deposit is still a liability in
+  // this month. ACTIVE contracts always show; TERMINATED / EXPIRED show up to
+  // and including the termination month (with depositRefund in "Đã trả" of
+  // that month); TERMINATED_LOST_DEPOSIT hides from the forfeit month onward
+  // (the deposit becomes revenue instead).
+  for (const c of depositContracts) {
+    const t = c.terminatedAt;
+    const tMonth = t ? t.getMonth() + 1 : null;
+    const tYear = t ? t.getFullYear() : null;
+    const isTerminationMonth = tMonth === month && tYear === year;
+    const afterTermination = !!t && (tYear! < year || (tYear === year && tMonth! < month));
+
+    let include = false;
+    let paid = 0n;
+    if (c.status === "ACTIVE") {
+      include = true;
+    } else if (c.status === "TERMINATED" || c.status === "EXPIRED") {
+      // Show up to & including termination month; refund lands in that month.
+      include = !afterTermination;
+      if (isTerminationMonth) paid = c.depositRefund ?? 0n;
+    } else if (c.status === "TERMINATED_LOST_DEPOSIT") {
+      // Hide from forfeit month onward.
+      include = !afterTermination && !isTerminationMonth;
+    }
+    if (!include) continue;
+
+    const customer = c.customers[0]?.customer;
+    const name = `Khách hàng — ${customerDisplayName(customer)}`;
+    rows.set(`dep-${c.id}`, {
+      key: `dep-${c.id}`,
+      name,
+      opening: 0n,
+      payable: c.depositAmount,
+      paid,
+      details: [`Tiền cọc HĐ ${c.code}`],
+    });
+  }
+
   const data = Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   const totalOpen = data.reduce((s, r) => s + r.opening, 0n);
