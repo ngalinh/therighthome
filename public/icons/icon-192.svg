@@ -7,17 +7,9 @@
     </linearGradient>
   </defs>
   <rect width="192" height="192" rx="42" fill="url(#g)"/>
-  <!-- Key body -->
-  <g fill="white">
-    <!-- Head ring -->
-    <circle cx="70" cy="96" r="33"/>
-    <!-- Stem -->
-    <rect x="94" y="90" width="60" height="12"/>
-    <!-- Far tooth -->
-    <rect x="142" y="96" width="12" height="19" rx="3"/>
-    <!-- Near tooth -->
-    <rect x="124" y="96" width="10" height="13" rx="2"/>
+  <!-- KeyRound lucide icon, scaled 4.5x, centered -->
+  <g transform="translate(42, 42) scale(4.5)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/>
+    <circle cx="16.5" cy="7.5" r=".5" fill="white"/>
   </g>
-  <!-- Key hole -->
-  <circle cx="70" cy="96" r="12" fill="#8b5cf6"/>
 </svg>
