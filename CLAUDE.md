@@ -63,3 +63,12 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## 5. Ship Workflow
+
+**After pushing a PR: mark it ready, merge to `main` immediately, do not wait for CI or webhooks.**
+
+- Create the PR (draft is fine for the initial create call), then immediately `update_pull_request` with `draft: false` and `merge_pull_request` with `merge_method: "squash"`.
+- Don't wait on CI checks before merging — local `tsc --noEmit` + `next lint` are the gate. If something breaks on `main`, fix-forward in the next commit.
+- Deploy fires automatically on push to `main` (see `.github/workflows/deploy.yml`); no manual deploy step is needed.
+- Skip the "watch PR for review comments / CI failures" prompt — the PR is already merged by the time it would matter.
