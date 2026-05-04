@@ -9,6 +9,7 @@ const schema = z.object({
   reason: z.enum(["EXPIRED", "TERMINATED", "TERMINATED_LOST_DEPOSIT"]),
   terminatedAt: z.string().optional(),
   depositRefund: z.string().optional(), // VND, only used when reason!=LOST_DEPOSIT
+  depositLost: z.string().optional(), // VND, only used when reason=LOST_DEPOSIT (defaults to contract.depositAmount)
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -27,32 +28,35 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   await prisma.$transaction(async (tx) => {
     // Auto-record deposit loss as revenue if applicable
-    if (d.reason === "TERMINATED_LOST_DEPOSIT" && c.depositAmount > 0n) {
-      const cat = await tx.transactionCategory.findFirst({
-        where: { type: "INCOME", name: { contains: "cọc" } },
-      });
-      const code = await nextTransactionCode(c.buildingId, "INCOME");
-      const customer = await tx.contractCustomer.findFirst({
-        where: { contractId: id, isPrimary: true },
-        include: { customer: true },
-      });
-      await tx.transaction.create({
-        data: {
-          buildingId: c.buildingId,
-          code,
-          date: at,
-          type: "INCOME",
-          amount: c.depositAmount,
-          content: `Tiền cọc mất - HĐ ${c.code}`,
-          categoryId: cat?.id,
-          partyKind: "CUSTOMER",
-          customerId: customer?.customerId,
-          countInBR: true,
-          accountingMonth: at.getMonth() + 1,
-          accountingYear: at.getFullYear(),
-          createdById: session.user.id,
-        },
-      });
+    if (d.reason === "TERMINATED_LOST_DEPOSIT") {
+      const lostAmount = d.depositLost ? BigInt(d.depositLost) : c.depositAmount;
+      if (lostAmount > 0n) {
+        const cat = await tx.transactionCategory.findFirst({
+          where: { type: "INCOME", name: { contains: "cọc" } },
+        });
+        const code = await nextTransactionCode(c.buildingId, "INCOME");
+        const customer = await tx.contractCustomer.findFirst({
+          where: { contractId: id, isPrimary: true },
+          include: { customer: true },
+        });
+        await tx.transaction.create({
+          data: {
+            buildingId: c.buildingId,
+            code,
+            date: at,
+            type: "INCOME",
+            amount: lostAmount,
+            content: `Tiền cọc mất - HĐ ${c.code}`,
+            categoryId: cat?.id,
+            partyKind: "CUSTOMER",
+            customerId: customer?.customerId,
+            countInBR: true,
+            accountingMonth: at.getMonth() + 1,
+            accountingYear: at.getFullYear(),
+            createdById: session.user.id,
+          },
+        });
+      }
     }
 
     await tx.contract.update({
