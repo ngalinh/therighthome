@@ -161,8 +161,8 @@ export default async function DashboardPage() {
                 delta={`/${formatVND(totalDue)}`}
               />
               <MobileStatCard
-                gradient="linear-gradient(135deg, #5eead4 0%, #93c5fd 50%, #818cf8 100%)"
-                shadow="rgba(129,140,248,0.40)"
+                gradient="linear-gradient(135deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%)"
+                shadow="rgba(99,102,241,0.45)"
                 label="Phòng đang thuê"
                 value={`${occupiedRooms}/${totalRooms}`}
                 delta={`${totalRooms > 0 ? Math.round(occupiedRooms / totalRooms * 100) : 0}%`}

@@ -619,6 +619,7 @@ function TerminateContractDialog({
   const [reason, setReason] = useState<"EXPIRED" | "TERMINATED_LOST_DEPOSIT">("EXPIRED");
   const [terminatedAt, setTerminatedAt] = useState(new Date().toISOString().slice(0, 10));
   const [refund, setRefund] = useState("");
+  const [lost, setLost] = useState(formatNumber(BigInt(contract.depositAmount)));
   const [loading, setLoading] = useState(false);
 
   const lostDeposit = reason === "TERMINATED_LOST_DEPOSIT";
@@ -632,6 +633,7 @@ function TerminateContractDialog({
         reason,
         terminatedAt,
         depositRefund: !lostDeposit && refund ? parseVNDInput(refund).toString() : undefined,
+        depositLost: lostDeposit && lost ? parseVNDInput(lost).toString() : undefined,
       }),
     });
     setLoading(false);
@@ -663,8 +665,17 @@ function TerminateContractDialog({
             <Input type="date" value={terminatedAt} onChange={(e) => setTerminatedAt(e.target.value)} />
           </div>
           {lostDeposit ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-              Tiền cọc <strong>{formatVND(BigInt(contract.depositAmount))}</strong> sẽ tự động hạch toán vào doanh thu (loại "Tiền cọc mất").
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tiền cọc mất (₫)</Label>
+              <Input
+                inputMode="numeric"
+                value={lost ? formatNumber(parseVNDInput(lost)) : ""}
+                onChange={(e) => setLost(e.target.value)}
+                placeholder={formatNumber(BigInt(contract.depositAmount))}
+              />
+              <p className="text-[11px] text-rose-700">
+                Số tiền này sẽ tự động hạch toán vào doanh thu (loại "Tiền cọc mất").
+              </p>
             </div>
           ) : (
             <div className="space-y-1.5">
