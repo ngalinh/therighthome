@@ -1,35 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/permissions";
 import { saveFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+// Upload default contract template per kind. Admin only.
+// FormData: file (.docx), kind: "chdv" | "vpIndividual" | "vpCompany"
+export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await ctx.params;
-  if (!(await can(session.user.id, session.user.role, id, "settings.write"))) {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const fd = await req.formData();
   const f = fd.get("file") as File | null;
-  // kind = "individual" (default → contractTemplateUrl) | "company" (→ contractTemplateUrlCompany).
-  const kind = (fd.get("kind") as string | null) ?? "individual";
+  const kind = fd.get("kind") as string | null;
   if (!f) return NextResponse.json({ error: "Missing file" }, { status: 400 });
   if (!f.name.toLowerCase().endsWith(".docx")) {
     return NextResponse.json({ error: "Only .docx allowed" }, { status: 400 });
   }
-  if (!["individual", "company"].includes(kind)) {
+  if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
     return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
   }
   const url = await saveFile("templates", f, ".docx");
-  const field = kind === "company" ? "contractTemplateUrlCompany" : "contractTemplateUrl";
-  await prisma.buildingSetting.upsert({
-    where: { buildingId: id },
-    create: { buildingId: id, [field]: url },
+  const field =
+    kind === "chdv" ? "defaultContractTemplateChdv" :
+    kind === "vpIndividual" ? "defaultContractTemplateVpIndividual" :
+    "defaultContractTemplateVpCompany";
+  await prisma.appSetting.upsert({
+    where: { id: 1 },
+    create: { id: 1, [field]: url },
     update: { [field]: url },
   });
-  return NextResponse.json({ url, kind });
+  return NextResponse.json({ url });
 }

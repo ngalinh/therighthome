@@ -16,6 +16,7 @@ type Setting = {
   waterPricePerPerson: string;
   overtimeFeePerHour: string;
   contractTemplateUrl: string | null;
+  contractTemplateUrlCompany: string | null;
   autoGenerateInvoiceDay: number;
   defaultDueDay: number;
 } | null;
@@ -30,8 +31,10 @@ export function BuildingSettingsForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploadingIndividual, setUploadingIndividual] = useState(false);
+  const [uploadingCompany, setUploadingCompany] = useState(false);
+  const indivInputRef = useRef<HTMLInputElement>(null);
+  const companyInputRef = useRef<HTMLInputElement>(null);
 
   const [elec, setElec] = useState(setting?.electricityPricePerKwh ?? "3500");
   const [parking, setParking] = useState(setting?.parkingFeePerVehicle ?? "0");
@@ -41,6 +44,7 @@ export function BuildingSettingsForm({
   const [autoDay, setAutoDay] = useState(setting?.autoGenerateInvoiceDay ?? 1);
   const [dueDay, setDueDay] = useState(setting?.defaultDueDay ?? 5);
   const [tplUrl, setTplUrl] = useState(setting?.contractTemplateUrl ?? null);
+  const [tplUrlCompany, setTplUrlCompany] = useState(setting?.contractTemplateUrlCompany ?? null);
   const isVP = buildingType === "VP";
 
   async function save() {
@@ -64,18 +68,19 @@ export function BuildingSettingsForm({
     router.refresh();
   }
 
-  async function uploadTemplate(e: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadTemplate(e: React.ChangeEvent<HTMLInputElement>, kind: "individual" | "company") {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".docx")) return toast.error("Chỉ nhận file .docx");
-    setUploading(true);
+    if (kind === "company") setUploadingCompany(true); else setUploadingIndividual(true);
     const fd = new FormData();
     fd.append("file", f);
+    fd.append("kind", kind);
     const res = await fetch(`/api/buildings/${buildingId}/settings/template`, { method: "POST", body: fd });
-    setUploading(false);
+    if (kind === "company") setUploadingCompany(false); else setUploadingIndividual(false);
     if (!res.ok) return toast.error("Upload thất bại");
     const { url } = await res.json();
-    setTplUrl(url);
+    if (kind === "company") setTplUrlCompany(url); else setTplUrl(url);
     toast.success("Đã upload mẫu hợp đồng");
   }
 
@@ -125,25 +130,28 @@ export function BuildingSettingsForm({
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Mẫu hợp đồng (DOCX)</CardTitle></CardHeader>
-        <CardContent>
-          {tplUrl ? (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-              <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu hợp đồng</span>
-              <a href={tplUrl} target="_blank" rel="noopener" className="text-xs text-primary">Xem</a>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Chưa có mẫu. Khi tạo hợp đồng, file sinh ra sẽ tự động điền các placeholder bên dưới.</p>
-          )}
-
-          {canWrite && (
-            <>
-              <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={uploadTemplate} />
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => inputRef.current?.click()} disabled={uploading}>
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {tplUrl ? "Thay mẫu" : "Upload mẫu .docx"}
-              </Button>
-            </>
+        <CardHeader>
+          <CardTitle>Mẫu hợp đồng riêng cho toà này (DOCX)</CardTitle>
+          <p className="text-[11px] text-slate-500 mt-1">Khi để trống, hệ thống sẽ dùng mẫu mặc định ở Cài đặt chung.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <TemplateSlot
+            label={isVP ? "Mẫu HĐ — Khách cá nhân" : "Mẫu HĐ"}
+            url={tplUrl}
+            uploading={uploadingIndividual}
+            inputRef={indivInputRef}
+            onChange={(e) => uploadTemplate(e, "individual")}
+            canWrite={canWrite}
+          />
+          {isVP && (
+            <TemplateSlot
+              label="Mẫu HĐ — Khách công ty"
+              url={tplUrlCompany}
+              uploading={uploadingCompany}
+              inputRef={companyInputRef}
+              onChange={(e) => uploadTemplate(e, "company")}
+              canWrite={canWrite}
+            />
           )}
 
           <details className="mt-4">
@@ -190,4 +198,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function VNDInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
   const display = value ? formatNumber(parseVNDInput(value)) : "";
   return <Input value={display} inputMode="numeric" onChange={(e) => onChange(e.target.value)} disabled={disabled} />;
+}
+
+export function TemplateSlot({
+  label, url, uploading, inputRef, onChange, canWrite,
+}: {
+  label: string;
+  url: string | null;
+  uploading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  canWrite: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{label}</Label>
+      {url ? (
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+          <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu</span>
+          <a href={url} target="_blank" rel="noopener" className="text-xs text-primary">Xem</a>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">Chưa có mẫu riêng — sẽ dùng mẫu mặc định.</p>
+      )}
+      {canWrite && (
+        <>
+          <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={onChange} />
+          <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {url ? "Thay mẫu" : "Upload mẫu .docx"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
 }

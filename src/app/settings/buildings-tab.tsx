@@ -1,14 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Edit, Loader2, MapPin, FileSpreadsheet } from "lucide-react";
+import { Building2, Edit, Loader2, MapPin, FileSpreadsheet, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ImportClient } from "@/app/import/import-client";
 
@@ -19,7 +19,13 @@ type Building = {
   type: "CHDV" | "VP";
 };
 
-export function BuildingsTab({ buildings }: { buildings: Building[] }) {
+type AppSettingLite = {
+  defaultContractTemplateChdv: string | null;
+  defaultContractTemplateVpIndividual: string | null;
+  defaultContractTemplateVpCompany: string | null;
+} | null;
+
+export function BuildingsTab({ buildings, appSetting }: { buildings: Building[]; appSetting: AppSettingLite }) {
   const [editing, setEditing] = useState<Building | null>(null);
 
   return (
@@ -63,6 +69,25 @@ export function BuildingsTab({ buildings }: { buildings: Building[] }) {
         building={editing}
         onClose={() => setEditing(null)}
       />
+
+      <div className="pt-6 mt-2 border-t border-slate-200/70">
+        <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+          <FileText className="h-4 w-4" /> Mẫu hợp đồng mặc định
+        </h2>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Mẫu áp dụng cho mọi toà chưa upload mẫu riêng</CardTitle>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Khi tạo HĐ, hệ thống ưu tiên mẫu riêng của toà. Nếu toà chưa có, sẽ dùng mẫu mặc định ở đây theo loại + loại khách (cá nhân / công ty).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <DefaultTemplateSlot label="Mẫu HĐ — Căn hộ dịch vụ" kind="chdv" url={appSetting?.defaultContractTemplateChdv ?? null} />
+            <DefaultTemplateSlot label="Mẫu HĐ — Văn phòng (Khách cá nhân)" kind="vpIndividual" url={appSetting?.defaultContractTemplateVpIndividual ?? null} />
+            <DefaultTemplateSlot label="Mẫu HĐ — Văn phòng (Khách công ty)" kind="vpCompany" url={appSetting?.defaultContractTemplateVpCompany ?? null} />
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="pt-6 mt-2 border-t border-slate-200/70">
         <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
@@ -152,5 +177,57 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DefaultTemplateSlot({
+  label, kind, url: initialUrl,
+}: {
+  label: string;
+  kind: "chdv" | "vpIndividual" | "vpCompany";
+  url: string | null;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState<string | null>(initialUrl);
+  const [uploading, setUploading] = useState(false);
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith(".docx")) return toast.error("Chỉ nhận file .docx");
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("kind", kind);
+    const res = await fetch("/api/app-settings/template", { method: "POST", body: fd });
+    setUploading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Upload thất bại");
+    }
+    const { url: newUrl } = await res.json();
+    setUrl(newUrl);
+    toast.success("Đã upload mẫu mặc định");
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{label}</Label>
+      {url ? (
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+          <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu mặc định</span>
+          <a href={url} target="_blank" rel="noopener" className="text-xs text-primary">Xem</a>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">Chưa có mẫu mặc định.</p>
+      )}
+      <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={upload} />
+      <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        {url ? "Thay mẫu" : "Upload mẫu .docx"}
+      </Button>
+    </div>
   );
 }

@@ -28,7 +28,7 @@ type Opening = {
 const KIND_LABEL: Record<string, string> = {
   CUSTOMER_REVENUE: "Doanh thu khách",
   PARTY_DEBT: "Công nợ đối tượng",
-  CASHBOOK: "Sổ quỹ (PTTT)",
+  CASHBOOK: "Sổ quỹ (Tài khoản TT)",
 };
 
 export function OpeningBalancesForm({
@@ -151,7 +151,7 @@ function AddOpeningDialog({
       if (!partyId) { toast.error("Chọn đối tượng"); setLoading(false); return; }
       payload.partyId = partyId;
     } else {
-      if (!pmLabel) { toast.error("Chọn PTTT"); setLoading(false); return; }
+      if (!pmLabel) { toast.error("Chọn Tài khoản TT"); setLoading(false); return; }
       payload.paymentMethodLabel = pmLabel;
     }
     const res = await fetch(`/api/buildings/${buildingId}/opening-balances`, {
@@ -182,7 +182,7 @@ function AddOpeningDialog({
               <SelectContent>
                 <SelectItem value="CUSTOMER_REVENUE">Doanh thu — số dư đầu của 1 khách</SelectItem>
                 <SelectItem value="PARTY_DEBT">Công nợ — số dư đầu với 1 đối tượng</SelectItem>
-                <SelectItem value="CASHBOOK">Sổ quỹ — số dư đầu kỳ của 1 PTTT</SelectItem>
+                <SelectItem value="CASHBOOK">Sổ quỹ — số dư đầu kỳ của 1 Tài khoản TT</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -217,9 +217,9 @@ function AddOpeningDialog({
 
           {kind === "CASHBOOK" && (
             <div className="space-y-1.5">
-              <Label className="text-xs">PTTT</Label>
+              <Label className="text-xs">Tài khoản TT</Label>
               <Select value={pmLabel} onValueChange={setPmLabel}>
-                <SelectTrigger><SelectValue placeholder="Chọn PTTT" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Chọn tài khoản TT" /></SelectTrigger>
                 <SelectContent>
                   {paymentMethods.map((p) => (
                     <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>

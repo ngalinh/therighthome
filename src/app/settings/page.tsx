@@ -22,7 +22,7 @@ export default async function GlobalSettingsPage({
   const tab = sp.tab ?? "notifications";
   const isAdmin = session.user.role === "ADMIN";
 
-  const [users, buildings, categories, paymentMethods, auditLogs] = await Promise.all([
+  const [users, buildings, categories, paymentMethods, auditLogs, appSetting] = await Promise.all([
     isAdmin ? prisma.user.findMany({
       include: { permissions: { include: { building: true } } },
       orderBy: [{ active: "desc" }, { createdAt: "desc" }],
@@ -35,6 +35,7 @@ export default async function GlobalSettingsPage({
       orderBy: { createdAt: "desc" },
       take: 100,
     }) : [],
+    isAdmin ? prisma.appSetting.findUnique({ where: { id: 1 } }) : null,
   ]);
 
   const userName = session.user.name || "";
@@ -86,7 +87,7 @@ export default async function GlobalSettingsPage({
               )}
               {isAdmin && (
                 <TabsTrigger value="pttt" className="flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-3 py-2 text-xs font-medium">
-                  <CreditCard className="h-3.5 w-3.5" /> PTTT
+                  <CreditCard className="h-3.5 w-3.5" /> Tài khoản TT
                 </TabsTrigger>
               )}
               {isAdmin && (
@@ -114,7 +115,14 @@ export default async function GlobalSettingsPage({
                 <UsersTab users={users} buildings={buildings} currentUserId={session.user.id} />
               </TabsContent>
               <TabsContent value="buildings">
-                <BuildingsTab buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type }))} />
+                <BuildingsTab
+                  buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type }))}
+                  appSetting={appSetting ? {
+                    defaultContractTemplateChdv: appSetting.defaultContractTemplateChdv,
+                    defaultContractTemplateVpIndividual: appSetting.defaultContractTemplateVpIndividual,
+                    defaultContractTemplateVpCompany: appSetting.defaultContractTemplateVpCompany,
+                  } : null}
+                />
               </TabsContent>
               <TabsContent value="categories">
                 <CategoriesTab categories={categories} />

@@ -18,7 +18,7 @@ export function PaymentMethodsTab({ paymentMethods }: { paymentMethods: PM[] }) 
   const [open, setOpen] = useState(false);
 
   async function del(id: string) {
-    if (!confirm("Xoá PTTT?")) return;
+    if (!confirm("Xoá tài khoản TT?")) return;
     const res = await fetch(`/api/payment-methods/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -96,7 +96,7 @@ function CreateDialog({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Thêm PTTT</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Thêm tài khoản TT</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Toà nhà</Label>

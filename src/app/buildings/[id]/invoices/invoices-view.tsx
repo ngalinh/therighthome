@@ -453,7 +453,7 @@ function PayDialog({
           <div className="space-y-1.5">
             <Label>Phương thức thanh toán</Label>
             <Select value={pmId} onValueChange={setPmId}>
-              <SelectTrigger><SelectValue placeholder="Chọn PTTT" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Chọn tài khoản TT" /></SelectTrigger>
               <SelectContent>
                 {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>

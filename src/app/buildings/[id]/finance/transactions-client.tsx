@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { EmptyState } from "@/components/ui/empty";
 import { ArrowDownCircle, ArrowUpCircle, Trash2, Loader2, Wallet, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
+import { formatVND, formatNumber, parseVNDInput, formatDateVN, formatRoomNumber } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Transaction = {
@@ -146,7 +146,7 @@ export function TransactionsClient({
                 "Số tiền": Number(t.amount),
                 "Nội dung": t.content,
                 "Hạng mục": t.category?.name ?? "",
-                "PTTT": t.paymentMethod?.name ?? "",
+                "Tài khoản TT": t.paymentMethod?.name ?? "",
                 "Đối tượng": t.customer ? (t.customer.fullName || t.customer.companyName || "") : (t.party?.name ?? ""),
                 "Hạch toán BCKD": t.countInBR ? "x" : "",
                 "Ghi chú": t.notes ?? "",
@@ -193,7 +193,7 @@ export function TransactionsClient({
                     <th className="px-3 py-2 font-medium">Loại</th>
                     <th className="px-3 py-2 font-medium">Đối tượng</th>
                     <th className="px-3 py-2 font-medium">Nội dung</th>
-                    <th className="px-3 py-2 font-medium">PTTT</th>
+                    <th className="px-3 py-2 font-medium">Tài khoản TT</th>
                     <th className="px-3 py-2 font-medium text-right">Số tiền</th>
                     {canWrite && <th className="px-3 py-2 font-medium w-20"></th>}
                   </tr>
@@ -284,7 +284,7 @@ function TransactionTableRow({ t, buildingId, contractByCode, onDelete, onEdit, 
     <tr className="border-b last:border-b-0 hover:bg-slate-50/60">
       <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{formatDateVN(t.date)}</td>
       <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-        {t.room?.number ? `P${t.room.number}` : <span className="text-slate-400">—</span>}
+        {t.room?.number ? formatRoomNumber(t.room.number) : <span className="text-slate-400">—</span>}
       </td>
       <td className="px-3 py-2">
         {t.category?.name ?? <span className="text-slate-400">—</span>}
@@ -292,7 +292,7 @@ function TransactionTableRow({ t, buildingId, contractByCode, onDelete, onEdit, 
       </td>
       <td className="px-3 py-2 text-slate-600">{partyLabel ?? <span className="text-slate-400">—</span>}</td>
       <td className="px-3 py-2 max-w-[280px] truncate" title={(customerName ? `${customerName} — ` : "") + t.content}>
-        {customerName && <span className="font-medium">{customerName} — </span>}
+        {customerName && <span>{customerName} — </span>}
         {renderContent(t.content, buildingId, contractByCode)}
       </td>
       <td className="px-3 py-2 text-slate-600">{t.paymentMethod?.name ?? <span className="text-slate-400">—</span>}</td>
@@ -335,7 +335,7 @@ function TransactionRow({ t, buildingId, contractByCode, onDelete, onEdit, canWr
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            {t.room?.number && <Badge variant="outline" className="text-[10px]">P{t.room.number}</Badge>}
+            {t.room?.number && <Badge variant="outline" className="text-[10px]">{formatRoomNumber(t.room.number)}</Badge>}
             {t.category && <Badge variant="outline" className="text-[10px]">{t.category.name}</Badge>}
             {!t.countInBR && <Badge variant="secondary" className="text-[10px]">Ko hạch toán</Badge>}
           </div>
@@ -503,7 +503,7 @@ function CreateDialog({
             <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">PTTT</Label>
+            <Label className="text-xs">Tài khoản TT</Label>
             <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
               <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
               <SelectContent>
@@ -688,7 +688,7 @@ function EditTransactionDialog({
             <Input value={content} onChange={(e) => setContent(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">PTTT (để trống = giữ nguyên)</Label>
+            <Label className="text-xs">Tài khoản TT (để trống = giữ nguyên)</Label>
             <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
               <SelectTrigger><SelectValue placeholder="Chọn để đổi" /></SelectTrigger>
               <SelectContent>

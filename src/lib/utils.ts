@@ -29,6 +29,13 @@ export function formatDateVN(d: Date | string | null | undefined): string {
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// Display a room number with leading "P" prefix, but only if the stored
+// number doesn't already start with one (case-insensitive). Avoids "PP201".
+export function formatRoomNumber(n: string | null | undefined): string {
+  if (!n) return "";
+  return /^p/i.test(n) ? n : `P${n}`;
+}
+
 export function monthsBetween(start: Date, end: Date): number {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
