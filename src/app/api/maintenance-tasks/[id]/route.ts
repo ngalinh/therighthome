@@ -7,7 +7,7 @@ import { can } from "@/lib/permissions";
 const updateSchema = z.object({
   roomId: z.string().optional().nullable(),
   date: z.string().optional(),
-  partyKind: z.enum(["CUSTOMER", "THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "MOI_GIOI", "NCC_KHAC", "OTHER"]).optional().nullable(),
+  partyKind: z.enum(["CUSTOMER", "THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "MOI_GIOI", "TOA_NHA", "NCC_KHAC", "OTHER"]).optional().nullable(),
   partyId: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
   taskName: z.string().optional(),

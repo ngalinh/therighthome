@@ -58,17 +58,39 @@ export async function ManageTypePage({
   const canSend = writeChecks.some((c) => c.send);
 
   // Common: rooms + parties.
-  const [rooms, parties] = await Promise.all([
+  const [roomsRaw, parties] = await Promise.all([
     prisma.room.findMany({
       where: { buildingId: { in: buildingIds } },
       orderBy: [{ buildingId: "asc" }, { number: "asc" }],
-      select: { id: true, buildingId: true, number: true },
+      select: {
+        id: true,
+        buildingId: true,
+        number: true,
+        contracts: {
+          where: { status: "ACTIVE" },
+          select: {
+            customers: {
+              where: { isPrimary: true },
+              select: { customerId: true },
+              take: 1,
+            },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
     }),
     prisma.party.findMany({
       orderBy: [{ kind: "asc" }, { name: "asc" }],
       select: { id: true, name: true, kind: true },
     }),
   ]);
+  const rooms = roomsRaw.map((r) => ({
+    id: r.id,
+    buildingId: r.buildingId,
+    number: r.number,
+    primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
+  }));
 
   // Tasks (always loaded — small).
   const tasks = await prisma.maintenanceTask.findMany({

@@ -58,6 +58,8 @@ type Contract = {
   customers: ContractCustomer[];
 };
 
+type BrokerFee = { id: string; code: string; date: string; amount: string; content: string };
+
 export function EditContractForm({
   buildingId,
   buildingType,
@@ -65,6 +67,7 @@ export function EditContractForm({
   buildingSetting,
   brokerCategoryId,
   paymentMethods,
+  brokerFees,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
@@ -72,6 +75,7 @@ export function EditContractForm({
   buildingSetting: { electricityPricePerKwh: string; parkingFeePerVehicle: string } | null;
   brokerCategoryId: string | null;
   paymentMethods: { id: string; name: string }[];
+  brokerFees: BrokerFee[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -371,10 +375,20 @@ export function EditContractForm({
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-[11px] text-slate-500">
-              Khi click "Ghi nhận" sẽ tự tạo phiếu chi với loại "Phí môi giới" + nội dung kèm mã HĐ.
+              Khi click &ldquo;Ghi nhận&rdquo; sẽ tự tạo phiếu chi với loại &ldquo;Phí môi giới&rdquo; + nội dung kèm mã HĐ.
             </p>
+            {brokerFees.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Đã ghi nhận</Label>
+                <div className="space-y-1">
+                  {brokerFees.map((bf) => (
+                    <BrokerFeeItem key={bf.id} fee={bf} />
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label className="text-xs">Số tiền (₫)</Label>
+              <Label className="text-xs">{brokerFees.length > 0 ? "Ghi nhận thêm (₫)" : "Số tiền (₫)"}</Label>
               <Input
                 inputMode="numeric"
                 value={brokerFee ? formatNumber(parseVNDInput(brokerFee)) : ""}
@@ -1243,5 +1257,67 @@ function ExtendContractDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BrokerFeeItem({ fee }: { fee: BrokerFee }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(fee.amount);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const v = parseVNDInput(val);
+    if (v <= 0n) return toast.error("Số tiền > 0");
+    setSaving(true);
+    const res = await fetch(`/api/transactions/${fee.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: v.toString() }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Lưu thất bại");
+    }
+    toast.success("Đã cập nhật");
+    setEditing(false);
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
+        <Input
+          inputMode="numeric"
+          className="h-8 text-sm"
+          value={val ? formatNumber(parseVNDInput(val)) : ""}
+          onChange={(e) => setVal(e.target.value)}
+          autoFocus
+        />
+        <Button size="sm" variant="gradient" onClick={save} disabled={saving}>
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setVal(fee.amount); }}>
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 text-sm">
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-[10px] text-slate-500">{fee.code}</div>
+        <div className="font-semibold text-rose-700">{formatVND(BigInt(fee.amount))}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="p-1 text-slate-400 hover:text-primary"
+        aria-label="Sửa số tiền"
+      >
+        <Edit className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
