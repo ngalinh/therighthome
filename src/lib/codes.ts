@@ -76,13 +76,21 @@ export async function nextInvoiceCode(buildingId: string, month: number, year: n
   return `${prefix}${pad(maxN + 1)}`;
 }
 
+// NB: transaction.code has @unique GLOBALLY (not per-building), so we must
+// scan the whole table for the prefix — not just this building — to avoid two
+// buildings minting the same PC-YYMM-001 / PT-YYMM-001 code.
 export async function nextTransactionCode(buildingId: string, type: "INCOME" | "EXPENSE"): Promise<string> {
+  void buildingId;
   const ym = ymPart();
   const prefix = `${type === "INCOME" ? "PT" : "PC"}-${ym}-`;
-  const last = await prisma.transaction.findFirst({
-    where: { buildingId, code: { startsWith: prefix } },
-    orderBy: { code: "desc" },
+  const matches = await prisma.transaction.findMany({
+    where: { code: { startsWith: prefix } },
+    select: { code: true },
   });
-  const lastN = last ? parseInt(last.code.slice(prefix.length), 10) : 0;
-  return `${prefix}${pad(lastN + 1)}`;
+  let maxN = 0;
+  for (const { code } of matches) {
+    const n = parseInt(code.slice(prefix.length), 10);
+    if (Number.isFinite(n) && n > maxN) maxN = n;
+  }
+  return `${prefix}${pad(maxN + 1)}`;
 }
