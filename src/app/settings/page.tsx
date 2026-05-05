@@ -10,7 +10,6 @@ import { UsersTab } from "./users-tab";
 import { BuildingsTab } from "./buildings-tab";
 import { CategoriesTab } from "./categories-tab";
 import { PaymentMethodsTab } from "./payment-methods-tab";
-import { PartiesTab } from "./parties-tab";
 import { AuditLogTab } from "./audit-log-tab";
 import { NotificationsTab } from "./notifications-tab";
 
@@ -23,7 +22,7 @@ export default async function GlobalSettingsPage({
   const tab = sp.tab ?? "notifications";
   const isAdmin = session.user.role === "ADMIN";
 
-  const [users, buildings, categories, paymentMethods, parties, auditLogs] = await Promise.all([
+  const [users, buildings, categories, paymentMethods, auditLogs] = await Promise.all([
     isAdmin ? prisma.user.findMany({
       include: { permissions: { include: { building: true } } },
       orderBy: [{ active: "desc" }, { createdAt: "desc" }],
@@ -31,7 +30,6 @@ export default async function GlobalSettingsPage({
     isAdmin ? prisma.building.findMany({ orderBy: { name: "asc" } }) : [],
     isAdmin ? prisma.transactionCategory.findMany({ orderBy: [{ buildingType: "asc" }, { type: "asc" }, { name: "asc" }] }) : [],
     isAdmin ? prisma.paymentMethod.findMany({ orderBy: [{ buildingType: "asc" }, { name: "asc" }] }) : [],
-    isAdmin ? prisma.party.findMany({ orderBy: [{ kind: "asc" }, { name: "asc" }] }) : [],
     isAdmin ? prisma.auditLog.findMany({
       include: { user: { select: { email: true, name: true } } },
       orderBy: { createdAt: "desc" },
@@ -92,11 +90,6 @@ export default async function GlobalSettingsPage({
                 </TabsTrigger>
               )}
               {isAdmin && (
-                <TabsTrigger value="parties" className="flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-3 py-2 text-xs font-medium">
-                  <Building2 className="h-3.5 w-3.5" /> Đối tượng
-                </TabsTrigger>
-              )}
-              {isAdmin && (
                 <TabsTrigger value="audit" className="flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg px-3 py-2 text-xs font-medium">
                   <ClipboardList className="h-3.5 w-3.5" /> Audit log
                 </TabsTrigger>
@@ -128,9 +121,6 @@ export default async function GlobalSettingsPage({
               </TabsContent>
               <TabsContent value="pttt">
                 <PaymentMethodsTab paymentMethods={paymentMethods} />
-              </TabsContent>
-              <TabsContent value="parties">
-                <PartiesTab parties={parties} />
               </TabsContent>
               <TabsContent value="audit">
                 <AuditLogTab logs={auditLogs} />

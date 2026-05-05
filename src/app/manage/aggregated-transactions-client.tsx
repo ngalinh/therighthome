@@ -29,6 +29,7 @@ type Transaction = {
   content: string;
   notes: string | null;
   countInBR: boolean;
+  partyKind: string | null;
   building: { id: string; name: string };
   category: { name: string } | null;
   paymentMethod: { name: string } | null;
@@ -43,6 +44,7 @@ const PARTY_KINDS = [
   { value: "DON_VE_SINH", label: "Dọn vệ sinh" },
   { value: "BAO_VE", label: "Bảo vệ" },
   { value: "NHA_NUOC", label: "Nhà nước" },
+  { value: "MOI_GIOI", label: "Môi giới" },
   { value: "NCC_KHAC", label: "NCC khác" },
   { value: "OTHER", label: "Khác" },
 ];
@@ -169,11 +171,39 @@ export function AggregatedTransactionsClient({
       {filtered.length === 0 ? (
         <EmptyState icon={Wallet} title="Chưa có giao dịch" description={`Tháng ${month}/${year}.`} />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((t) => (
-            <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} canWrite={canWrite} />
-          ))}
-        </div>
+        <>
+          {/* Mobile/PWA: card list */}
+          <div className="space-y-2 lg:hidden">
+            {filtered.map((t) => (
+              <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} canWrite={canWrite} />
+            ))}
+          </div>
+          {/* Desktop: table */}
+          <Card className="hidden lg:block overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b">
+                  <tr className="text-left text-xs text-slate-500">
+                    <th className="px-3 py-2 font-medium">Mã</th>
+                    <th className="px-3 py-2 font-medium">Toà</th>
+                    <th className="px-3 py-2 font-medium">Ngày</th>
+                    <th className="px-3 py-2 font-medium">Loại</th>
+                    <th className="px-3 py-2 font-medium">Đối tượng</th>
+                    <th className="px-3 py-2 font-medium">Nội dung</th>
+                    <th className="px-3 py-2 font-medium">PTTT</th>
+                    <th className="px-3 py-2 font-medium text-right">Số tiền</th>
+                    {canWrite && <th className="px-3 py-2 font-medium w-10"></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t) => (
+                    <TransactionTableRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} canWrite={canWrite} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
 
       <CreateDialog
@@ -205,10 +235,40 @@ function MiniStat({ label, value, positive, danger, bold }: { label: string; val
   );
 }
 
+function TransactionTableRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: () => void; canWrite: boolean }) {
+  const partyName = t.customer
+    ? (t.customer.fullName || t.customer.companyName)
+    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
+  return (
+    <tr className="border-b last:border-b-0 hover:bg-slate-50/60">
+      <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap">{t.code}</td>
+      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{t.building.name}</td>
+      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{formatDateVN(t.date)}</td>
+      <td className="px-3 py-2">
+        {t.category?.name ?? <span className="text-slate-400">—</span>}
+        {!t.countInBR && <Badge variant="secondary" className="text-[10px] ml-1">Ko HT</Badge>}
+      </td>
+      <td className="px-3 py-2 text-slate-600">{partyName ?? <span className="text-slate-400">—</span>}</td>
+      <td className="px-3 py-2 max-w-[260px] truncate" title={t.content}>{t.content}</td>
+      <td className="px-3 py-2 text-slate-600">{t.paymentMethod?.name ?? <span className="text-slate-400">—</span>}</td>
+      <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${t.type === "INCOME" ? "text-emerald-700" : "text-rose-700"}`}>
+        {t.type === "INCOME" ? "+" : "−"}{formatVND(BigInt(t.amount))}
+      </td>
+      {canWrite && (
+        <td className="px-3 py-2 text-right">
+          <button onClick={onDelete} className="text-slate-400 hover:text-rose-500" aria-label="Xoá">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </td>
+      )}
+    </tr>
+  );
+}
+
 function TransactionRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: () => void; canWrite: boolean }) {
   const partyName = t.customer
     ? (t.customer.fullName || t.customer.companyName)
-    : t.party?.name;
+    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
   return (
     <Card>
       <CardContent className="p-3 flex items-start gap-3">
@@ -270,7 +330,6 @@ function CreateDialog({
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [partyKind, setPartyKind] = useState("");
   const [customerId, setCustomerId] = useState("");
-  const [partyId, setPartyId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
   const [acctMonth, setAcctMonth] = useState<number | null>(null);
@@ -313,7 +372,6 @@ function CreateDialog({
       paymentMethodId: paymentMethodId || undefined,
       partyKind: partyKind || undefined,
       customerId: partyKind === "CUSTOMER" && customerId ? customerId : undefined,
-      partyId: partyKind && partyKind !== "CUSTOMER" && partyId ? partyId : undefined,
       roomId: roomId || undefined,
       countInBR,
       accountingMonth: countInBR ? effMonth : month,
@@ -386,14 +444,10 @@ function CreateDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Nội dung</Label>
-            <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Đối tượng</Label>
-              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setCustomerId(""); setPartyId(""); }}>
+              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setCustomerId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
                 <SelectContent>
                   {PARTY_KINDS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
@@ -413,19 +467,10 @@ function CreateDialog({
                 </Select>
               </div>
             )}
-            {partyKind && partyKind !== "CUSTOMER" && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tên</Label>
-                <Select value={partyId} onValueChange={setPartyId}>
-                  <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-                  <SelectContent>
-                    {parties.filter((p) => p.kind === partyKind).map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nội dung</Label>
+            <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">PTTT</Label>

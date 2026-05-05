@@ -155,6 +155,7 @@ export function EditContractForm({
         amount: a.toString(),
         content: `Phí môi giới HĐ ${contract.code}`,
         categoryId: brokerCategoryId ?? undefined,
+        partyKind: "MOI_GIOI",
         countInBR: true,
         notes: `Liên quan HĐ ${contract.code}`,
       }),
