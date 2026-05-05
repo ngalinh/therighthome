@@ -47,6 +47,7 @@ type Contract = {
   parkingCount: number;
   parkingFeePerVehicle: string;
   serviceFeeAmount: string;
+  waterPricePerPerson: string;
   isOpenEnded: boolean;
   notes: string | null;
   room: { number: string };
@@ -60,12 +61,14 @@ export function EditContractForm({
   contract,
   buildingSetting,
   brokerCategoryId,
+  paymentMethods,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
   contract: Contract;
   buildingSetting: { electricityPricePerKwh: string; parkingFeePerVehicle: string } | null;
   brokerCategoryId: string | null;
+  paymentMethods: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -85,6 +88,7 @@ export function EditContractForm({
       : contract.parkingFeePerVehicle,
   );
   const [serviceFee, setServiceFee] = useState(contract.serviceFeeAmount);
+  const [waterPerPerson, setWaterPerPerson] = useState(contract.waterPricePerPerson);
   const [electricityPricePerKwh, setElecPrice] = useState(
     contract.electricityPricePerKwh === "0" && buildingSetting?.electricityPricePerKwh
       ? buildingSetting.electricityPricePerKwh
@@ -214,6 +218,7 @@ export function EditContractForm({
       parkingCount,
       parkingFeePerVehicle: parseVNDInput(parkingFeePerVehicle).toString(),
       serviceFeeAmount: parseVNDInput(serviceFee).toString(),
+      waterPricePerPerson: parseVNDInput(waterPerPerson).toString(),
       electricityPricePerKwh: parseVNDInput(electricityPricePerKwh).toString(),
       notes,
       yearlyRents: yearlyRents.map((y) => ({
@@ -392,7 +397,7 @@ export function EditContractForm({
             <CardTitle>Thông tin hợp đồng</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Ngày bắt đầu" required>
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </Field>
@@ -419,7 +424,7 @@ export function EditContractForm({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
                 {vatRate > 0 && rentBigInt > 0n && (
@@ -505,7 +510,7 @@ export function EditContractForm({
                 {" "}Có thể chỉnh tay nếu HĐ này khác.
               </p>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Đơn giá điện (₫/kWh)">
                 <VNDInput value={electricityPricePerKwh} onChange={setElecPrice} />
               </Field>
@@ -523,6 +528,11 @@ export function EditContractForm({
               <Field label="Phí dịch vụ (₫/tháng)">
                 <VNDInput value={serviceFee} onChange={setServiceFee} />
               </Field>
+              {buildingType === "CHDV" && (
+                <Field label="Tiền nước (₫/người/tháng)">
+                  <VNDInput value={waterPerPerson} onChange={setWaterPerPerson} />
+                </Field>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -574,6 +584,7 @@ export function EditContractForm({
         open={terminateOpen}
         onClose={() => setTerminateOpen(false)}
         contract={contract}
+        paymentMethods={paymentMethods}
         onDone={() => { router.push(`/buildings/${buildingId}/contracts`); router.refresh(); }}
       />
 
@@ -609,22 +620,25 @@ export function EditContractForm({
 }
 
 function TerminateContractDialog({
-  open, onClose, contract, onDone,
+  open, onClose, contract, paymentMethods, onDone,
 }: {
   open: boolean;
   onClose: () => void;
   contract: { id: string; code: string; depositAmount: string };
+  paymentMethods: { id: string; name: string }[];
   onDone: () => void;
 }) {
   const [reason, setReason] = useState<"EXPIRED" | "TERMINATED_LOST_DEPOSIT">("EXPIRED");
   const [terminatedAt, setTerminatedAt] = useState(new Date().toISOString().slice(0, 10));
   const [refund, setRefund] = useState("");
   const [lost, setLost] = useState(formatNumber(BigInt(contract.depositAmount)));
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [loading, setLoading] = useState(false);
 
   const lostDeposit = reason === "TERMINATED_LOST_DEPOSIT";
 
   async function submit() {
+    if (!paymentMethodId) return toast.error("Chọn phương thức thanh toán");
     setLoading(true);
     const res = await fetch(`/api/contracts/${contract.id}/terminate`, {
       method: "POST",
@@ -634,11 +648,16 @@ function TerminateContractDialog({
         terminatedAt,
         depositRefund: !lostDeposit && refund ? parseVNDInput(refund).toString() : undefined,
         depositLost: lostDeposit && lost ? parseVNDInput(lost).toString() : undefined,
+        paymentMethodId,
       }),
     });
     setLoading(false);
     if (!res.ok) return toast.error("Có lỗi");
-    toast.success(lostDeposit ? "Đã kết thúc HĐ — tiền cọc đã hạch toán vào doanh thu" : "Đã kết thúc HĐ");
+    toast.success(
+      lostDeposit
+        ? "Đã kết thúc HĐ — tiền cọc đã hạch toán vào doanh thu"
+        : "Đã kết thúc HĐ — đã tạo phiếu chi hoàn cọc",
+    );
     onClose();
     onDone();
   }
@@ -686,8 +705,22 @@ function TerminateContractDialog({
                 onChange={(e) => setRefund(e.target.value)}
                 placeholder={formatNumber(BigInt(contract.depositAmount))}
               />
+              <p className="text-[11px] text-slate-500">
+                Số tiền này sẽ tự động tạo phiếu Chi "Hoàn tiền cọc" theo PTTT chọn bên dưới.
+              </p>
             </div>
           )}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Phương thức thanh toán <span className="text-rose-500">*</span></Label>
+            <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+              <SelectTrigger><SelectValue placeholder="Chọn PTTT" /></SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Huỷ</Button>
@@ -838,7 +871,7 @@ function EditCustomerDialog({
             </Select>
           </div>
           {type === "INDIVIDUAL" ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Họ và tên</Label>
                 <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -861,7 +894,7 @@ function EditCustomerDialog({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
@@ -969,7 +1002,7 @@ function AddCustomerDialog({
           </div>
           {type === "INDIVIDUAL" ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
                   <Label className="text-xs">Họ và tên</Label>
                   <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -993,7 +1026,7 @@ function AddCustomerDialog({
               </div>
             </>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
@@ -1129,7 +1162,7 @@ function ExtendContractDialog({
           </label>
 
           <div className={openEnded ? "opacity-50 pointer-events-none" : ""}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Ngày bắt đầu gia hạn</Label>
                 <Input

@@ -10,6 +10,7 @@ const schema = z.object({
   terminatedAt: z.string().optional(),
   depositRefund: z.string().optional(), // VND, only used when reason!=LOST_DEPOSIT
   depositLost: z.string().optional(), // VND, only used when reason=LOST_DEPOSIT (defaults to contract.depositAmount)
+  paymentMethodId: z.string().min(1), // required so the auto-Thu/Chi has a PTTT
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -27,7 +28,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const at = d.terminatedAt ? new Date(d.terminatedAt) : new Date();
 
   await prisma.$transaction(async (tx) => {
-    // Auto-record deposit loss as revenue if applicable
+    const customer = await tx.contractCustomer.findFirst({
+      where: { contractId: id, isPrimary: true },
+    });
+
+    // Auto-record deposit loss as revenue (Thu) — countInBR=true.
     if (d.reason === "TERMINATED_LOST_DEPOSIT") {
       const lostAmount = d.depositLost ? BigInt(d.depositLost) : c.depositAmount;
       if (lostAmount > 0n) {
@@ -35,10 +40,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           where: { type: "INCOME", name: { contains: "cọc" } },
         });
         const code = await nextTransactionCode(c.buildingId, "INCOME");
-        const customer = await tx.contractCustomer.findFirst({
-          where: { contractId: id, isPrimary: true },
-          include: { customer: true },
-        });
         await tx.transaction.create({
           data: {
             buildingId: c.buildingId,
@@ -48,9 +49,40 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             amount: lostAmount,
             content: `Tiền cọc mất - HĐ ${c.code}`,
             categoryId: cat?.id,
+            paymentMethodId: d.paymentMethodId,
             partyKind: "CUSTOMER",
             customerId: customer?.customerId,
             countInBR: true,
+            accountingMonth: at.getMonth() + 1,
+            accountingYear: at.getFullYear(),
+            createdById: session.user.id,
+          },
+        });
+      }
+    }
+
+    // Auto-record deposit refund as expense (Chi). Refunding a deposit is a
+    // pure cash outflow against a liability — leave countInBR at default
+    // (true) so the cashbook reflects the actual money movement.
+    if (d.reason !== "TERMINATED_LOST_DEPOSIT" && d.depositRefund) {
+      const refundAmount = BigInt(d.depositRefund);
+      if (refundAmount > 0n) {
+        const cat = await tx.transactionCategory.findFirst({
+          where: { type: "EXPENSE", name: { contains: "cọc" } },
+        });
+        const code = await nextTransactionCode(c.buildingId, "EXPENSE");
+        await tx.transaction.create({
+          data: {
+            buildingId: c.buildingId,
+            code,
+            date: at,
+            type: "EXPENSE",
+            amount: refundAmount,
+            content: `Hoàn tiền cọc - HĐ ${c.code}`,
+            categoryId: cat?.id,
+            paymentMethodId: d.paymentMethodId,
+            partyKind: "CUSTOMER",
+            customerId: customer?.customerId,
             accountingMonth: at.getMonth() + 1,
             accountingYear: at.getFullYear(),
             createdById: session.user.id,

@@ -192,6 +192,7 @@ model Contract {
   parkingCount           Int    @default(0)
   parkingFeePerVehicle   BigInt @default(0)
   serviceFeeAmount       BigInt @default(0) // monthly service fee
+  waterPricePerPerson    BigInt @default(0) // monthly water fee per occupant
 
   status            ContractStatus @default(ACTIVE)
   notes             String?
@@ -290,7 +291,12 @@ model Invoice {
   // Service
   serviceFee BigInt @default(0)
 
-  totalAmount BigInt @default(0) // = rent + vat + electricity + parking + overtime + service
+  // Water (per occupant)
+  waterPricePerPerson BigInt @default(0) // VND per occupant per month
+  waterOccupants      Int    @default(0) // snapshot of headcount at gen time
+  waterFee            BigInt @default(0)
+
+  totalAmount BigInt @default(0) // = rent + vat + electricity + parking + overtime + service + water
   paidAmount  BigInt @default(0)
 
   status InvoiceStatus @default(PENDING)
@@ -471,6 +477,7 @@ model BuildingSetting {
   parkingFeePerVehicle   BigInt @default(0)    // VND/xe/tháng
   serviceFeeType         ServiceFeeType @default(PER_ROOM)
   serviceFeeAmount       BigInt @default(0)
+  waterPricePerPerson    BigInt @default(0)    // VND/người/tháng
   overtimeFeePerHour     BigInt @default(0)    // VP only: VND per hour of overtime
 
   contractTemplateUrl String?

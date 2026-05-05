@@ -47,6 +47,7 @@ const createSchema = z.object({
   parkingCount: z.number().int().min(0),
   parkingFeePerVehicle: z.string(),
   serviceFeeAmount: z.string(),
+  waterPricePerPerson: z.string().optional(),
   electricityPricePerKwh: z.string(),
   notes: z.string().optional(),
   customers: z.array(customerSchema).min(1),
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         parkingCount: d.parkingCount,
         parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle),
         serviceFeeAmount: BigInt(d.serviceFeeAmount),
+        waterPricePerPerson: d.waterPricePerPerson ? BigInt(d.waterPricePerPerson) : 0n,
         notes: d.notes,
         status: "ACTIVE",
         customers: {

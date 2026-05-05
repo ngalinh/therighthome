@@ -15,6 +15,7 @@ const updateSchema = z.object({
   parkingCount: z.number().int().min(0).optional(),
   parkingFeePerVehicle: z.string().optional(),
   serviceFeeAmount: z.string().optional(),
+  waterPricePerPerson: z.string().optional(),
   electricityPricePerKwh: z.string().optional(),
   notes: z.string().nullable().optional(),
   expiringNote: z.string().nullable().optional(),
@@ -61,6 +62,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (d.parkingFeePerVehicle !== undefined)
     updateData.parkingFeePerVehicle = BigInt(d.parkingFeePerVehicle);
   if (d.serviceFeeAmount !== undefined) updateData.serviceFeeAmount = BigInt(d.serviceFeeAmount);
+  if (d.waterPricePerPerson !== undefined) updateData.waterPricePerPerson = BigInt(d.waterPricePerPerson);
   if (d.electricityPricePerKwh !== undefined)
     updateData.electricityPricePerKwh = BigInt(d.electricityPricePerKwh);
   if (d.notes !== undefined) updateData.notes = d.notes;

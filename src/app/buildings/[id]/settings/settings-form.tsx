@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseVNDInput } from "@/lib/utils";
@@ -13,8 +12,8 @@ import { formatNumber, parseVNDInput } from "@/lib/utils";
 type Setting = {
   electricityPricePerKwh: string;
   parkingFeePerVehicle: string;
-  serviceFeeType: "PER_ROOM" | "PER_PERSON";
   serviceFeeAmount: string;
+  waterPricePerPerson: string;
   overtimeFeePerHour: string;
   contractTemplateUrl: string | null;
   autoGenerateInvoiceDay: number;
@@ -36,8 +35,8 @@ export function BuildingSettingsForm({
 
   const [elec, setElec] = useState(setting?.electricityPricePerKwh ?? "3500");
   const [parking, setParking] = useState(setting?.parkingFeePerVehicle ?? "0");
-  const [feeType, setFeeType] = useState<"PER_ROOM" | "PER_PERSON">(setting?.serviceFeeType ?? "PER_ROOM");
   const [feeAmt, setFeeAmt] = useState(setting?.serviceFeeAmount ?? "0");
+  const [waterPerPerson, setWaterPerPerson] = useState(setting?.waterPricePerPerson ?? "0");
   const [overtimePerHour, setOvertimePerHour] = useState(setting?.overtimeFeePerHour ?? "0");
   const [autoDay, setAutoDay] = useState(setting?.autoGenerateInvoiceDay ?? 1);
   const [dueDay, setDueDay] = useState(setting?.defaultDueDay ?? 5);
@@ -52,8 +51,8 @@ export function BuildingSettingsForm({
       body: JSON.stringify({
         electricityPricePerKwh: parseVNDInput(elec).toString(),
         parkingFeePerVehicle: parseVNDInput(parking).toString(),
-        serviceFeeType: feeType,
         serviceFeeAmount: parseVNDInput(feeAmt).toString(),
+        waterPricePerPerson: parseVNDInput(waterPerPerson).toString(),
         overtimeFeePerHour: parseVNDInput(overtimePerHour).toString(),
         autoGenerateInvoiceDay: autoDay,
         defaultDueDay: dueDay,
@@ -94,17 +93,11 @@ export function BuildingSettingsForm({
             </Field>
             {!isVP && (
               <>
-                <Field label="Loại phí dịch vụ">
-                  <Select value={feeType} onValueChange={(v) => setFeeType(v as "PER_ROOM" | "PER_PERSON")} disabled={!canWrite}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PER_ROOM">Theo phòng</SelectItem>
-                      <SelectItem value="PER_PERSON">Theo người</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label={`Phí dịch vụ (₫/${feeType === "PER_ROOM" ? "phòng" : "người"}/tháng)`}>
+                <Field label="Phí dịch vụ (₫/phòng/tháng)">
                   <VNDInput value={feeAmt} onChange={setFeeAmt} disabled={!canWrite} />
+                </Field>
+                <Field label="Tiền nước (₫/người/tháng)">
+                  <VNDInput value={waterPerPerson} onChange={setWaterPerPerson} disabled={!canWrite} />
                 </Field>
               </>
             )}
