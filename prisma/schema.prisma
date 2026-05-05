@@ -348,6 +348,7 @@ enum PartyKind {
   BAO_VE
   NHA_NUOC
   MOI_GIOI
+  TOA_NHA
   NCC_KHAC
   OTHER
 }

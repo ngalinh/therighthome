@@ -28,9 +28,30 @@ export async function TransactionsTab({
     prisma.room.findMany({
       where: { buildingId },
       orderBy: { number: "asc" },
-      select: { id: true, number: true },
+      select: {
+        id: true,
+        number: true,
+        contracts: {
+          where: { status: "ACTIVE" },
+          select: {
+            customers: {
+              where: { isPrimary: true },
+              select: { customerId: true },
+              take: 1,
+            },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
     }),
   ]);
+
+  const flatRooms = rooms.map((r) => ({
+    id: r.id,
+    number: r.number,
+    primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
+  }));
 
   return (
     <TransactionsClient
@@ -42,7 +63,7 @@ export async function TransactionsTab({
       paymentMethods={paymentMethods}
       parties={parties}
       customers={customers}
-      rooms={rooms}
+      rooms={flatRooms}
       canWrite={canWrite}
     />
   );

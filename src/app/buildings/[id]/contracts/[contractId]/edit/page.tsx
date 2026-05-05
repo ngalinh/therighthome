@@ -61,6 +61,18 @@ export default async function EditContractPage({
       }
     : null;
 
+  // Existing broker fees recorded for this contract (matched by content prefix).
+  const brokerFees = await prisma.transaction.findMany({
+    where: {
+      buildingId: id,
+      type: "EXPENSE",
+      partyKind: "MOI_GIOI",
+      content: { startsWith: `Phí môi giới HĐ ${contract.code}` },
+    },
+    select: { id: true, code: true, date: true, amount: true, content: true },
+    orderBy: { date: "desc" },
+  });
+
   return (
     <AppShell
       user={{ name: session.user.name || "", email: session.user.email || "", role: session.user.role }}
@@ -79,6 +91,7 @@ export default async function EditContractPage({
           buildingSetting={settingSerialized}
           brokerCategoryId={brokerCategory?.id ?? null}
           paymentMethods={paymentMethods}
+          brokerFees={serializeBigInt(brokerFees)}
         />
       </PageBody>
     </AppShell>

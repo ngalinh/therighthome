@@ -10,13 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty";
-import { ArrowDownCircle, ArrowUpCircle, Trash2, Loader2, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Trash2, Loader2, Wallet, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
 
 type BuildingLite = { id: string; name: string };
-type RoomLite = { id: string; buildingId: string; number: string };
+type RoomLite = { id: string; buildingId: string; number: string; primaryCustomerId: string | null };
 type CustomerLite = { id: string; buildingId: string; fullName: string | null; companyName: string | null };
 
 type Transaction = {
@@ -45,6 +45,7 @@ const PARTY_KINDS = [
   { value: "BAO_VE", label: "Bảo vệ" },
   { value: "NHA_NUOC", label: "Nhà nước" },
   { value: "MOI_GIOI", label: "Môi giới" },
+  { value: "TOA_NHA", label: "Toà nhà" },
   { value: "NCC_KHAC", label: "NCC khác" },
   { value: "OTHER", label: "Khác" },
 ];
@@ -70,6 +71,7 @@ export function AggregatedTransactionsClient({
 }) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState<"INCOME" | "EXPENSE" | null>(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filterType, setFilterType] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
 
   const filtered = useMemo(
@@ -175,7 +177,7 @@ export function AggregatedTransactionsClient({
           {/* Mobile/PWA: card list */}
           <div className="space-y-2 lg:hidden">
             {filtered.map((t) => (
-              <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} canWrite={canWrite} />
+              <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
             ))}
           </div>
           {/* Desktop: table */}
@@ -192,12 +194,12 @@ export function AggregatedTransactionsClient({
                     <th className="px-3 py-2 font-medium">Nội dung</th>
                     <th className="px-3 py-2 font-medium">PTTT</th>
                     <th className="px-3 py-2 font-medium text-right">Số tiền</th>
-                    {canWrite && <th className="px-3 py-2 font-medium w-10"></th>}
+                    {canWrite && <th className="px-3 py-2 font-medium w-20"></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((t) => (
-                    <TransactionTableRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} canWrite={canWrite} />
+                    <TransactionTableRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
                   ))}
                 </tbody>
               </table>
@@ -219,6 +221,13 @@ export function AggregatedTransactionsClient({
         customers={customers}
         onClose={() => setCreateOpen(null)}
       />
+      <EditTransactionDialog
+        tx={editTx}
+        categories={categories}
+        paymentMethods={paymentMethods}
+        rooms={rooms}
+        onClose={() => setEditTx(null)}
+      />
     </div>
   );
 }
@@ -235,7 +244,7 @@ function MiniStat({ label, value, positive, danger, bold }: { label: string; val
   );
 }
 
-function TransactionTableRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: () => void; canWrite: boolean }) {
+function TransactionTableRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
   const partyName = t.customer
     ? (t.customer.fullName || t.customer.companyName)
     : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
@@ -255,7 +264,10 @@ function TransactionTableRow({ t, onDelete, canWrite }: { t: Transaction; onDele
         {t.type === "INCOME" ? "+" : "−"}{formatVND(BigInt(t.amount))}
       </td>
       {canWrite && (
-        <td className="px-3 py-2 text-right">
+        <td className="px-3 py-2 text-right whitespace-nowrap">
+          <button onClick={onEdit} className="text-slate-400 hover:text-primary mr-2" aria-label="Sửa">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
           <button onClick={onDelete} className="text-slate-400 hover:text-rose-500" aria-label="Xoá">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -265,7 +277,7 @@ function TransactionTableRow({ t, onDelete, canWrite }: { t: Transaction; onDele
   );
 }
 
-function TransactionRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: () => void; canWrite: boolean }) {
+function TransactionRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
   const partyName = t.customer
     ? (t.customer.fullName || t.customer.companyName)
     : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
@@ -296,9 +308,14 @@ function TransactionRow({ t, onDelete, canWrite }: { t: Transaction; onDelete: (
             {t.type === "INCOME" ? "+" : "−"}{formatVND(BigInt(t.amount))}
           </div>
           {canWrite && (
-            <button onClick={onDelete} className="text-xs text-slate-400 hover:text-rose-500 mt-1">
-              <Trash2 className="h-3 w-3 inline" />
-            </button>
+            <div className="mt-1 flex justify-end gap-2">
+              <button onClick={onEdit} className="text-xs text-slate-400 hover:text-primary" aria-label="Sửa">
+                <Pencil className="h-3 w-3 inline" />
+              </button>
+              <button onClick={onDelete} className="text-xs text-slate-400 hover:text-rose-500" aria-label="Xoá">
+                <Trash2 className="h-3 w-3 inline" />
+              </button>
+            </div>
           )}
         </div>
       </CardContent>
@@ -329,7 +346,6 @@ function CreateDialog({
   const [categoryId, setCategoryId] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [partyKind, setPartyKind] = useState("");
-  const [customerId, setCustomerId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
   const [acctMonth, setAcctMonth] = useState<number | null>(null);
@@ -340,10 +356,6 @@ function CreateDialog({
   const filteredCategories = useMemo(
     () => type ? categories.filter((c) => c.type === type) : [],
     [categories, type],
-  );
-  const filteredCustomers = useMemo(
-    () => customers.filter((c) => c.buildingId === buildingId),
-    [customers, buildingId],
   );
   const filteredRooms = useMemo(
     () => rooms.filter((r) => r.buildingId === buildingId),
@@ -362,7 +374,11 @@ function CreateDialog({
     const a = parseVNDInput(amount);
     if (a <= 0n) return toast.error("Số tiền > 0");
     if (!content.trim()) return toast.error("Nhập nội dung");
+    if (partyKind === "CUSTOMER" && !roomId) return toast.error("Chọn số phòng cho khách hàng");
     setLoading(true);
+    const inferredCustomerId = partyKind === "CUSTOMER" && roomId
+      ? filteredRooms.find((r) => r.id === roomId)?.primaryCustomerId ?? null
+      : null;
     const payload: Record<string, unknown> = {
       date,
       type,
@@ -371,7 +387,7 @@ function CreateDialog({
       categoryId: categoryId || undefined,
       paymentMethodId: paymentMethodId || undefined,
       partyKind: partyKind || undefined,
-      customerId: partyKind === "CUSTOMER" && customerId ? customerId : undefined,
+      customerId: inferredCustomerId || undefined,
       roomId: roomId || undefined,
       countInBR,
       accountingMonth: countInBR ? effMonth : month,
@@ -400,26 +416,14 @@ function CreateDialog({
           <DialogTitle>{type === "INCOME" ? "Phiếu thu" : "Phiếu chi"} mới</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Toà nhà</Label>
-              <Select value={buildingId} onValueChange={(v) => { setBuildingId(v); setCustomerId(""); setRoomId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Chọn toà nhà" /></SelectTrigger>
-                <SelectContent>
-                  {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Số phòng (tuỳ chọn)</Label>
-              <Select value={roomId || "_none"} onValueChange={(v) => setRoomId(v === "_none" ? "" : v)} disabled={!buildingId}>
-                <SelectTrigger><SelectValue placeholder={buildingId ? "—" : "Chọn toà nhà trước"} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— Không gắn phòng —</SelectItem>
-                  {filteredRooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Toà nhà</Label>
+            <Select value={buildingId} onValueChange={(v) => { setBuildingId(v); setRoomId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Chọn toà nhà" /></SelectTrigger>
+              <SelectContent>
+                {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -447,7 +451,7 @@ function CreateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Đối tượng</Label>
-              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setCustomerId(""); }}>
+              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setRoomId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
                 <SelectContent>
                   {PARTY_KINDS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
@@ -456,13 +460,11 @@ function CreateDialog({
             </div>
             {partyKind === "CUSTOMER" && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Khách</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger><SelectValue placeholder={buildingId ? "Chọn khách" : "Chọn toà nhà trước"} /></SelectTrigger>
+                <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
+                <Select value={roomId} onValueChange={setRoomId} disabled={!buildingId}>
+                  <SelectTrigger><SelectValue placeholder={buildingId ? "Chọn phòng" : "Chọn toà nhà trước"} /></SelectTrigger>
                   <SelectContent>
-                    {filteredCustomers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.fullName || c.companyName}</SelectItem>
-                    ))}
+                    {filteredRooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -521,6 +523,161 @@ function CreateDialog({
           <Button variant="gradient" onClick={submit} disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Tạo phiếu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTransactionDialog({
+  tx, categories, paymentMethods, rooms, onClose,
+}: {
+  tx: Transaction | null;
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  paymentMethods: { id: string; name: string; isCash: boolean }[];
+  rooms: RoomLite[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [date, setDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [content, setContent] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [partyKind, setPartyKind] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+
+  if (tx && hydratedFor !== tx.id) {
+    setDate(tx.date.slice(0, 10));
+    setAmount(BigInt(tx.amount).toString());
+    setContent(tx.content);
+    setCategoryId("");
+    setPaymentMethodId("");
+    setPartyKind(tx.partyKind ?? "");
+    setRoomId("");
+    setNotes(tx.notes ?? "");
+    setHydratedFor(tx.id);
+  }
+
+  if (!tx) return null;
+  const filteredCategories = categories.filter((c) => c.type === tx.type);
+  const buildingRooms = rooms.filter((r) => r.buildingId === tx.building.id);
+
+  async function submit() {
+    const a = parseVNDInput(amount);
+    if (a <= 0n) return toast.error("Số tiền > 0");
+    if (!content.trim()) return toast.error("Nhập nội dung");
+    if (partyKind === "CUSTOMER" && !roomId) return toast.error("Chọn số phòng cho khách hàng");
+    setLoading(true);
+    const inferredCustomerId = partyKind === "CUSTOMER" && roomId
+      ? buildingRooms.find((r) => r.id === roomId)?.primaryCustomerId ?? null
+      : null;
+    const payload: Record<string, unknown> = {
+      date,
+      amount: a.toString(),
+      content,
+      categoryId: categoryId || null,
+      paymentMethodId: paymentMethodId || null,
+      partyKind: partyKind || null,
+      customerId: partyKind === "CUSTOMER" ? inferredCustomerId : null,
+      roomId: roomId || null,
+      notes,
+    };
+    const res = await fetch(`/api/transactions/${tx!.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success("Đã lưu");
+    setHydratedFor(null);
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={!!tx} onOpenChange={(o) => { if (!o) { setHydratedFor(null); onClose(); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Sửa {tx.type === "INCOME" ? "phiếu thu" : "phiếu chi"} {tx.code}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ngày</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Số tiền</Label>
+              <Input
+                inputMode="numeric"
+                value={amount ? formatNumber(parseVNDInput(amount)) : ""}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Loại {tx.type === "INCOME" ? "thu" : "chi"} (để trống = giữ nguyên)</Label>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger><SelectValue placeholder="Chọn để đổi loại" /></SelectTrigger>
+              <SelectContent>
+                {filteredCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Đối tượng</Label>
+              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setRoomId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <SelectContent>
+                  {PARTY_KINDS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {partyKind === "CUSTOMER" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
+                <Select value={roomId} onValueChange={setRoomId}>
+                  <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                  <SelectContent>
+                    {buildingRooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nội dung</Label>
+            <Input value={content} onChange={(e) => setContent(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">PTTT (để trống = giữ nguyên)</Label>
+            <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+              <SelectTrigger><SelectValue placeholder="Chọn để đổi" /></SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Ghi chú</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { setHydratedFor(null); onClose(); }}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Lưu
           </Button>
         </DialogFooter>
       </DialogContent>

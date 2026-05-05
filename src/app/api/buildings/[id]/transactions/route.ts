@@ -12,7 +12,7 @@ const createSchema = z.object({
   content: z.string().min(1),
   categoryId: z.string().optional(),
   paymentMethodId: z.string().optional(),
-  partyKind: z.enum(["CUSTOMER", "THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "MOI_GIOI", "NCC_KHAC", "OTHER"]).optional(),
+  partyKind: z.enum(["CUSTOMER", "THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "MOI_GIOI", "TOA_NHA", "NCC_KHAC", "OTHER"]).optional(),
   customerId: z.string().optional(),
   partyId: z.string().optional(),
   roomId: z.string().optional(),
