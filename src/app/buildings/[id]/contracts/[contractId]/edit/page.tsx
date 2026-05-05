@@ -41,12 +41,21 @@ export default async function EditContractPage({
         },
       },
     }),
+    // Match "Phí môi giới" insensitively, allow either building-scoped or global category.
     prisma.transactionCategory.findFirst({
-      where: { name: "Phí môi giới", type: "EXPENSE" },
+      where: {
+        name: { equals: "Phí môi giới", mode: "insensitive" },
+        type: "EXPENSE",
+      },
+      orderBy: { buildingType: "asc" }, // prefer scoped category if both exist
     }),
   ]);
 
   if (!building) notFound();
+  // Fallback: nếu chưa có category "Phí môi giới" trong DB thì tạo (toàn cục).
+  const ensuredBrokerCategory = brokerCategory ?? await prisma.transactionCategory.create({
+    data: { name: "Phí môi giới", type: "EXPENSE", buildingType: null },
+  });
   const paymentMethods = await prisma.paymentMethod.findMany({
     where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
     orderBy: { name: "asc" },
@@ -89,7 +98,7 @@ export default async function EditContractPage({
           buildingType={building.type}
           contract={serializeBigInt(contract)}
           buildingSetting={settingSerialized}
-          brokerCategoryId={brokerCategory?.id ?? null}
+          brokerCategoryId={ensuredBrokerCategory.id}
           paymentMethods={paymentMethods}
           brokerFees={serializeBigInt(brokerFees)}
         />
