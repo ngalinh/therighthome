@@ -14,6 +14,8 @@ const updateSchema = z.object({
   rentAmount: z.string().optional(),
   parkingFeePerVehicle: z.string().optional(),
   electricityPricePerKwh: z.string().optional(),
+  waterPricePerPerson: z.string().optional(),
+  waterOccupants: z.number().int().min(0).optional(),
   notes: z.string().nullable().optional(),
   dueDate: z.string().optional(),
 });
@@ -51,6 +53,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     overtimeFee: d.overtimeFee !== undefined ? BigInt(d.overtimeFee) : undefined,
     serviceFee: d.serviceFee !== undefined ? BigInt(d.serviceFee) : undefined,
     rentAmount: d.rentAmount !== undefined ? BigInt(d.rentAmount) : undefined,
+    waterPricePerPerson: d.waterPricePerPerson !== undefined ? BigInt(d.waterPricePerPerson) : undefined,
+    waterOccupants: d.waterOccupants,
   });
 
   if (d.notes !== undefined || d.dueDate) {

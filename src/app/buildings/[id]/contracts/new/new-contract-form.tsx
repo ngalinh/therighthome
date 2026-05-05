@@ -24,7 +24,7 @@ export function NewContractForm({
   buildingId: string;
   buildingType: "CHDV" | "VP";
   rooms: { id: string; number: string }[];
-  defaults: { electricityPricePerKwh: string; parkingFeePerVehicle: string; serviceFee: string; paymentDay: number };
+  defaults: { electricityPricePerKwh: string; parkingFeePerVehicle: string; serviceFee: string; waterPricePerPerson: string; paymentDay: number };
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +43,7 @@ export function NewContractForm({
   const [parkingCount, setParkingCount] = useState(0);
   const [parkingFeePerVehicle, setParkingFeePerVehicle] = useState(defaults.parkingFeePerVehicle);
   const [serviceFee, setServiceFee] = useState(defaults.serviceFee);
+  const [waterPricePerPerson, setWaterPricePerPerson] = useState(defaults.waterPricePerPerson);
   const [electricityPricePerKwh, setElectricityPricePerKwh] = useState(defaults.electricityPricePerKwh);
   const [notes, setNotes] = useState("");
   // VP yearly rents
@@ -80,6 +81,7 @@ export function NewContractForm({
       parkingCount,
       parkingFeePerVehicle: parseVNDInput(parkingFeePerVehicle).toString(),
       serviceFeeAmount: parseVNDInput(serviceFee).toString(),
+      waterPricePerPerson: parseVNDInput(waterPricePerPerson).toString(),
       electricityPricePerKwh: parseVNDInput(electricityPricePerKwh).toString(),
       notes,
       customers,
@@ -165,7 +167,7 @@ export function NewContractForm({
             <CardTitle>Thông tin hợp đồng</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Phòng" required>
                 <Select value={roomId} onValueChange={setRoomId}>
                   <SelectTrigger><SelectValue placeholder="Chọn phòng trống" /></SelectTrigger>
@@ -199,7 +201,7 @@ export function NewContractForm({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
                 {(() => {
@@ -237,7 +239,7 @@ export function NewContractForm({
         <Card>
           <CardHeader><CardTitle>Phí điện, xe, dịch vụ</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Đơn giá điện (₫/kWh)">
                 <VNDInput value={electricityPricePerKwh} onChange={setElectricityPricePerKwh} />
               </Field>
@@ -250,6 +252,11 @@ export function NewContractForm({
               <Field label="Phí dịch vụ (₫/tháng)">
                 <VNDInput value={serviceFee} onChange={setServiceFee} />
               </Field>
+              {buildingType === "CHDV" && (
+                <Field label="Tiền nước (₫/người/tháng)">
+                  <VNDInput value={waterPricePerPerson} onChange={setWaterPricePerPerson} />
+                </Field>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -341,7 +348,7 @@ function AddCustomerSection({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Field label="SĐT">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
         </Field>

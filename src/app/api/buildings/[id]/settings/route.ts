@@ -7,8 +7,8 @@ import { can } from "@/lib/permissions";
 const schema = z.object({
   electricityPricePerKwh: z.string(),
   parkingFeePerVehicle: z.string(),
-  serviceFeeType: z.enum(["PER_ROOM", "PER_PERSON"]),
   serviceFeeAmount: z.string(),
+  waterPricePerPerson: z.string().optional(),
   overtimeFeePerHour: z.string().optional(),
   autoGenerateInvoiceDay: z.number().int().min(1).max(28),
   defaultDueDay: z.number().int().min(1).max(28),
@@ -27,8 +27,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const baseData = {
     electricityPricePerKwh: BigInt(d.electricityPricePerKwh),
     parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle),
-    serviceFeeType: d.serviceFeeType,
     serviceFeeAmount: BigInt(d.serviceFeeAmount),
+    waterPricePerPerson: d.waterPricePerPerson ? BigInt(d.waterPricePerPerson) : 0n,
     overtimeFeePerHour: d.overtimeFeePerHour ? BigInt(d.overtimeFeePerHour) : 0n,
     autoGenerateInvoiceDay: d.autoGenerateInvoiceDay,
     defaultDueDay: d.defaultDueDay,

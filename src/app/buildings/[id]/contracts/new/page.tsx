@@ -43,6 +43,7 @@ export default async function NewContractPage({ params }: { params: Promise<{ id
             electricityPricePerKwh: building.setting?.electricityPricePerKwh.toString() ?? "3500",
             parkingFeePerVehicle: building.setting?.parkingFeePerVehicle.toString() ?? "0",
             serviceFee: building.setting?.serviceFeeAmount.toString() ?? "0",
+            waterPricePerPerson: building.setting?.waterPricePerPerson.toString() ?? "0",
             paymentDay: 5,
           }}
         />

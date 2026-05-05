@@ -44,7 +44,14 @@ export default async function EditContractPage({
     }),
   ]);
 
-  if (!building || !contract || contract.buildingId !== id) notFound();
+  if (!building) notFound();
+  const paymentMethods = await prisma.paymentMethod.findMany({
+    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
+  if (!contract || contract.buildingId !== id) notFound();
   const settingSerialized = building.setting
     ? {
         electricityPricePerKwh: building.setting.electricityPricePerKwh.toString(),
@@ -69,6 +76,7 @@ export default async function EditContractPage({
           contract={serializeBigInt(contract)}
           buildingSetting={settingSerialized}
           brokerCategoryId={brokerCategory?.id ?? null}
+          paymentMethods={paymentMethods}
         />
       </PageBody>
     </AppShell>

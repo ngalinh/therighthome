@@ -20,13 +20,16 @@ export type InvoiceComputeInput = {
   parkingFeePerVehicle: bigint;
   overtimeFee: bigint;
   serviceFee: bigint;
+  waterPricePerPerson: bigint;
+  waterOccupants: number;
 };
 
 export type InvoiceComputeResult = {
   vatAmount: bigint;         // informational portion of rent that is VAT
   electricityFee: bigint;
   parkingFee: bigint;
-  totalAmount: bigint;       // = rent + electricity + parking + overtime + service
+  waterFee: bigint;
+  totalAmount: bigint;       // = rent + electricity + parking + overtime + service + water
 };
 
 export function computeInvoice(d: InvoiceComputeInput): InvoiceComputeResult {
@@ -37,8 +40,9 @@ export function computeInvoice(d: InvoiceComputeInput): InvoiceComputeResult {
       : 0;
   const electricityFee = BigInt(kwh) * d.electricityPricePerKwh;
   const parkingFee = BigInt(d.parkingCount) * d.parkingFeePerVehicle;
-  const totalAmount = d.rentAmount + electricityFee + parkingFee + d.overtimeFee + d.serviceFee;
-  return { vatAmount, electricityFee, parkingFee, totalAmount };
+  const waterFee = BigInt(d.waterOccupants) * d.waterPricePerPerson;
+  const totalAmount = d.rentAmount + electricityFee + parkingFee + d.overtimeFee + d.serviceFee + waterFee;
+  return { vatAmount, electricityFee, parkingFee, waterFee, totalAmount };
 }
 
 /**

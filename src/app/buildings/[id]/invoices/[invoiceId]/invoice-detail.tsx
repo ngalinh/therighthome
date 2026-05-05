@@ -32,6 +32,9 @@ type Invoice = {
   parkingFee: string;
   overtimeFee: string;
   serviceFee: string;
+  waterPricePerPerson: string;
+  waterOccupants: number;
+  waterFee: string;
   totalAmount: string;
   paidAmount: string;
   notes: string | null;
@@ -68,6 +71,8 @@ export function InvoiceDetail({
   const [parkingCount, setParkingCount] = useState<number>(invoice.parkingCount);
   const [overtime, setOvertime] = useState(invoice.overtimeFee);
   const [serviceFee, setServiceFee] = useState(invoice.serviceFee);
+  const [waterPricePerPerson, setWaterPricePerPerson] = useState(invoice.waterPricePerPerson);
+  const [waterOccupants, setWaterOccupants] = useState<number>(invoice.waterOccupants);
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [dueDate, setDueDate] = useState(invoice.dueDate.slice(0, 10));
 
@@ -92,9 +97,16 @@ export function InvoiceDetail({
   const kwh = elecStartN !== null && elecEndN !== null && elecEndN > elecStartN ? elecEndN - elecStartN : 0;
   const elecFee = BigInt(kwh) * effectiveElectricityPrice;
   const parkingFee = BigInt(parkingCount) * effectiveParkingFeePerVehicle;
+  const waterFee = BigInt(waterOccupants) * parseVNDInput(waterPricePerPerson);
   // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
-  const totalPreview = BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee);
+  const totalPreview =
+    BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee) + waterFee;
   const remaining = BigInt(invoice.totalAmount) - BigInt(invoice.paidAmount);
+
+  // Month labels: rent = current month, all other costs = previous month
+  const prevMonth = invoice.month === 1 ? 12 : invoice.month - 1;
+  const rentLabelMonth = `T${invoice.month}`;
+  const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {
     setSaving(true);
@@ -111,6 +123,8 @@ export function InvoiceDetail({
         electricityPricePerKwh: effectiveElectricityPrice.toString(),
         overtimeFee: parseVNDInput(overtime).toString(),
         serviceFee: parseVNDInput(serviceFee).toString(),
+        waterPricePerPerson: parseVNDInput(waterPricePerPerson).toString(),
+        waterOccupants,
         notes,
         dueDate,
       }),
@@ -179,18 +193,21 @@ export function InvoiceDetail({
             <Row
               label={
                 BigInt(invoice.vatAmount) > 0n
-                  ? `Tiền thuê (đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT)`
-                  : "Tiền thuê"
+                  ? `Tiền thuê ${rentLabelMonth} (đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT)`
+                  : `Tiền thuê ${rentLabelMonth}`
               }
               value={formatVND(BigInt(invoice.rentAmount))}
             />
-            <Row label={`Tiền điện${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
-            {parkingFee > 0n && <Row label={`Phí xe (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
+            <Row label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
+            {buildingType === "CHDV" && waterFee > 0n && (
+              <Row label={`Tiền nước ${usageLabelMonth} (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+            )}
+            {parkingFee > 0n && <Row label={`Phí xe ${usageLabelMonth} (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
             {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
-              <Row label="Phí ngoài giờ" value={formatVND(parseVNDInput(overtime))} />
+              <Row label={`Làm ngoài giờ ${usageLabelMonth}`} value={formatVND(parseVNDInput(overtime))} />
             )}
             {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
-              <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
+              <Row label={`Phí dịch vụ ${usageLabelMonth}`} value={formatVND(parseVNDInput(serviceFee))} />
             )}
             <hr />
             <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
@@ -202,7 +219,7 @@ export function InvoiceDetail({
         <Card>
           <CardHeader><CardTitle>Số điện</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <PhotoUploadField
                 invoiceId={invoice.id}
                 which="start"
@@ -228,22 +245,43 @@ export function InvoiceDetail({
         <Card>
           <CardHeader><CardTitle>Khác</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Số xe</Label>
                 <Input type="number" min={0} value={parkingCount} onChange={(e) => setParkingCount(Number(e.target.value))} disabled={!canWrite} />
                 <p className="text-[10px] text-slate-500">Mặc định lấy từ HĐ. Có thể chỉnh tay tháng này.</p>
               </div>
               {buildingType === "CHDV" ? (
-                <div className="space-y-1">
-                  <Label className="text-xs">Phí dịch vụ (₫)</Label>
-                  <Input
-                    inputMode="numeric"
-                    value={formatNumber(parseVNDInput(serviceFee))}
-                    onChange={(e) => setServiceFee(e.target.value)}
-                    disabled={!canWrite}
-                  />
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Phí dịch vụ (₫)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={formatNumber(parseVNDInput(serviceFee))}
+                      onChange={(e) => setServiceFee(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tiền nước (₫/người)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={formatNumber(parseVNDInput(waterPricePerPerson))}
+                      onChange={(e) => setWaterPricePerPerson(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Số người ở</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={waterOccupants}
+                      onChange={(e) => setWaterOccupants(Number(e.target.value))}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                </>
               ) : (
                 <div className="space-y-1">
                   <Label className="text-xs">Phí ngoài giờ (₫)</Label>
@@ -444,7 +482,7 @@ function PhotoUploadField({
             disabled={uploading}
           />
           {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-          {localPhoto ? "Thay ảnh" : "Chụp / chọn ảnh đồng hồ"}
+          {localPhoto ? "Thay ảnh công tơ" : "Ảnh công tơ"}
         </label>
       )}
     </div>

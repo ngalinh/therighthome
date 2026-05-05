@@ -20,6 +20,7 @@ export async function generateMonthlyInvoices(month: number, year: number, build
     include: {
       building: { include: { setting: true } },
       yearlyRents: true,
+      _count: { select: { customers: true } },
     },
   });
 
@@ -50,6 +51,12 @@ export async function generateMonthlyInvoices(month: number, year: number, build
     // Snapshot electricity + parking from CURRENT building setting
     const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
     const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
+    // Water: prefer contract override (>0), else building setting.
+    const waterPricePerPerson =
+      c.waterPricePerPerson > 0n
+        ? c.waterPricePerPerson
+        : (c.building.setting?.waterPricePerPerson ?? 0n);
+    const waterOccupants = c._count.customers;
 
     const compute = computeInvoice({
       rentAmount: effectiveRent,
@@ -61,6 +68,8 @@ export async function generateMonthlyInvoices(month: number, year: number, build
       parkingFeePerVehicle,
       overtimeFee: 0n,
       serviceFee: c.serviceFeeAmount,
+      waterPricePerPerson,
+      waterOccupants,
     });
 
     const code = await nextInvoiceCode(c.buildingId, month, year);
@@ -81,6 +90,9 @@ export async function generateMonthlyInvoices(month: number, year: number, build
         parkingFee: compute.parkingFee,
         overtimeFee: 0n,
         serviceFee: c.serviceFeeAmount,
+        waterPricePerPerson,
+        waterOccupants,
+        waterFee: compute.waterFee,
         totalAmount: compute.totalAmount,
         paidAmount: 0n,
         status: "PENDING",
@@ -117,9 +129,14 @@ export async function recomputeInvoice(invoiceId: string, partial: {
   overtimeFee?: bigint;
   serviceFee?: bigint;
   rentAmount?: bigint;
+  waterPricePerPerson?: bigint;
+  waterOccupants?: number;
 }) {
   const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, include: { contract: true } });
   if (!inv) throw new Error("Invoice not found");
+
+  const waterPricePerPerson = partial.waterPricePerPerson ?? inv.waterPricePerPerson;
+  const waterOccupants = partial.waterOccupants ?? inv.waterOccupants;
 
   const compute = computeInvoice({
     rentAmount: partial.rentAmount ?? inv.rentAmount,
@@ -131,6 +148,8 @@ export async function recomputeInvoice(invoiceId: string, partial: {
     parkingFeePerVehicle: inv.parkingFeePerVehicle,
     overtimeFee: partial.overtimeFee ?? inv.overtimeFee,
     serviceFee: partial.serviceFee ?? inv.serviceFee,
+    waterPricePerPerson,
+    waterOccupants,
   });
 
   return prisma.invoice.update({
@@ -145,6 +164,9 @@ export async function recomputeInvoice(invoiceId: string, partial: {
       parkingFee: compute.parkingFee,
       overtimeFee: partial.overtimeFee ?? inv.overtimeFee,
       serviceFee: partial.serviceFee ?? inv.serviceFee,
+      waterPricePerPerson,
+      waterOccupants,
+      waterFee: compute.waterFee,
       totalAmount: compute.totalAmount,
     },
   });
