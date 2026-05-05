@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { addMonths, parseVNDInput, formatNumber } from "@/lib/utils";
 
-type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; frontUrl?: string; backUrl?: string } };
+type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; businessLicenseUrls?: string[] } };
 
 export function NewContractForm({
   buildingId,
@@ -318,24 +318,38 @@ function AddCustomerSection({
   const [companyName, setCompanyName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [contactName, setContactName] = useState("");
-  const [bizFront, setBizFront] = useState<File | null>(null);
-  const [bizBack, setBizBack] = useState<File | null>(null);
+  const [bizFiles, setBizFiles] = useState<File[]>([]);
   const [bizUploading, setBizUploading] = useState(false);
+  const bizInputRef = useRef<HTMLInputElement>(null);
+  const MAX_BIZ_IMAGES = 3;
 
-  async function uploadBizLicense(): Promise<{ frontUrl?: string; backUrl?: string }> {
-    if (!bizFront && !bizBack) return {};
+  function addBizFiles(list: FileList | null) {
+    if (!list) return;
+    const incoming = Array.from(list);
+    const room = MAX_BIZ_IMAGES - bizFiles.length;
+    if (room <= 0) {
+      toast.error(`Tối đa ${MAX_BIZ_IMAGES} ảnh ĐKKD`);
+      return;
+    }
+    if (incoming.length > room) {
+      toast.error(`Chỉ thêm được ${room} ảnh nữa (tối đa ${MAX_BIZ_IMAGES})`);
+    }
+    setBizFiles((prev) => [...prev, ...incoming.slice(0, room)]);
+  }
+
+  async function uploadBizLicense(): Promise<string[]> {
+    if (bizFiles.length === 0) return [];
     setBizUploading(true);
     try {
       const fd = new FormData();
-      if (bizFront) fd.append("front", bizFront);
-      if (bizBack) fd.append("back", bizBack);
+      bizFiles.forEach((f) => fd.append("files", f));
       const res = await fetch("/api/upload/id-doc", { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Lỗi ${res.status}`);
       }
       const d = await res.json();
-      return { frontUrl: d.frontUrl ?? undefined, backUrl: d.backUrl ?? undefined };
+      return Array.isArray(d.urls) ? d.urls : [];
     } finally {
       setBizUploading(false);
     }
@@ -358,9 +372,48 @@ function AddCustomerSection({
         />
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <BizPhotoPicker label="Ảnh ĐKKD (mặt trước)" file={bizFront} onChange={setBizFront} />
-            <BizPhotoPicker label="Ảnh ĐKKD (mặt sau)" file={bizBack} onChange={setBizBack} />
+          <div>
+            <Label className="text-xs">Ảnh ĐKKD (tối đa {MAX_BIZ_IMAGES})</Label>
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              {bizFiles.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return (
+                  <div key={i} className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-slate-50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`ĐKKD ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setBizFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                      aria-label="Xoá"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+              {bizFiles.length < MAX_BIZ_IMAGES && (
+                <button
+                  type="button"
+                  onClick={() => bizInputRef.current?.click()}
+                  className="aspect-[1.6/1] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+                >
+                  <ImagePlus className="h-5 w-5 mb-0.5" />
+                  <span className="text-[10px]">Thêm ảnh</span>
+                </button>
+              )}
+            </div>
+            <input
+              ref={bizInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                addBizFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
           </div>
           <Field label="Tên công ty" required>
             <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
@@ -400,8 +453,8 @@ function AddCustomerSection({
               return;
             }
             try {
-              const { frontUrl, backUrl } = await uploadBizLicense();
-              onAdd({ kind: "COMPANY", data: { companyName, taxNumber, phone, email, contactName, frontUrl, backUrl } });
+              const businessLicenseUrls = await uploadBizLicense();
+              onAdd({ kind: "COMPANY", data: { companyName, taxNumber, phone, email, contactName, businessLicenseUrls } });
             } catch (e) {
               const msg = e instanceof Error ? e.message : "Upload ĐKKD thất bại";
               toast.error(msg);
@@ -420,48 +473,3 @@ function AddCustomerSection({
   );
 }
 
-function BizPhotoPicker({
-  label, file, onChange,
-}: {
-  label: string; file: File | null; onChange: (f: File | null) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const url = file ? URL.createObjectURL(file) : null;
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <div className="mt-1 relative">
-        {url ? (
-          <div className="relative aspect-[1.6/1] rounded-xl overflow-hidden border bg-slate-50">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt={label} className="w-full h-full object-cover" />
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center"
-              aria-label="Xoá"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
-          >
-            <ImagePlus className="h-6 w-6 mb-1" />
-            <span className="text-xs">Thêm ảnh</span>
-          </button>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => onChange(e.target.files?.[0] || null)}
-        />
-      </div>
-    </div>
-  );
-}

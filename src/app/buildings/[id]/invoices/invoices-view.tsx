@@ -351,7 +351,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex flex-wrap items-start gap-3 justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs font-mono text-slate-500">{inv.code}</span>
@@ -363,7 +363,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="font-medium">Phòng {inv.contract.room.number}</span>
-              <span className="text-slate-700">{name}</span>
+              <span className="text-slate-700 break-words">{name}</span>
               <span className="text-slate-500">Hạn: {formatDateVN(inv.dueDate)}</span>
               <span className="font-semibold text-emerald-700">{formatVND(BigInt(inv.totalAmount))}</span>
               {remaining > 0n && (
@@ -371,7 +371,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
               )}
             </div>
           </div>
-          <div className="flex gap-1.5 items-center">
+          <div className="flex gap-1.5 items-center justify-end sm:justify-start flex-wrap">
             <Button asChild variant="outline" size="sm">
               <Link href={`/buildings/${buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
             </Button>

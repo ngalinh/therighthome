@@ -37,28 +37,45 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     const d = parsed.data;
     const date = new Date(d.date);
-    const code = await nextTransactionCode(buildingId, d.type);
-    const tx = await prisma.transaction.create({
-      data: {
-        buildingId,
-        code,
-        date,
-        type: d.type,
-        amount: BigInt(d.amount),
-        content: d.content,
-        notes: d.notes,
-        categoryId: d.categoryId,
-        paymentMethodId: d.paymentMethodId,
-        partyKind: d.partyKind,
-        customerId: d.customerId,
-        partyId: d.partyId,
-        roomId: d.roomId,
-        countInBR: d.countInBR,
-        accountingMonth: d.accountingMonth ?? date.getMonth() + 1,
-        accountingYear: d.accountingYear ?? date.getFullYear(),
-        createdById: session.user.id,
-      },
-    });
+
+    // Race-safe code allocation: nextTransactionCode + create can collide
+    // when two requests run in parallel. Retry on Prisma P2002 (unique
+    // violation on `code`) up to 5 times — each retry recomputes the next
+    // code based on the latest DB state.
+    let tx;
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = await nextTransactionCode(buildingId, d.type);
+      try {
+        tx = await prisma.transaction.create({
+          data: {
+            buildingId,
+            code,
+            date,
+            type: d.type,
+            amount: BigInt(d.amount),
+            content: d.content,
+            notes: d.notes,
+            categoryId: d.categoryId,
+            paymentMethodId: d.paymentMethodId,
+            partyKind: d.partyKind,
+            customerId: d.customerId,
+            partyId: d.partyId,
+            roomId: d.roomId,
+            countInBR: d.countInBR,
+            accountingMonth: d.accountingMonth ?? date.getMonth() + 1,
+            accountingYear: d.accountingYear ?? date.getFullYear(),
+            createdById: session.user.id,
+          },
+        });
+        break;
+      } catch (e) {
+        lastErr = e;
+        const isUniqueViolation = typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "P2002";
+        if (!isUniqueViolation) throw e;
+      }
+    }
+    if (!tx) throw lastErr ?? new Error("Không thể cấp mã phiếu chi");
     return NextResponse.json({ id: tx.id, code: tx.code });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

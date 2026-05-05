@@ -30,8 +30,7 @@ type ContractCustomer = {
     licensePlate: string | null;
     idCardFrontUrl: string | null;
     idCardBackUrl: string | null;
-    businessLicenseFrontUrl: string | null;
-    businessLicenseBackUrl: string | null;
+    businessLicenseUrls: string[];
   };
 };
 
@@ -761,9 +760,13 @@ function CustomerItem({
   if (c.email) sub.push(c.email);
   if (c.licensePlate) sub.push(c.licensePlate);
 
-  const docFrontUrl = c.type === "INDIVIDUAL" ? c.idCardFrontUrl : c.businessLicenseFrontUrl;
-  const docBackUrl = c.type === "INDIVIDUAL" ? c.idCardBackUrl : c.businessLicenseBackUrl;
   const docLabel = c.type === "INDIVIDUAL" ? "CCCD" : "ĐKKD";
+  const docImages: { url: string; caption: string }[] = c.type === "INDIVIDUAL"
+    ? [
+        ...(c.idCardFrontUrl ? [{ url: c.idCardFrontUrl, caption: "CCCD mặt trước" }] : []),
+        ...(c.idCardBackUrl ? [{ url: c.idCardBackUrl, caption: "CCCD mặt sau" }] : []),
+      ]
+    : c.businessLicenseUrls.map((url, i) => ({ url, caption: `ĐKKD ${i + 1}` }));
 
   async function remove() {
     if (!confirm(`Xoá khách "${name}" khỏi hợp đồng?`)) return;
@@ -811,36 +814,23 @@ function CustomerItem({
             )}
           </div>
         </div>
-        {(docFrontUrl || docBackUrl) && (
-          <div className="grid grid-cols-2 gap-2">
-            {docFrontUrl && (
+        {docImages.length > 0 && (
+          <div className={`grid gap-2 ${docImages.length === 1 ? "grid-cols-1" : docImages.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {docImages.map((img, i) => (
               <button
+                key={i}
                 type="button"
-                onClick={() => setZoomUrl(docFrontUrl)}
+                onClick={() => setZoomUrl(img.url)}
                 className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-white cursor-zoom-in"
-                aria-label={`Xem ${docLabel} mặt trước`}
+                aria-label={`Xem ${img.caption}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={docFrontUrl} alt={`${docLabel} mặt trước`} className="w-full h-full object-cover" />
+                <img src={img.url} alt={img.caption} className="w-full h-full object-cover" />
                 <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] py-0.5 text-center">
-                  {docLabel} mặt trước
+                  {img.caption}
                 </span>
               </button>
-            )}
-            {docBackUrl && (
-              <button
-                type="button"
-                onClick={() => setZoomUrl(docBackUrl)}
-                className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-white cursor-zoom-in"
-                aria-label={`Xem ${docLabel} mặt sau`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={docBackUrl} alt={`${docLabel} mặt sau`} className="w-full h-full object-cover" />
-                <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] py-0.5 text-center">
-                  {docLabel} mặt sau
-                </span>
-              </button>
-            )}
+            ))}
           </div>
         )}
       </div>
