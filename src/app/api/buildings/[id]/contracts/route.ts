@@ -32,6 +32,8 @@ const customerSchema = z.discriminatedUnion("kind", [
       contactName: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
+      frontUrl: z.string().optional(),
+      backUrl: z.string().optional(),
     }),
   }),
 ]);
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             fullName: c.data.contactName,
             phone: c.data.phone,
             email: c.data.email,
+            businessLicenseFrontUrl: c.data.frontUrl,
+            businessLicenseBackUrl: c.data.backUrl,
           },
         });
       }),

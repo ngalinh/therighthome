@@ -142,8 +142,10 @@ model Customer {
   hometown        String?
 
   // Company
-  companyName String?
-  taxNumber   String?
+  companyName              String?
+  taxNumber                String?
+  businessLicenseFrontUrl  String?
+  businessLicenseBackUrl   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

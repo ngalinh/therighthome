@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, User, Building2 as Office, Trash2, Check } from "lucide-react";
+import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { addMonths, parseVNDInput, formatNumber } from "@/lib/utils";
 
-type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string } };
+type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; frontUrl?: string; backUrl?: string } };
 
 export function NewContractForm({
   buildingId,
@@ -318,6 +318,28 @@ function AddCustomerSection({
   const [companyName, setCompanyName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [contactName, setContactName] = useState("");
+  const [bizFront, setBizFront] = useState<File | null>(null);
+  const [bizBack, setBizBack] = useState<File | null>(null);
+  const [bizUploading, setBizUploading] = useState(false);
+
+  async function uploadBizLicense(): Promise<{ frontUrl?: string; backUrl?: string }> {
+    if (!bizFront && !bizBack) return {};
+    setBizUploading(true);
+    try {
+      const fd = new FormData();
+      if (bizFront) fd.append("front", bizFront);
+      if (bizBack) fd.append("back", bizBack);
+      const res = await fetch("/api/upload/id-doc", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Lỗi ${res.status}`);
+      }
+      const d = await res.json();
+      return { frontUrl: d.frontUrl ?? undefined, backUrl: d.backUrl ?? undefined };
+    } finally {
+      setBizUploading(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border-2 border-dashed border-primary/30 p-3 bg-primary/5 space-y-3">
@@ -336,6 +358,10 @@ function AddCustomerSection({
         />
       ) : (
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <BizPhotoPicker label="Ảnh ĐKKD (mặt trước)" file={bizFront} onChange={setBizFront} />
+            <BizPhotoPicker label="Ảnh ĐKKD (mặt sau)" file={bizBack} onChange={setBizBack} />
+          </div>
           <Field label="Tên công ty" required>
             <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
           </Field>
@@ -367,21 +393,75 @@ function AddCustomerSection({
           type="button"
           variant="gradient"
           className="w-full"
-          onClick={() => {
+          disabled={bizUploading}
+          onClick={async () => {
             if (!companyName || !taxNumber) {
               toast.error("Cần Tên công ty và Mã số thuế");
               return;
             }
-            onAdd({ kind: "COMPANY", data: { companyName, taxNumber, phone, email, contactName } });
+            try {
+              const { frontUrl, backUrl } = await uploadBizLicense();
+              onAdd({ kind: "COMPANY", data: { companyName, taxNumber, phone, email, contactName, frontUrl, backUrl } });
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : "Upload ĐKKD thất bại";
+              toast.error(msg);
+            }
           }}
         >
-          <Check className="h-4 w-4" /> Thêm khách
+          {bizUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          Thêm khách
         </Button>
       )}
 
       {showCancel && (
         <Button type="button" variant="ghost" size="sm" className="w-full" onClick={onCancel}>Huỷ</Button>
       )}
+    </div>
+  );
+}
+
+function BizPhotoPicker({
+  label, file, onChange,
+}: {
+  label: string; file: File | null; onChange: (f: File | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const url = file ? URL.createObjectURL(file) : null;
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <div className="mt-1 relative">
+        {url ? (
+          <div className="relative aspect-[1.6/1] rounded-xl overflow-hidden border bg-slate-50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={label} className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center"
+              aria-label="Xoá"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          >
+            <ImagePlus className="h-6 w-6 mb-1" />
+            <span className="text-xs">Thêm ảnh</span>
+          </button>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => onChange(e.target.files?.[0] || null)}
+        />
+      </div>
     </div>
   );
 }
