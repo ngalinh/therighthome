@@ -58,10 +58,21 @@ export async function generateMonthlyInvoices(month: number, year: number, build
         : (c.building.setting?.waterPricePerPerson ?? 0n);
     const waterOccupants = c._count.customers;
 
+    // Carry electricityEnd from the previous month's invoice so the new
+    // invoice's "số điện đầu kỳ" is pre-filled with last month's "cuối kỳ".
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prev = await prisma.invoice.findUnique({
+      where: { contractId_month_year: { contractId: c.id, month: prevMonth, year: prevYear } },
+      select: { electricityEnd: true, electricityEndPhoto: true },
+    });
+    const electricityStart = prev?.electricityEnd ?? null;
+    const electricityStartPhoto = prev?.electricityEndPhoto ?? null;
+
     const compute = computeInvoice({
       rentAmount: effectiveRent,
       vatRate: c.vatRate,
-      electricityStart: null,
+      electricityStart,
       electricityEnd: null,
       electricityPricePerKwh: electricityPrice,
       parkingCount: c.parkingCount,
@@ -83,6 +94,8 @@ export async function generateMonthlyInvoices(month: number, year: number, build
         dueDate,
         rentAmount: effectiveRent,
         vatAmount: compute.vatAmount,
+        electricityStart,
+        electricityStartPhoto,
         electricityPricePerKwh: electricityPrice,
         electricityFee: 0n,
         parkingCount: c.parkingCount,
