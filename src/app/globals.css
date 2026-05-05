@@ -76,6 +76,28 @@
     -webkit-tap-highlight-color: transparent;
   }
   html { -webkit-text-size-adjust: 100%; }
+  html, body { overflow-x: hidden; }
+
+  /* iOS Safari renders date/time inputs with weird default sizing & alignment.
+     Reset to match other text inputs. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left;
+    min-height: 2.5rem;
+    min-width: 0;
+    line-height: 1.25rem;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value,
+  input[type="datetime-local"]::-webkit-date-and-time-value,
+  input[type="month"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.25rem;
+  }
 }
 
 @layer components {
