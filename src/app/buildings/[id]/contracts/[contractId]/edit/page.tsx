@@ -33,7 +33,7 @@ export default async function EditContractPage({
                 idNumber: true, taxNumber: true,
                 phone: true, email: true, licensePlate: true,
                 idCardFrontUrl: true, idCardBackUrl: true,
-                businessLicenseFrontUrl: true, businessLicenseBackUrl: true,
+                businessLicenseUrls: true,
               },
             },
           },
