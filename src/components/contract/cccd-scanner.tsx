@@ -41,12 +41,16 @@ export function CCCDScanner({
     if (back) fd.append("back", back);
     try {
       const res = await fetch("/api/ocr/cccd", { method: "POST", body: fd });
-      if (!res.ok) throw new Error();
-      const d = await res.json();
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const reason = d?.error ? `: ${d.error}` : "";
+        throw new Error(`Quét CCCD thất bại${reason}`);
+      }
       setData((prev) => ({ ...prev, ...d }));
       toast.success("Đã quét CCCD. Vui lòng kiểm tra lại.");
-    } catch {
-      toast.error("Quét CCCD thất bại. Bạn có thể nhập tay.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Quét CCCD thất bại";
+      toast.error(`${msg}. Bạn có thể nhập tay.`, { duration: 8000 });
     } finally {
       setScanning(false);
     }
