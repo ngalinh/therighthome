@@ -1,9 +1,10 @@
 "use client";
 import { useState, useRef } from "react";
-import { Camera, Loader2, X, Check, Upload } from "lucide-react";
+import { Camera, Loader2, X, Check, Upload, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export type CCCDData = {
@@ -99,6 +100,7 @@ function PhotoPicker({
 }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
   const url = file ? URL.createObjectURL(file) : null;
   return (
     <div>
@@ -117,24 +119,14 @@ function PhotoPicker({
             </button>
           </div>
         ) : (
-          <div className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 grid grid-cols-2 divide-x divide-slate-200 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex flex-col items-center justify-center text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors"
-            >
-              <Camera className="h-6 w-6 mb-1" />
-              <span className="text-xs">Chụp ảnh</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => uploadInputRef.current?.click()}
-              className="flex flex-col items-center justify-center text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors"
-            >
-              <Upload className="h-6 w-6 mb-1" />
-              <span className="text-xs">Tải ảnh lên</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+          >
+            <ImagePlus className="h-6 w-6 mb-1" />
+            <span className="text-xs">Thêm ảnh</span>
+          </button>
         )}
         <input
           ref={cameraInputRef}
@@ -152,6 +144,31 @@ function PhotoPicker({
           onChange={(e) => onChange(e.target.files?.[0] || null)}
         />
       </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{label}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { setOpen(false); cameraInputRef.current?.click(); }}
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-slate-50 hover:bg-primary/5 hover:border-primary hover:text-primary transition-colors py-5"
+            >
+              <Camera className="h-7 w-7" />
+              <span className="text-sm font-medium">Chụp ảnh</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setOpen(false); uploadInputRef.current?.click(); }}
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-slate-50 hover:bg-primary/5 hover:border-primary hover:text-primary transition-colors py-5"
+            >
+              <Upload className="h-7 w-7" />
+              <span className="text-sm font-medium">Tải ảnh lên</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
