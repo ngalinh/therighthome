@@ -53,6 +53,7 @@ type Contract = {
   waterPricePerPerson: string;
   isOpenEnded: boolean;
   notes: string | null;
+  roomId: string;
   room: { number: string };
   yearlyRents: { yearIndex: number; rent: string }[];
   customers: ContractCustomer[];
@@ -145,10 +146,12 @@ export function EditContractForm({
 
   // Broker fee → tự tạo phiếu chi
   const [brokerFee, setBrokerFee] = useState("");
+  const [brokerPmId, setBrokerPmId] = useState("");
   const [brokerLoading, setBrokerLoading] = useState(false);
   async function recordBrokerFee() {
     const a = parseVNDInput(brokerFee);
     if (a <= 0n) return toast.error("Nhập số tiền > 0");
+    if (!brokerPmId) return toast.error("Chọn Tài khoản TT");
     setBrokerLoading(true);
     const res = await fetch(`/api/buildings/${buildingId}/transactions`, {
       method: "POST",
@@ -160,6 +163,8 @@ export function EditContractForm({
         content: `Phí môi giới HĐ ${contract.code}`,
         categoryId: brokerCategoryId ?? undefined,
         partyKind: "MOI_GIOI",
+        roomId: contract.roomId,
+        paymentMethodId: brokerPmId,
         countInBR: true,
         notes: `Liên quan HĐ ${contract.code}`,
       }),
@@ -172,6 +177,7 @@ export function EditContractForm({
     }
     toast.success(`Đã ghi nhận phiếu chi ${formatVND(a)} (Phí môi giới)`);
     setBrokerFee("");
+    setBrokerPmId("");
     router.refresh();
   }
 
@@ -396,11 +402,20 @@ export function EditContractForm({
                 placeholder="0"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tài khoản TT <span className="text-rose-500">*</span></Label>
+              <Select value={brokerPmId} onValueChange={setBrokerPmId}>
+                <SelectTrigger><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="gradient"
               size="sm"
               onClick={recordBrokerFee}
-              disabled={brokerLoading || parseVNDInput(brokerFee) <= 0n}
+              disabled={brokerLoading || parseVNDInput(brokerFee) <= 0n || !brokerPmId}
               className="w-full"
             >
               {brokerLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -725,14 +740,14 @@ function TerminateContractDialog({
                 placeholder={formatNumber(BigInt(contract.depositAmount))}
               />
               <p className="text-[11px] text-slate-500">
-                Số tiền này sẽ tự động tạo phiếu Chi "Hoàn tiền cọc" theo PTTT chọn bên dưới.
+                Số tiền này sẽ tự động tạo phiếu Chi &ldquo;Hoàn tiền cọc&rdquo; theo Tài khoản TT chọn bên dưới.
               </p>
             </div>
           )}
           <div className="space-y-1.5">
             <Label className="text-xs">Phương thức thanh toán <span className="text-rose-500">*</span></Label>
             <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-              <SelectTrigger><SelectValue placeholder="Chọn PTTT" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Chọn tài khoản TT" /></SelectTrigger>
               <SelectContent>
                 {paymentMethods.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>

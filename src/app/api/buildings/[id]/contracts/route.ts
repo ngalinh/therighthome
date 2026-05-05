@@ -148,11 +148,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return created;
   });
 
+  // Resolve which template to use:
+  //   - VP + COMPANY primary  → setting.contractTemplateUrlCompany OR appSetting.defaultContractTemplateVpCompany
+  //   - VP + INDIVIDUAL       → setting.contractTemplateUrl       OR appSetting.defaultContractTemplateVpIndividual
+  //   - CHDV                  → setting.contractTemplateUrl       OR appSetting.defaultContractTemplateChdv
+  const primary = contract.customers[0]?.customer;
+  const isVpCompany = building.type === "VP" && primary?.type === "COMPANY";
+  const appSetting = await prisma.appSetting.findUnique({ where: { id: 1 } });
+  const templateUrl = isVpCompany
+    ? (building.setting?.contractTemplateUrlCompany ?? appSetting?.defaultContractTemplateVpCompany ?? null)
+    : building.type === "VP"
+      ? (building.setting?.contractTemplateUrl ?? appSetting?.defaultContractTemplateVpIndividual ?? null)
+      : (building.setting?.contractTemplateUrl ?? appSetting?.defaultContractTemplateChdv ?? null);
+
   // Try to generate DOCX from template (best-effort, non-blocking on failure)
-  if (building.setting?.contractTemplateUrl) {
+  if (templateUrl) {
     try {
-      const primary = contract.customers[0]?.customer;
-      const docxUrl = await renderContractDocx(building.setting.contractTemplateUrl, {
+      const docxUrl = await renderContractDocx(templateUrl, {
         ma_hd: contract.code,
         toa_nha: building.name,
         dia_chi_toa: building.address,
