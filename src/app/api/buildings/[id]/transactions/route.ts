@@ -29,31 +29,40 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!(await can(session.user.id, session.user.role, buildingId, "finance.write"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const parsed = createSchema.safeParse(await req.json());
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const d = parsed.data;
-  const date = new Date(d.date);
-  const code = await nextTransactionCode(buildingId, d.type);
-  const tx = await prisma.transaction.create({
-    data: {
-      buildingId,
-      code,
-      date,
-      type: d.type,
-      amount: BigInt(d.amount),
-      content: d.content,
-      notes: d.notes,
-      categoryId: d.categoryId,
-      paymentMethodId: d.paymentMethodId,
-      partyKind: d.partyKind,
-      customerId: d.customerId,
-      partyId: d.partyId,
-      roomId: d.roomId,
-      countInBR: d.countInBR,
-      accountingMonth: d.accountingMonth ?? date.getMonth() + 1,
-      accountingYear: d.accountingYear ?? date.getFullYear(),
-      createdById: session.user.id,
-    },
-  });
-  return NextResponse.json({ id: tx.id, code: tx.code });
+  try {
+    const parsed = createSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+      return NextResponse.json({ error: `Dữ liệu không hợp lệ: ${issues}` }, { status: 400 });
+    }
+    const d = parsed.data;
+    const date = new Date(d.date);
+    const code = await nextTransactionCode(buildingId, d.type);
+    const tx = await prisma.transaction.create({
+      data: {
+        buildingId,
+        code,
+        date,
+        type: d.type,
+        amount: BigInt(d.amount),
+        content: d.content,
+        notes: d.notes,
+        categoryId: d.categoryId,
+        paymentMethodId: d.paymentMethodId,
+        partyKind: d.partyKind,
+        customerId: d.customerId,
+        partyId: d.partyId,
+        roomId: d.roomId,
+        countInBR: d.countInBR,
+        accountingMonth: d.accountingMonth ?? date.getMonth() + 1,
+        accountingYear: d.accountingYear ?? date.getFullYear(),
+        createdById: session.user.id,
+      },
+    });
+    return NextResponse.json({ id: tx.id, code: tx.code });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[transactions POST] failed:", msg, e);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

@@ -159,7 +159,8 @@ export function EditContractForm({
     setBrokerLoading(false);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return toast.error(err.error || "Có lỗi");
+      const msg = err.error || `Lỗi ${res.status}`;
+      return toast.error(`Ghi nhận phí môi giới thất bại: ${msg}`, { duration: 8000 });
     }
     toast.success(`Đã ghi nhận phiếu chi ${formatVND(a)} (Phí môi giới)`);
     setBrokerFee("");
