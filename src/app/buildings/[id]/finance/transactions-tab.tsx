@@ -14,7 +14,7 @@ export async function TransactionsTab({
   customers: { id: string; fullName: string | null; companyName: string | null }[];
   canWrite: boolean;
 }) {
-  const [transactions, rooms] = await Promise.all([
+  const [transactions, rooms, contracts] = await Promise.all([
     prisma.transaction.findMany({
       where: { buildingId, accountingYear: year, accountingMonth: month },
       include: {
@@ -22,6 +22,7 @@ export async function TransactionsTab({
         paymentMethod: true,
         customer: true,
         party: true,
+        room: { select: { number: true } },
       },
       orderBy: { date: "desc" },
     }),
@@ -45,6 +46,10 @@ export async function TransactionsTab({
         },
       },
     }),
+    prisma.contract.findMany({
+      where: { buildingId },
+      select: { id: true, code: true },
+    }),
   ]);
 
   const flatRooms = rooms.map((r) => ({
@@ -64,6 +69,7 @@ export async function TransactionsTab({
       parties={parties}
       customers={customers}
       rooms={flatRooms}
+      contracts={contracts}
       canWrite={canWrite}
     />
   );

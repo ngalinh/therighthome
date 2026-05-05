@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,12 +31,15 @@ type Transaction = {
   notes: string | null;
   countInBR: boolean;
   partyKind: string | null;
+  roomId: string | null;
   building: { id: string; name: string };
   category: { name: string } | null;
   paymentMethod: { name: string } | null;
   customer: { fullName: string | null; companyName: string | null } | null;
   party: { name: string } | null;
+  room: { number: string } | null;
 };
+type ContractLite = { id: string; code: string; buildingId: string };
 
 const PARTY_KINDS = [
   { value: "CUSTOMER", label: "Khách hàng" },
@@ -53,12 +57,13 @@ const PARTY_KINDS = [
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function AggregatedTransactionsClient({
-  buildingType, buildings, rooms, month, year, buildingFilter,
+  buildingType, buildings, rooms, contracts, month, year, buildingFilter,
   transactions, categories, paymentMethods, parties, customers, canWrite,
 }: {
   buildingType: "CHDV" | "VP";
   buildings: BuildingLite[];
   rooms: RoomLite[];
+  contracts: ContractLite[];
   month: number;
   year: number;
   buildingFilter: string; // "ALL" or buildingId
@@ -73,11 +78,31 @@ export function AggregatedTransactionsClient({
   const [createOpen, setCreateOpen] = useState<"INCOME" | "EXPENSE" | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filterType, setFilterType] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
+  const [filterRoom, setFilterRoom] = useState<string>("ALL");
+
+  const roomsByBuilding = useMemo(
+    () => buildingFilter === "ALL" ? rooms : rooms.filter((r) => r.buildingId === buildingFilter),
+    [rooms, buildingFilter],
+  );
 
   const filtered = useMemo(
-    () => transactions.filter((t) => filterType === "ALL" || t.type === filterType),
-    [transactions, filterType],
+    () => transactions.filter((t) =>
+      (filterType === "ALL" || t.type === filterType) &&
+      (filterRoom === "ALL" || t.roomId === filterRoom),
+    ),
+    [transactions, filterType, filterRoom],
   );
+
+  const contractByCode = useMemo(() => {
+    const m = new Map<string, string>();
+    contracts.forEach((c) => m.set(c.code, c.id));
+    return m;
+  }, [contracts]);
+  const buildingNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    buildings.forEach((b) => m.set(b.id, b.name));
+    return m;
+  }, [buildings]);
 
   const totalIn = filtered.filter((t) => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
   const totalOut = filtered.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + Number(t.amount), 0);
@@ -124,11 +149,18 @@ export function AggregatedTransactionsClient({
             <SelectItem value="EXPENSE">Chi</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={buildingFilter} onValueChange={(v) => navigate({ building: v })}>
+        <Select value={buildingFilter} onValueChange={(v) => { navigate({ building: v }); setFilterRoom("ALL"); }}>
           <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả toà nhà</SelectItem>
             {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterRoom} onValueChange={setFilterRoom}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Phòng" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả phòng</SelectItem>
+            {roomsByBuilding.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">
@@ -177,7 +209,7 @@ export function AggregatedTransactionsClient({
           {/* Mobile/PWA: card list */}
           <div className="space-y-2 lg:hidden">
             {filtered.map((t) => (
-              <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
+              <TransactionRow key={t.id} t={t} contractByCode={contractByCode} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
             ))}
           </div>
           {/* Desktop: table */}
@@ -186,9 +218,8 @@ export function AggregatedTransactionsClient({
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr className="text-left text-xs text-slate-500">
-                    <th className="px-3 py-2 font-medium">Mã</th>
-                    <th className="px-3 py-2 font-medium">Toà</th>
-                    <th className="px-3 py-2 font-medium">Ngày</th>
+                    <th className="px-3 py-2 font-medium">Ngày tháng</th>
+                    <th className="px-3 py-2 font-medium">Toà / Phòng</th>
                     <th className="px-3 py-2 font-medium">Loại</th>
                     <th className="px-3 py-2 font-medium">Đối tượng</th>
                     <th className="px-3 py-2 font-medium">Nội dung</th>
@@ -199,7 +230,7 @@ export function AggregatedTransactionsClient({
                 </thead>
                 <tbody>
                   {filtered.map((t) => (
-                    <TransactionTableRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
+                    <TransactionTableRow key={t.id} t={t} contractByCode={contractByCode} buildingNameById={buildingNameById} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
                   ))}
                 </tbody>
               </table>
@@ -244,21 +275,58 @@ function MiniStat({ label, value, positive, danger, bold }: { label: string; val
   );
 }
 
-function TransactionTableRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
-  const partyName = t.customer
-    ? (t.customer.fullName || t.customer.companyName)
-    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
+// Render content with the contract code (HĐ XXX-DDMMYY) turned into a link
+// when it matches a known contract.
+function renderContent(content: string, contractByCode: Map<string, string>, buildingId: string) {
+  const re = /(HĐ\s+)([A-Z]+-\d{6}(?:-\d{2})?)/u;
+  const m = content.match(re);
+  if (!m) return content;
+  const code = m[2];
+  const cid = contractByCode.get(code);
+  if (!cid) return content;
+  const before = content.slice(0, m.index!);
+  const after = content.slice(m.index! + m[0].length);
+  return (
+    <>
+      {before}
+      {m[1]}
+      <Link href={`/buildings/${buildingId}/contracts/${cid}/edit`} className="text-primary hover:underline">
+        {code}
+      </Link>
+      {after}
+    </>
+  );
+}
+
+function TransactionTableRow({ t, contractByCode, buildingNameById, onDelete, onEdit, canWrite }: {
+  t: Transaction;
+  contractByCode: Map<string, string>;
+  buildingNameById: Map<string, string>;
+  onDelete: () => void;
+  onEdit: () => void;
+  canWrite: boolean;
+}) {
+  const partyLabel = t.partyKind
+    ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label ?? null
+    : (t.party?.name ?? null);
+  const customerName = t.customer ? (t.customer.fullName || t.customer.companyName) : null;
+  const buildingName = buildingNameById.get(t.buildingId) ?? t.building.name;
   return (
     <tr className="border-b last:border-b-0 hover:bg-slate-50/60">
-      <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap">{t.code}</td>
-      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{t.building.name}</td>
       <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{formatDateVN(t.date)}</td>
+      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+        {t.room?.number && <div className="font-medium">P{t.room.number}</div>}
+        <div className="text-xs text-slate-500">{buildingName}</div>
+      </td>
       <td className="px-3 py-2">
         {t.category?.name ?? <span className="text-slate-400">—</span>}
         {!t.countInBR && <Badge variant="secondary" className="text-[10px] ml-1">Ko HT</Badge>}
       </td>
-      <td className="px-3 py-2 text-slate-600">{partyName ?? <span className="text-slate-400">—</span>}</td>
-      <td className="px-3 py-2 max-w-[260px] truncate" title={t.content}>{t.content}</td>
+      <td className="px-3 py-2 text-slate-600">{partyLabel ?? <span className="text-slate-400">—</span>}</td>
+      <td className="px-3 py-2 max-w-[260px] truncate" title={(customerName ? `${customerName} — ` : "") + t.content}>
+        {customerName && <span className="font-medium">{customerName} — </span>}
+        {renderContent(t.content, contractByCode, t.buildingId)}
+      </td>
       <td className="px-3 py-2 text-slate-600">{t.paymentMethod?.name ?? <span className="text-slate-400">—</span>}</td>
       <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${t.type === "INCOME" ? "text-emerald-700" : "text-rose-700"}`}>
         {t.type === "INCOME" ? "+" : "−"}{formatVND(BigInt(t.amount))}
@@ -277,10 +345,17 @@ function TransactionTableRow({ t, onDelete, onEdit, canWrite }: { t: Transaction
   );
 }
 
-function TransactionRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
-  const partyName = t.customer
-    ? (t.customer.fullName || t.customer.companyName)
-    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
+function TransactionRow({ t, contractByCode, onDelete, onEdit, canWrite }: {
+  t: Transaction;
+  contractByCode: Map<string, string>;
+  onDelete: () => void;
+  onEdit: () => void;
+  canWrite: boolean;
+}) {
+  const partyLabel = t.partyKind
+    ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label ?? null
+    : (t.party?.name ?? null);
+  const customerName = t.customer ? (t.customer.fullName || t.customer.companyName) : null;
   return (
     <Card>
       <CardContent className="p-3 flex items-start gap-3">
@@ -291,15 +366,18 @@ function TransactionRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onD
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-xs font-mono text-slate-500">{t.code}</span>
+            {t.room?.number && <Badge variant="outline" className="text-[10px]">P{t.room.number}</Badge>}
             <Badge variant="outline" className="text-[10px]">{t.building.name}</Badge>
             {t.category && <Badge variant="outline" className="text-[10px]">{t.category.name}</Badge>}
             {!t.countInBR && <Badge variant="secondary" className="text-[10px]">Ko hạch toán</Badge>}
           </div>
-          <div className="text-sm font-medium truncate">{t.content}</div>
+          <div className="text-sm font-medium truncate">
+            {customerName && <span>{customerName} — </span>}
+            {renderContent(t.content, contractByCode, t.buildingId)}
+          </div>
           <div className="text-xs text-slate-500 truncate">
             {formatDateVN(t.date)}
-            {partyName && ` · ${partyName}`}
+            {partyLabel && ` · ${partyLabel}`}
             {t.paymentMethod && ` · ${t.paymentMethod.name}`}
           </div>
         </div>

@@ -57,8 +57,8 @@ export async function ManageTypePage({
   const canInvoice = writeChecks.some((c) => c.invoice);
   const canSend = writeChecks.some((c) => c.send);
 
-  // Common: rooms + parties.
-  const [roomsRaw, parties] = await Promise.all([
+  // Common: rooms + parties + contracts (for HĐ link in content).
+  const [roomsRaw, parties, contracts] = await Promise.all([
     prisma.room.findMany({
       where: { buildingId: { in: buildingIds } },
       orderBy: [{ buildingId: "asc" }, { number: "asc" }],
@@ -83,6 +83,10 @@ export async function ManageTypePage({
     prisma.party.findMany({
       orderBy: [{ kind: "asc" }, { name: "asc" }],
       select: { id: true, name: true, kind: true },
+    }),
+    prisma.contract.findMany({
+      where: { buildingId: { in: buildingIds } },
+      select: { id: true, code: true, buildingId: true },
     }),
   ]);
   const rooms = roomsRaw.map((r) => ({
@@ -181,6 +185,7 @@ export async function ManageTypePage({
       paymentMethod: true,
       customer: true,
       party: true,
+      room: { select: { number: true } },
     },
     orderBy: { date: "desc" },
   });
@@ -297,6 +302,7 @@ export async function ManageTypePage({
               buildingType={kind}
               buildings={buildingsLite}
               rooms={rooms}
+              contracts={contracts}
               month={month}
               year={year}
               buildingFilter={buildingFilter}

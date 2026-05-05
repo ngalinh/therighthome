@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +26,12 @@ type Transaction = {
   notes: string | null;
   countInBR: boolean;
   partyKind: string | null;
+  roomId: string | null;
   category: { name: string } | null;
   paymentMethod: { name: string } | null;
   customer: { fullName: string | null; companyName: string | null } | null;
   party: { name: string } | null;
+  room: { number: string } | null;
 };
 
 const PARTY_KINDS = [
@@ -47,7 +50,7 @@ const PARTY_KINDS = [
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function TransactionsClient({
-  buildingId, month, year, transactions, categories, paymentMethods, parties, customers, rooms, canWrite,
+  buildingId, month, year, transactions, categories, paymentMethods, parties, customers, rooms, contracts, canWrite,
 }: {
   buildingId: string;
   month: number;
@@ -58,6 +61,7 @@ export function TransactionsClient({
   parties: { id: string; name: string; kind: string }[];
   customers: { id: string; fullName: string | null; companyName: string | null }[];
   rooms: { id: string; number: string; primaryCustomerId: string | null }[];
+  contracts: { id: string; code: string }[];
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -65,10 +69,20 @@ export function TransactionsClient({
   const [createOpen, setCreateOpen] = useState<"INCOME" | "EXPENSE" | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [filterType, setFilterType] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
+  const [filterRoom, setFilterRoom] = useState<string>("ALL");
 
   const filtered = useMemo(() => {
-    return transactions.filter((t) => filterType === "ALL" || t.type === filterType);
-  }, [transactions, filterType]);
+    return transactions.filter((t) =>
+      (filterType === "ALL" || t.type === filterType) &&
+      (filterRoom === "ALL" || t.roomId === filterRoom),
+    );
+  }, [transactions, filterType, filterRoom]);
+
+  const contractByCode = useMemo(() => {
+    const m = new Map<string, string>();
+    contracts.forEach((c) => m.set(c.code, c.id));
+    return m;
+  }, [contracts]);
 
   const totalIn = filtered.filter((t) => t.type === "INCOME").reduce((s, t) => s + Number(t.amount), 0);
   const totalOut = filtered.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + Number(t.amount), 0);
@@ -111,6 +125,13 @@ export function TransactionsClient({
             <SelectItem value="ALL">Tất cả</SelectItem>
             <SelectItem value="INCOME">Thu</SelectItem>
             <SelectItem value="EXPENSE">Chi</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterRoom} onValueChange={setFilterRoom}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Phòng" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả phòng</SelectItem>
+            {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">
@@ -158,7 +179,7 @@ export function TransactionsClient({
           {/* Mobile/PWA: card list */}
           <div className="space-y-2 lg:hidden">
             {filtered.map((t) => (
-              <TransactionRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
+              <TransactionRow key={t.id} t={t} buildingId={buildingId} contractByCode={contractByCode} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
             ))}
           </div>
           {/* Desktop: table */}
@@ -167,8 +188,8 @@ export function TransactionsClient({
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b">
                   <tr className="text-left text-xs text-slate-500">
-                    <th className="px-3 py-2 font-medium">Mã</th>
-                    <th className="px-3 py-2 font-medium">Ngày</th>
+                    <th className="px-3 py-2 font-medium">Ngày tháng</th>
+                    <th className="px-3 py-2 font-medium">Phòng</th>
                     <th className="px-3 py-2 font-medium">Loại</th>
                     <th className="px-3 py-2 font-medium">Đối tượng</th>
                     <th className="px-3 py-2 font-medium">Nội dung</th>
@@ -179,7 +200,7 @@ export function TransactionsClient({
                 </thead>
                 <tbody>
                   {filtered.map((t) => (
-                    <TransactionTableRow key={t.id} t={t} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
+                    <TransactionTableRow key={t.id} t={t} buildingId={buildingId} contractByCode={contractByCode} onDelete={() => deleteTx(t.id)} onEdit={() => setEditTx(t)} canWrite={canWrite} />
                   ))}
                 </tbody>
               </table>
@@ -223,20 +244,57 @@ function MiniStat({ label, value, positive, danger, bold }: { label: string; val
   );
 }
 
-function TransactionTableRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
-  const partyName = t.customer
-    ? (t.customer.fullName || t.customer.companyName)
-    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
+// Render content with the contract code (HĐ XXX-DDMMYY) turned into a link
+// when it matches a known contract.
+function renderContent(content: string, buildingId: string, contractByCode: Map<string, string>) {
+  // Match patterns like "HĐ CHDV-051226" or "HĐ VP-051226-01"
+  const re = /(HĐ\s+)([A-Z]+-\d{6}(?:-\d{2})?)/u;
+  const m = content.match(re);
+  if (!m) return content;
+  const code = m[2];
+  const cid = contractByCode.get(code);
+  if (!cid) return content;
+  const before = content.slice(0, m.index!);
+  const after = content.slice(m.index! + m[0].length);
+  return (
+    <>
+      {before}
+      {m[1]}
+      <Link href={`/buildings/${buildingId}/contracts/${cid}/edit`} className="text-primary hover:underline">
+        {code}
+      </Link>
+      {after}
+    </>
+  );
+}
+
+function TransactionTableRow({ t, buildingId, contractByCode, onDelete, onEdit, canWrite }: {
+  t: Transaction;
+  buildingId: string;
+  contractByCode: Map<string, string>;
+  onDelete: () => void;
+  onEdit: () => void;
+  canWrite: boolean;
+}) {
+  const partyLabel = t.partyKind
+    ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label ?? null
+    : (t.party?.name ?? null);
+  const customerName = t.customer ? (t.customer.fullName || t.customer.companyName) : null;
   return (
     <tr className="border-b last:border-b-0 hover:bg-slate-50/60">
-      <td className="px-3 py-2 font-mono text-xs text-slate-500 whitespace-nowrap">{t.code}</td>
       <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{formatDateVN(t.date)}</td>
+      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+        {t.room?.number ? `P${t.room.number}` : <span className="text-slate-400">—</span>}
+      </td>
       <td className="px-3 py-2">
         {t.category?.name ?? <span className="text-slate-400">—</span>}
         {!t.countInBR && <Badge variant="secondary" className="text-[10px] ml-1">Ko HT</Badge>}
       </td>
-      <td className="px-3 py-2 text-slate-600">{partyName ?? <span className="text-slate-400">—</span>}</td>
-      <td className="px-3 py-2 max-w-[280px] truncate" title={t.content}>{t.content}</td>
+      <td className="px-3 py-2 text-slate-600">{partyLabel ?? <span className="text-slate-400">—</span>}</td>
+      <td className="px-3 py-2 max-w-[280px] truncate" title={(customerName ? `${customerName} — ` : "") + t.content}>
+        {customerName && <span className="font-medium">{customerName} — </span>}
+        {renderContent(t.content, buildingId, contractByCode)}
+      </td>
       <td className="px-3 py-2 text-slate-600">{t.paymentMethod?.name ?? <span className="text-slate-400">—</span>}</td>
       <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${t.type === "INCOME" ? "text-emerald-700" : "text-rose-700"}`}>
         {t.type === "INCOME" ? "+" : "−"}{formatVND(BigInt(t.amount))}
@@ -255,10 +313,18 @@ function TransactionTableRow({ t, onDelete, onEdit, canWrite }: { t: Transaction
   );
 }
 
-function TransactionRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onDelete: () => void; onEdit: () => void; canWrite: boolean }) {
-  const partyName = t.customer
-    ? (t.customer.fullName || t.customer.companyName)
-    : (t.party?.name ?? (t.partyKind ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label : null));
+function TransactionRow({ t, buildingId, contractByCode, onDelete, onEdit, canWrite }: {
+  t: Transaction;
+  buildingId: string;
+  contractByCode: Map<string, string>;
+  onDelete: () => void;
+  onEdit: () => void;
+  canWrite: boolean;
+}) {
+  const partyLabel = t.partyKind
+    ? PARTY_KINDS.find((p) => p.value === t.partyKind)?.label ?? null
+    : (t.party?.name ?? null);
+  const customerName = t.customer ? (t.customer.fullName || t.customer.companyName) : null;
   return (
     <Card>
       <CardContent className="p-3 flex items-start gap-3">
@@ -269,14 +335,17 @@ function TransactionRow({ t, onDelete, onEdit, canWrite }: { t: Transaction; onD
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="text-xs font-mono text-slate-500">{t.code}</span>
+            {t.room?.number && <Badge variant="outline" className="text-[10px]">P{t.room.number}</Badge>}
             {t.category && <Badge variant="outline" className="text-[10px]">{t.category.name}</Badge>}
             {!t.countInBR && <Badge variant="secondary" className="text-[10px]">Ko hạch toán</Badge>}
           </div>
-          <div className="text-sm font-medium truncate">{t.content}</div>
+          <div className="text-sm font-medium truncate">
+            {customerName && <span>{customerName} — </span>}
+            {renderContent(t.content, buildingId, contractByCode)}
+          </div>
           <div className="text-xs text-slate-500 truncate">
             {formatDateVN(t.date)}
-            {partyName && ` · ${partyName}`}
+            {partyLabel && ` · ${partyLabel}`}
             {t.paymentMethod && ` · ${t.paymentMethod.name}`}
           </div>
         </div>
