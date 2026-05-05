@@ -24,16 +24,24 @@ Trả về JSON với các khoá sau (giá trị là chuỗi, để rỗng nếu
 Chỉ trả về JSON thuần, không markdown, không giải thích.`;
 
 export async function extractCCCD(images: { mimeType: string; data: string }[]): Promise<CCCDOCRResult> {
-  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+  if (!apiKey) throw new Error("GEMINI_API_KEY chưa được cấu hình");
+  const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
   const ai = new GoogleGenerativeAI(apiKey);
   const model = ai.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: modelName,
     generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
   });
-  const res = await model.generateContent([
-    { text: PROMPT },
-    ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
-  ]);
+  let res;
+  try {
+    res = await model.generateContent([
+      { text: PROMPT },
+      ...images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+    ]);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Gemini] generateContent failed:", { model: modelName, error: msg });
+    throw new Error(`Gemini API lỗi (${modelName}): ${msg}`);
+  }
   const text = res.response.text();
   try {
     const parsed = JSON.parse(text) as CCCDOCRResult;

@@ -18,17 +18,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cần ít nhất 1 ảnh CCCD" }, { status: 400 });
   }
 
-  const images: { mimeType: string; data: string }[] = [];
-  for (const f of [front, back].filter(Boolean) as File[]) {
-    const buf = Buffer.from(await f.arrayBuffer());
-    images.push({ mimeType: f.type || "image/jpeg", data: buf.toString("base64") });
+  try {
+    const images: { mimeType: string; data: string }[] = [];
+    for (const f of [front, back].filter(Boolean) as File[]) {
+      const buf = Buffer.from(await f.arrayBuffer());
+      images.push({ mimeType: f.type || "image/jpeg", data: buf.toString("base64") });
+    }
+
+    const [result, frontUrl, backUrl] = await Promise.all([
+      extractCCCD(images),
+      front ? saveFile("id-cards", front) : Promise.resolve(null),
+      back ? saveFile("id-cards", back) : Promise.resolve(null),
+    ]);
+
+    return NextResponse.json({ ...result, frontUrl, backUrl });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[OCR CCCD] failed:", msg, e);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  const [result, frontUrl, backUrl] = await Promise.all([
-    extractCCCD(images),
-    front ? saveFile("id-cards", front) : Promise.resolve(null),
-    back ? saveFile("id-cards", back) : Promise.resolve(null),
-  ]);
-
-  return NextResponse.json({ ...result, frontUrl, backUrl });
 }
