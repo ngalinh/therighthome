@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { Camera, Loader2, X, Check } from "lucide-react";
+import { Camera, Loader2, X, Check, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,7 +97,8 @@ function PhotoPicker({
 }: {
   label: string; file: File | null; onChange: (f: File | null) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const url = file ? URL.createObjectURL(file) : null;
   return (
     <div>
@@ -116,20 +117,37 @@ function PhotoPicker({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
-          >
-            <Camera className="h-6 w-6 mb-1" />
-            <span className="text-xs">Chụp / Chọn ảnh</span>
-          </button>
+          <div className="aspect-[1.6/1] w-full rounded-xl border-2 border-dashed border-slate-300 grid grid-cols-2 divide-x divide-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex flex-col items-center justify-center text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors"
+            >
+              <Camera className="h-6 w-6 mb-1" />
+              <span className="text-xs">Chụp ảnh</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => uploadInputRef.current?.click()}
+              className="flex flex-col items-center justify-center text-slate-400 hover:bg-primary/5 hover:text-primary transition-colors"
+            >
+              <Upload className="h-6 w-6 mb-1" />
+              <span className="text-xs">Tải ảnh lên</span>
+            </button>
+          </div>
         )}
         <input
-          ref={inputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
+          className="hidden"
+          onChange={(e) => onChange(e.target.files?.[0] || null)}
+        />
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
           className="hidden"
           onChange={(e) => onChange(e.target.files?.[0] || null)}
         />
