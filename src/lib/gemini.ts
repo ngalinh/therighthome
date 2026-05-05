@@ -25,7 +25,7 @@ Chỉ trả về JSON thuần, không markdown, không giải thích.`;
 
 export async function extractCCCD(images: { mimeType: string; data: string }[]): Promise<CCCDOCRResult> {
   if (!apiKey) throw new Error("GEMINI_API_KEY chưa được cấu hình");
-  const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const ai = new GoogleGenerativeAI(apiKey);
   const model = ai.getGenerativeModel({
     model: modelName,
