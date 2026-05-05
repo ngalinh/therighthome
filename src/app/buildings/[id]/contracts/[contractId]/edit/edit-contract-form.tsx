@@ -28,6 +28,10 @@ type ContractCustomer = {
     phone: string | null;
     email: string | null;
     licensePlate: string | null;
+    idCardFrontUrl: string | null;
+    idCardBackUrl: string | null;
+    businessLicenseFrontUrl: string | null;
+    businessLicenseBackUrl: string | null;
   };
 };
 
@@ -245,8 +249,8 @@ export function EditContractForm({
   }
 
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1 space-y-4">
+    <div className="grid lg:grid-cols-3 gap-4 lg:gap-6 w-full max-w-full">
+      <div className="lg:col-span-1 space-y-4 min-w-0">
         <Card>
           <CardHeader>
             <CardTitle>Thông tin chung</CardTitle>
@@ -392,7 +396,7 @@ export function EditContractForm({
         </Card>
       </div>
 
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-2 space-y-4 min-w-0">
         <Card>
           <CardHeader>
             <CardTitle>Thông tin hợp đồng</CardTitle>
@@ -745,6 +749,7 @@ function CustomerItem({
 }) {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const c = cc.customer;
   const name = customerDisplayName(c);
   const sub: string[] = [];
@@ -755,6 +760,10 @@ function CustomerItem({
   if (c.phone) sub.push(c.phone);
   if (c.email) sub.push(c.email);
   if (c.licensePlate) sub.push(c.licensePlate);
+
+  const docFrontUrl = c.type === "INDIVIDUAL" ? c.idCardFrontUrl : c.businessLicenseFrontUrl;
+  const docBackUrl = c.type === "INDIVIDUAL" ? c.idCardBackUrl : c.businessLicenseBackUrl;
+  const docLabel = c.type === "INDIVIDUAL" ? "CCCD" : "ĐKKD";
 
   async function remove() {
     if (!confirm(`Xoá khách "${name}" khỏi hợp đồng?`)) return;
@@ -771,36 +780,71 @@ function CustomerItem({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm truncate">{name}</span>
-            {cc.isPrimary && <Badge variant="default" className="text-[10px]">Đại diện</Badge>}
+      <div className="p-2 rounded-lg bg-slate-50 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-sm truncate">{name}</span>
+              {cc.isPrimary && <Badge variant="default" className="text-[10px]">Đại diện</Badge>}
+            </div>
+            {sub.length > 0 && (
+              <div className="text-[11px] text-slate-500 break-words">{sub.join(" · ")}</div>
+            )}
           </div>
-          {sub.length > 0 && (
-            <div className="text-[11px] text-slate-500 truncate">{sub.join(" · ")}</div>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            onClick={() => setEditOpen(true)}
-            className="p-1 text-slate-400 hover:text-primary"
-            aria-label="Sửa khách"
-          >
-            <Edit className="h-3.5 w-3.5" />
-          </button>
-          {canRemove && (
+          <div className="flex items-center gap-0.5 shrink-0">
             <button
-              onClick={remove}
-              disabled={busy}
-              className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-50"
-              aria-label="Xoá khách"
+              onClick={() => setEditOpen(true)}
+              className="p-1 text-slate-400 hover:text-primary"
+              aria-label="Sửa khách"
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              <Edit className="h-3.5 w-3.5" />
             </button>
-          )}
+            {canRemove && (
+              <button
+                onClick={remove}
+                disabled={busy}
+                className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-50"
+                aria-label="Xoá khách"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
+          </div>
         </div>
+        {(docFrontUrl || docBackUrl) && (
+          <div className="grid grid-cols-2 gap-2">
+            {docFrontUrl && (
+              <button
+                type="button"
+                onClick={() => setZoomUrl(docFrontUrl)}
+                className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-white cursor-zoom-in"
+                aria-label={`Xem ${docLabel} mặt trước`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={docFrontUrl} alt={`${docLabel} mặt trước`} className="w-full h-full object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] py-0.5 text-center">
+                  {docLabel} mặt trước
+                </span>
+              </button>
+            )}
+            {docBackUrl && (
+              <button
+                type="button"
+                onClick={() => setZoomUrl(docBackUrl)}
+                className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-white cursor-zoom-in"
+                aria-label={`Xem ${docLabel} mặt sau`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={docBackUrl} alt={`${docLabel} mặt sau`} className="w-full h-full object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] py-0.5 text-center">
+                  {docLabel} mặt sau
+                </span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
+      <ImageLightbox src={zoomUrl} alt={docLabel} onClose={() => setZoomUrl(null)} />
       {editOpen && (
         <EditCustomerDialog
           customer={c}
@@ -1077,9 +1121,9 @@ function Field({ label, children, required }: { label: string; children: React.R
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className="flex justify-between items-baseline">
-      <span className="text-slate-500">{label}</span>
-      <span className={bold ? "font-bold" : ""}>{value}</span>
+    <div className="flex justify-between items-baseline gap-2">
+      <span className="text-slate-500 shrink-0">{label}</span>
+      <span className={`text-right break-words min-w-0 ${bold ? "font-bold" : ""}`}>{value}</span>
     </div>
   );
 }

@@ -14,6 +14,10 @@ const updateSchema = z.object({
   companyName: z.string().nullable().optional(),
   taxNumber: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  idCardFrontUrl: z.string().nullable().optional(),
+  idCardBackUrl: z.string().nullable().optional(),
+  businessLicenseFrontUrl: z.string().nullable().optional(),
+  businessLicenseBackUrl: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
