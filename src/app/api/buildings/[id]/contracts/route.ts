@@ -53,6 +53,9 @@ const createSchema = z.object({
   notes: z.string().optional(),
   customers: z.array(customerSchema).min(1),
   yearlyRents: z.array(z.object({ yearIndex: z.number(), rent: z.string() })).optional(),
+  temporaryResidenceStatus: z.enum(["NOT_REGISTERED", "SUBMITTED", "REGISTERED"]).optional(),
+  temporaryResidenceExpiresAt: z.string().nullable().optional(),
+  temporaryResidenceIsIndefinite: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -129,6 +132,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         waterPricePerPerson: d.waterPricePerPerson ? BigInt(d.waterPricePerPerson) : 0n,
         notes: d.notes,
         status: "ACTIVE",
+        temporaryResidenceStatus: d.temporaryResidenceStatus ?? "NOT_REGISTERED",
+        temporaryResidenceIsIndefinite:
+          d.temporaryResidenceStatus === "REGISTERED" ? !!d.temporaryResidenceIsIndefinite : false,
+        temporaryResidenceExpiresAt:
+          d.temporaryResidenceStatus === "REGISTERED" &&
+          !d.temporaryResidenceIsIndefinite &&
+          d.temporaryResidenceExpiresAt
+            ? new Date(d.temporaryResidenceExpiresAt)
+            : null,
         customers: {
           create: customers.map((c, i) => ({
             customerId: c.id,

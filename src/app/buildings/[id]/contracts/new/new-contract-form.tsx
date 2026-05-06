@@ -48,6 +48,10 @@ export function NewContractForm({
   const [notes, setNotes] = useState("");
   // VP yearly rents
   const [yearlyRents, setYearlyRents] = useState<{ y2?: string; y3?: string }>({});
+  // Tạm trú (CHDV only)
+  const [trStatus, setTrStatus] = useState<"NOT_REGISTERED" | "SUBMITTED" | "REGISTERED">("NOT_REGISTERED");
+  const [trExpiresAt, setTrExpiresAt] = useState("");
+  const [trIndefinite, setTrIndefinite] = useState(false);
 
   const endDate = startDate ? addMonths(new Date(startDate), termMonths).toISOString().slice(0, 10) : "";
 
@@ -93,6 +97,14 @@ export function NewContractForm({
               ...(yearlyRents.y3 ? [{ yearIndex: 3, rent: parseVNDInput(yearlyRents.y3).toString() }] : []),
             ]
           : [],
+      ...(buildingType === "CHDV"
+        ? {
+            temporaryResidenceStatus: trStatus,
+            temporaryResidenceIsIndefinite: trStatus === "REGISTERED" ? trIndefinite : false,
+            temporaryResidenceExpiresAt:
+              trStatus === "REGISTERED" && !trIndefinite && trExpiresAt ? trExpiresAt : null,
+          }
+        : {}),
     };
 
     const res = await fetch(`/api/buildings/${buildingId}/contracts`, {
@@ -260,6 +272,50 @@ export function NewContractForm({
             </div>
           </CardContent>
         </Card>
+
+        {buildingType === "CHDV" && (
+          <Card>
+            <CardHeader><CardTitle>Tạm trú</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Tình trạng">
+                  <Select value={trStatus} onValueChange={(v) => setTrStatus(v as typeof trStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NOT_REGISTERED">Chưa đăng ký</SelectItem>
+                      <SelectItem value="SUBMITTED">Đã gửi hồ sơ</SelectItem>
+                      <SelectItem value="REGISTERED">Đã đăng ký</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {trStatus === "REGISTERED" && (
+                  <Field label="Thời hạn">
+                    <Input
+                      type="date"
+                      value={trExpiresAt}
+                      disabled={trIndefinite}
+                      onChange={(e) => setTrExpiresAt(e.target.value)}
+                    />
+                  </Field>
+                )}
+              </div>
+              {trStatus === "REGISTERED" && (
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                    checked={trIndefinite}
+                    onChange={(e) => {
+                      setTrIndefinite(e.target.checked);
+                      if (e.target.checked) setTrExpiresAt("");
+                    }}
+                  />
+                  Vô thời hạn
+                </label>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Ghi chú</CardTitle></CardHeader>

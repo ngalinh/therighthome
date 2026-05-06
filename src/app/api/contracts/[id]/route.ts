@@ -22,6 +22,9 @@ const updateSchema = z.object({
   yearlyRents: z
     .array(z.object({ yearIndex: z.number().int().min(1).max(20), rent: z.string() }))
     .optional(),
+  temporaryResidenceStatus: z.enum(["NOT_REGISTERED", "SUBMITTED", "REGISTERED"]).optional(),
+  temporaryResidenceExpiresAt: z.string().nullable().optional(),
+  temporaryResidenceIsIndefinite: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -67,6 +70,32 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     updateData.electricityPricePerKwh = BigInt(d.electricityPricePerKwh);
   if (d.notes !== undefined) updateData.notes = d.notes;
   if (d.expiringNote !== undefined) updateData.expiringNote = d.expiringNote;
+  if (d.temporaryResidenceStatus !== undefined) {
+    updateData.temporaryResidenceStatus = d.temporaryResidenceStatus;
+    if (d.temporaryResidenceStatus !== "REGISTERED") {
+      // Clear date/indefinite when leaving REGISTERED so stale data doesn't linger.
+      updateData.temporaryResidenceIsIndefinite = false;
+      updateData.temporaryResidenceExpiresAt = null;
+    } else {
+      const indef = d.temporaryResidenceIsIndefinite ?? false;
+      updateData.temporaryResidenceIsIndefinite = indef;
+      updateData.temporaryResidenceExpiresAt = indef
+        ? null
+        : d.temporaryResidenceExpiresAt
+          ? new Date(d.temporaryResidenceExpiresAt)
+          : null;
+    }
+  } else {
+    if (d.temporaryResidenceIsIndefinite !== undefined) {
+      updateData.temporaryResidenceIsIndefinite = d.temporaryResidenceIsIndefinite;
+      if (d.temporaryResidenceIsIndefinite) updateData.temporaryResidenceExpiresAt = null;
+    }
+    if (d.temporaryResidenceExpiresAt !== undefined) {
+      updateData.temporaryResidenceExpiresAt = d.temporaryResidenceExpiresAt
+        ? new Date(d.temporaryResidenceExpiresAt)
+        : null;
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     if (Object.keys(updateData).length > 0) {
