@@ -169,6 +169,12 @@ enum ContractStatus {
   TERMINATED              // Dừng thuê bình thường
 }
 
+enum TemporaryResidenceStatus {
+  NOT_REGISTERED // Chưa đăng ký
+  SUBMITTED      // Đã gửi hồ sơ
+  REGISTERED     // Đã đăng ký
+}
+
 model Contract {
   id         String         @id @default(cuid())
   buildingId String
@@ -196,6 +202,12 @@ model Contract {
   waterPricePerPerson    BigInt @default(0) // monthly water fee per occupant
 
   status            ContractStatus @default(ACTIVE)
+
+  // Tạm trú (CHDV only) — registration of temporary residence with police
+  temporaryResidenceStatus       TemporaryResidenceStatus @default(NOT_REGISTERED)
+  temporaryResidenceExpiresAt    DateTime?
+  temporaryResidenceIsIndefinite Boolean                  @default(false)
+
   notes             String?
   // Independent note for the "Hợp đồng sắp hết hạn" dashboard tab. Decoupled
   // from `notes` so contract-renewal follow-ups don't pollute the main HĐ

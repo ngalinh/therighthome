@@ -57,6 +57,9 @@ type Contract = {
   room: { number: string };
   yearlyRents: { yearIndex: number; rent: string }[];
   customers: ContractCustomer[];
+  temporaryResidenceStatus: "NOT_REGISTERED" | "SUBMITTED" | "REGISTERED";
+  temporaryResidenceExpiresAt: string | null;
+  temporaryResidenceIsIndefinite: boolean;
 };
 
 type BrokerFee = { id: string; code: string; date: string; amount: string; content: string };
@@ -106,6 +109,14 @@ export function EditContractForm({
   const [yearlyRents, setYearlyRents] = useState(
     contract.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
   );
+  // Tạm trú (CHDV only)
+  const [trStatus, setTrStatus] = useState<"NOT_REGISTERED" | "SUBMITTED" | "REGISTERED">(
+    contract.temporaryResidenceStatus ?? "NOT_REGISTERED",
+  );
+  const [trExpiresAt, setTrExpiresAt] = useState(
+    contract.temporaryResidenceExpiresAt ? contract.temporaryResidenceExpiresAt.slice(0, 10) : "",
+  );
+  const [trIndefinite, setTrIndefinite] = useState(contract.temporaryResidenceIsIndefinite ?? false);
 
   const endDate = useMemo(() => {
     if (!startDate) return "";
@@ -240,6 +251,14 @@ export function EditContractForm({
         yearIndex: y.yearIndex,
         rent: parseVNDInput(y.rent).toString(),
       })),
+      ...(buildingType === "CHDV"
+        ? {
+            temporaryResidenceStatus: trStatus,
+            temporaryResidenceIsIndefinite: trStatus === "REGISTERED" ? trIndefinite : false,
+            temporaryResidenceExpiresAt:
+              trStatus === "REGISTERED" && !trIndefinite && trExpiresAt ? trExpiresAt : null,
+          }
+        : {}),
     };
 
     const res = await fetch(`/api/contracts/${contract.id}`, {
@@ -570,6 +589,52 @@ export function EditContractForm({
             </div>
           </CardContent>
         </Card>
+
+        {buildingType === "CHDV" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tạm trú</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Tình trạng">
+                  <Select value={trStatus} onValueChange={(v) => setTrStatus(v as typeof trStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NOT_REGISTERED">Chưa đăng ký</SelectItem>
+                      <SelectItem value="SUBMITTED">Đã gửi hồ sơ</SelectItem>
+                      <SelectItem value="REGISTERED">Đã đăng ký</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {trStatus === "REGISTERED" && (
+                  <Field label="Thời hạn">
+                    <Input
+                      type="date"
+                      value={trExpiresAt}
+                      disabled={trIndefinite}
+                      onChange={(e) => setTrExpiresAt(e.target.value)}
+                    />
+                  </Field>
+                )}
+              </div>
+              {trStatus === "REGISTERED" && (
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                    checked={trIndefinite}
+                    onChange={(e) => {
+                      setTrIndefinite(e.target.checked);
+                      if (e.target.checked) setTrExpiresAt("");
+                    }}
+                  />
+                  Vô thời hạn
+                </label>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
