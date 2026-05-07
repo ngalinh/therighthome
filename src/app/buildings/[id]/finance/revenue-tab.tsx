@@ -57,10 +57,10 @@ export async function RevenueTab({
         invoiceId: null,
       },
       include: {
-        category: { select: { name: true } },
-        paymentMethod: { select: { name: true } },
-        customer: { select: { type: true, fullName: true, companyName: true } },
-        party: { select: { name: true } },
+        category: { select: { id: true, name: true } },
+        paymentMethod: { select: { id: true, name: true } },
+        customer: { select: { id: true, type: true, fullName: true, companyName: true } },
+        party: { select: { id: true, name: true } },
         room: { select: { id: true, number: true } },
       },
       orderBy: { date: "asc" },
@@ -117,6 +117,20 @@ export async function RevenueTab({
     }
   }
 
+  type EditableTx = {
+    id: string;
+    type: "INCOME" | "EXPENSE";
+    date: string;
+    amount: string;
+    content: string;
+    notes: string | null;
+    categoryId: string | null;
+    paymentMethodId: string | null;
+    partyKind: string | null;
+    customerId: string | null;
+    partyId: string | null;
+    roomId: string | null;
+  };
   type Row = {
     key: string;
     date: string;
@@ -131,6 +145,7 @@ export async function RevenueTab({
     due: bigint;
     paid: bigint;
     closing: bigint;
+    tx: EditableTx | null;
   };
 
   const rows: Row[] = [];
@@ -161,6 +176,7 @@ export async function RevenueTab({
       due,
       paid,
       closing,
+      tx: null,
     });
   }
 
@@ -182,6 +198,20 @@ export async function RevenueTab({
       due: t.amount,
       paid: t.amount,
       closing: 0n,
+      tx: {
+        id: t.id,
+        type: "INCOME",
+        date: t.date.toISOString(),
+        amount: t.amount.toString(),
+        content: t.content,
+        notes: t.notes,
+        categoryId: t.category?.id ?? null,
+        paymentMethodId: t.paymentMethod?.id ?? null,
+        partyKind: t.partyKind ?? null,
+        customerId: t.customer ? t.customerId : null,
+        partyId: t.party ? t.partyId : null,
+        roomId: t.roomId ?? null,
+      },
     });
   }
 
