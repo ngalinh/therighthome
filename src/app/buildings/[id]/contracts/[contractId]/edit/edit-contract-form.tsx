@@ -62,7 +62,15 @@ type Contract = {
   temporaryResidenceIsIndefinite: boolean;
 };
 
-type BrokerFee = { id: string; code: string; date: string; amount: string; content: string };
+type BrokerFee = {
+  id: string;
+  code: string;
+  date: string;
+  amount: string;
+  content: string;
+  paymentMethodId: string | null;
+  paymentMethod: { name: string } | null;
+};
 
 export function EditContractForm({
   buildingId,
@@ -407,7 +415,7 @@ export function EditContractForm({
                 <Label className="text-xs">Đã ghi nhận</Label>
                 <div className="space-y-1">
                   {brokerFees.map((bf) => (
-                    <BrokerFeeItem key={bf.id} fee={bf} />
+                    <BrokerFeeItem key={bf.id} fee={bf} paymentMethods={paymentMethods} />
                   ))}
                 </div>
               </div>
@@ -650,16 +658,14 @@ export function EditContractForm({
             <Button variant="outline" onClick={() => setExtendOpen(true)}>
               <RefreshCw className="h-4 w-4" /> Gia hạn
             </Button>
-            <div className="flex gap-2">
-              {contract.status === "ACTIVE" && (
-                <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-                  <XCircle className="h-4 w-4" /> Kết thúc HĐ
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-                <Trash2 className="h-4 w-4" /> Xoá HĐ
+            {contract.status === "ACTIVE" && (
+              <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                <XCircle className="h-4 w-4" /> Kết thúc
               </Button>
-            </div>
+            )}
+            <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+              <Trash2 className="h-4 w-4" /> Xoá HĐ
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
@@ -1342,20 +1348,25 @@ function ExtendContractDialog({
   );
 }
 
-function BrokerFeeItem({ fee }: { fee: BrokerFee }) {
+function BrokerFeeItem({ fee, paymentMethods }: {
+  fee: BrokerFee;
+  paymentMethods: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(fee.amount);
+  const [pmId, setPmId] = useState(fee.paymentMethodId ?? "");
   const [saving, setSaving] = useState(false);
 
   async function save() {
     const v = parseVNDInput(val);
     if (v <= 0n) return toast.error("Số tiền > 0");
+    if (!pmId) return toast.error("Chọn Tài khoản TT");
     setSaving(true);
     const res = await fetch(`/api/transactions/${fee.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: v.toString() }),
+      body: JSON.stringify({ amount: v.toString(), paymentMethodId: pmId }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -1369,20 +1380,34 @@ function BrokerFeeItem({ fee }: { fee: BrokerFee }) {
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
-        <Input
-          inputMode="numeric"
-          className="h-8 text-sm"
-          value={val ? formatNumber(parseVNDInput(val)) : ""}
-          onChange={(e) => setVal(e.target.value)}
-          autoFocus
-        />
-        <Button size="sm" variant="gradient" onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setVal(fee.amount); }}>
-          <X className="h-3 w-3" />
-        </Button>
+      <div className="space-y-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="space-y-1">
+          <Label className="text-[10px] text-slate-500">Số tiền</Label>
+          <Input
+            inputMode="numeric"
+            className="h-8 text-sm"
+            value={val ? formatNumber(parseVNDInput(val)) : ""}
+            onChange={(e) => setVal(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] text-slate-500">Tài khoản TT</Label>
+          <Select value={pmId} onValueChange={setPmId}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Chọn" /></SelectTrigger>
+            <SelectContent>
+              {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex justify-end gap-1.5">
+          <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setVal(fee.amount); setPmId(fee.paymentMethodId ?? ""); }}>
+            <X className="h-3 w-3" />
+          </Button>
+          <Button size="sm" variant="gradient" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -1391,12 +1416,13 @@ function BrokerFeeItem({ fee }: { fee: BrokerFee }) {
       <div className="min-w-0 flex-1">
         <div className="font-mono text-[10px] text-slate-500">{fee.code}</div>
         <div className="font-semibold text-rose-700">{formatVND(BigInt(fee.amount))}</div>
+        <div className="text-[11px] text-slate-500">{fee.paymentMethod?.name ?? "—"}</div>
       </div>
       <button
         type="button"
         onClick={() => setEditing(true)}
         className="p-1 text-slate-400 hover:text-primary"
-        aria-label="Sửa số tiền"
+        aria-label="Sửa"
       >
         <Edit className="h-3.5 w-3.5" />
       </button>
