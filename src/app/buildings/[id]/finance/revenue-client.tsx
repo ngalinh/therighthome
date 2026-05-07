@@ -1,13 +1,17 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownCircle } from "lucide-react";
+import { ArrowDownCircle, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { ExportExcelButton } from "@/components/ui/export-button";
 import { formatVND, formatDateVN, formatRoomNumber } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 import { CreateTransactionDialog } from "./create-transaction-dialog";
+import { EditTransactionDialog, type EditableTransaction } from "./edit-transaction-dialog";
 
 const PARTY_KINDS = [
   { value: "CUSTOMER", label: "Khách hàng" },
@@ -36,6 +40,7 @@ type Row = {
   due: string;
   paid: string;
   closing: string;
+  tx: EditableTransaction | null;
 };
 
 export function RevenueClient({
@@ -50,9 +55,11 @@ export function RevenueClient({
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   canWrite: boolean;
 }) {
+  const router = useRouter();
   const [filterRoom, setFilterRoom] = useState<string>("ALL");
   const [filterParty, setFilterParty] = useState<string>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
 
   const filtered = useMemo(() => {
     return rows.filter((r) =>
@@ -65,6 +72,14 @@ export function RevenueClient({
   const totalDue = filtered.reduce((s, r) => s + BigInt(r.due), 0n);
   const totalPaid = filtered.reduce((s, r) => s + BigInt(r.paid), 0n);
   const totalClose = filtered.reduce((s, r) => s + BigInt(r.closing), 0n);
+
+  async function deleteTx(id: string) {
+    if (!confirm("Xoá phiếu thu này?")) return;
+    const res = await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+    if (!res.ok) return toast.error("Có lỗi");
+    toast.success("Đã xoá");
+    router.refresh();
+  }
 
   return (
     <div className="space-y-4">
@@ -118,7 +133,24 @@ export function RevenueClient({
         <MiniStat label="Số dư cuối" value={formatVND(totalClose)} bold />
       </div>
 
-      <Card>
+      {/* Mobile/PWA: card list */}
+      <div className="space-y-2 lg:hidden">
+        {filtered.length === 0 && (
+          <Card><CardContent className="p-4 text-center text-sm text-slate-500">Chưa có dữ liệu</CardContent></Card>
+        )}
+        {filtered.map((r) => (
+          <RevenueCard
+            key={r.key}
+            r={r}
+            canWrite={canWrite}
+            onEdit={() => r.tx && setEditTx(r.tx)}
+            onDelete={() => r.tx && deleteTx(r.tx.id)}
+          />
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <Card className="hidden lg:block">
         <CardHeader><CardTitle>Sổ Thu T{month}/{year}</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full text-sm">
@@ -134,11 +166,12 @@ export function RevenueClient({
                 <th className="px-3 py-2 text-right whitespace-nowrap">Phải thu</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Đã thu</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Số dư cuối</th>
+                {canWrite && <th className="px-3 py-2 w-16"></th>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
+                <tr><td colSpan={canWrite ? 11 : 10} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
               )}
               {filtered.map((r) => {
                 const closing = BigInt(r.closing);
@@ -156,6 +189,20 @@ export function RevenueClient({
                     <td className={`px-3 py-2.5 text-right whitespace-nowrap font-semibold ${closing > 0n ? "text-rose-600" : ""}`}>
                       {formatVND(closing)}
                     </td>
+                    {canWrite && (
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {r.tx && (
+                          <>
+                            <button onClick={() => setEditTx(r.tx)} className="text-slate-400 hover:text-primary mr-2" aria-label="Sửa">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => deleteTx(r.tx!.id)} className="text-slate-400 hover:text-rose-500" aria-label="Xoá">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -174,6 +221,68 @@ export function RevenueClient({
         rooms={rooms}
         onClose={() => setCreateOpen(false)}
       />
+      <EditTransactionDialog
+        tx={editTx}
+        categories={categories}
+        paymentMethods={paymentMethods}
+        rooms={rooms}
+        onClose={() => setEditTx(null)}
+      />
+    </div>
+  );
+}
+
+function RevenueCard({ r, canWrite, onEdit, onDelete }: {
+  r: Row;
+  canWrite: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const closing = BigInt(r.closing);
+  return (
+    <Card>
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+              {r.roomNumber && <Badge variant="outline" className="text-[10px]">{formatRoomNumber(r.roomNumber)}</Badge>}
+              {r.category && <Badge variant="outline" className="text-[10px]">{r.category}</Badge>}
+            </div>
+            <div className="text-sm font-medium truncate">{r.content}</div>
+            <div className="text-xs text-slate-500 truncate">
+              {formatDateVN(r.date)}
+              {r.partyLabel && ` · ${r.partyLabel}`}
+              {r.paymentMethod && ` · ${r.paymentMethod}`}
+            </div>
+          </div>
+          {canWrite && r.tx && (
+            <div className="flex gap-1 shrink-0">
+              <button onClick={onEdit} className="text-slate-400 hover:text-primary p-1" aria-label="Sửa">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={onDelete} className="text-slate-400 hover:text-rose-500 p-1" aria-label="Xoá">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-1.5 text-[11px]">
+          <CardStat label="Số dư đầu" value={formatVND(BigInt(r.opening))} />
+          <CardStat label="Phải thu" value={formatVND(BigInt(r.due))} />
+          <CardStat label="Đã thu" value={formatVND(BigInt(r.paid))} positive />
+          <CardStat label="Số dư cuối" value={formatVND(closing)} danger={closing > 0n} bold />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CardStat({ label, value, positive, danger, bold }: { label: string; value: string; positive?: boolean; danger?: boolean; bold?: boolean }) {
+  const color = danger ? "text-rose-600" : positive ? "text-emerald-600" : "";
+  return (
+    <div>
+      <div className="text-[10px] text-slate-400 leading-tight">{label}</div>
+      <div className={`${bold ? "font-semibold" : ""} ${color} text-[11px] truncate`}>{value}</div>
     </div>
   );
 }

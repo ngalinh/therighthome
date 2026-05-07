@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Building2, FileText, Receipt, AlertCircle, Plus, ArrowRight,
-  TrendingUp, Wallet, Bell, ChevronRight, Clock, Sparkles, ArrowLeftRight,
+  TrendingUp, Wallet, Bell, ChevronRight, Clock, Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND } from "@/lib/utils";
@@ -180,11 +180,9 @@ export default async function DashboardPage() {
             {/* Quick actions */}
             <div>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Thao tác nhanh</h2>
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
                 <QuickAction href="/manage/chdv?tab=invoices" icon={Receipt} label="Hoá đơn CHDV" color="#6366f1" />
-                <QuickAction href="/manage/chdv?tab=transactions" icon={ArrowLeftRight} label="Giao dịch CHDV" color="#a855f7" />
                 <QuickAction href="/manage/vp?tab=invoices" icon={Receipt} label="Hoá đơn VP" color="#10b981" />
-                <QuickAction href="/manage/vp?tab=transactions" icon={ArrowLeftRight} label="Giao dịch VP" color="#0ea5e9" />
               </div>
             </div>
 

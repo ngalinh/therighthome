@@ -5,12 +5,10 @@ import { can, getBuildingPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageBody } from "@/components/layout/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TransactionsTab } from "./transactions-tab";
 import { RevenueTab } from "./revenue-tab";
 import { DebtTab } from "./debt-tab";
 import { CashbookTab } from "./cashbook-tab";
 import { PnLTab } from "./pnl-tab";
-import { serializeBigInt } from "@/lib/utils";
 
 export default async function FinancePage({
   params, searchParams,
@@ -31,9 +29,9 @@ export default async function FinancePage({
   const now = new Date();
   const month = Number(sp.month ?? now.getMonth() + 1);
   const year = Number(sp.year ?? now.getFullYear());
-  const tab = sp.tab ?? "transactions";
+  const tab = sp.tab ?? "revenue";
 
-  const [categories, paymentMethods, parties, customers] = await Promise.all([
+  const [categories, paymentMethods] = await Promise.all([
     prisma.transactionCategory.findMany({
       where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -41,12 +39,6 @@ export default async function FinancePage({
     prisma.paymentMethod.findMany({
       where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
       orderBy: { name: "asc" },
-    }),
-    prisma.party.findMany({ orderBy: { name: "asc" } }),
-    prisma.customer.findMany({
-      where: { buildingId: id },
-      select: { id: true, fullName: true, companyName: true },
-      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -71,7 +63,6 @@ export default async function FinancePage({
           <div className="overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 mb-4">
             <TabsList className="inline-flex bg-slate-100 rounded-xl p-1 gap-0.5">
               {[
-                { value: "transactions", label: "Giao dịch" },
                 { value: "revenue", label: "Sổ Thu" },
                 { value: "debt", label: "Sổ Chi" },
                 { value: "cashbook", label: "Sổ quỹ" },
@@ -88,18 +79,6 @@ export default async function FinancePage({
             </TabsList>
           </div>
 
-          <TabsContent value="transactions">
-            <TransactionsTab
-              buildingId={id}
-              month={month}
-              year={year}
-              categories={categories}
-              paymentMethods={paymentMethods}
-              parties={parties}
-              customers={customers}
-              canWrite={canWrite}
-            />
-          </TabsContent>
           <TabsContent value="revenue">
             <RevenueTab
               buildingId={id}

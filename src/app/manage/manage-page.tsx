@@ -10,7 +10,6 @@ import type { InvoiceStatus } from "@prisma/client";
 import { ManageTasksTab } from "./tasks-tab";
 import { ManageOvertimeTab } from "./overtime-tab";
 import { AggregatedInvoicesView } from "./aggregated-invoices-view";
-import { AggregatedTransactionsClient } from "./aggregated-transactions-client";
 import { ExpiringContractsTab } from "./expiring-contracts-tab";
 import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
@@ -48,17 +47,15 @@ export async function ManageTypePage({
   const writeChecks = await Promise.all(
     buildingIds.map(async (id) => ({
       id,
-      finance: await can(session.user.id, session.user.role, id, "finance.write"),
       invoice: await can(session.user.id, session.user.role, id, "invoice.write"),
       send: await can(session.user.id, session.user.role, id, "invoice.send"),
     })),
   );
-  const canFinance = writeChecks.some((c) => c.finance);
   const canInvoice = writeChecks.some((c) => c.invoice);
   const canSend = writeChecks.some((c) => c.send);
 
-  // Common: rooms + parties + contracts (for HĐ link in content).
-  const [roomsRaw, parties, contracts] = await Promise.all([
+  // Common: rooms + parties.
+  const [roomsRaw, parties] = await Promise.all([
     prisma.room.findMany({
       where: { buildingId: { in: buildingIds } },
       orderBy: [{ buildingId: "asc" }, { number: "asc" }],
@@ -83,10 +80,6 @@ export async function ManageTypePage({
     prisma.party.findMany({
       orderBy: [{ kind: "asc" }, { name: "asc" }],
       select: { id: true, name: true, kind: true },
-    }),
-    prisma.contract.findMany({
-      where: { buildingId: { in: buildingIds } },
-      select: { id: true, code: true, buildingId: true },
     }),
   ]);
   const rooms = roomsRaw.map((r) => ({
@@ -172,41 +165,10 @@ export async function ManageTypePage({
     return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
-  // Transactions (filtered by month/year/building).
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      buildingId: { in: targetBuildingIds },
-      accountingYear: year,
-      accountingMonth: month,
-    },
-    include: {
-      building: { select: { id: true, name: true } },
-      category: true,
-      paymentMethod: true,
-      customer: true,
-      party: true,
-      room: { select: { number: true } },
-    },
-    orderBy: { date: "desc" },
-  });
-
-  // Categories + payment methods (shared across the type).
-  const [categories, paymentMethods] = await Promise.all([
-    prisma.transactionCategory.findMany({
-      where: { OR: [{ buildingType: kind }, { buildingType: null }] },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-    }),
-    prisma.paymentMethod.findMany({
-      where: { OR: [{ buildingType: kind }, { buildingType: null }] },
-      orderBy: { name: "asc" },
-    }),
-  ]);
-
-  // Customers across the type's buildings (for the create dialog).
-  const customers = await prisma.customer.findMany({
-    where: { buildingId: { in: buildingIds } },
-    select: { id: true, buildingId: true, fullName: true, companyName: true },
-    orderBy: { createdAt: "desc" },
+  // Payment methods for invoice payment dialog.
+  const paymentMethods = await prisma.paymentMethod.findMany({
+    where: { OR: [{ buildingType: kind }, { buildingType: null }] },
+    orderBy: { name: "asc" },
   });
 
   // Expiring contracts (< threshold days from now).
@@ -245,7 +207,6 @@ export async function ManageTypePage({
   const overtimesS = serializeBigInt(overtimes);
   const partiesS = serializeBigInt(parties);
   const invoicesS = serializeBigInt(invoices);
-  const transactionsS = serializeBigInt(transactions);
   const expiringContractsS = serializeBigInt(expiringContracts);
 
   const title = kind === "CHDV" ? "Quản lý — Căn hộ dịch vụ" : "Quản lý — Văn phòng";
@@ -258,7 +219,6 @@ export async function ManageTypePage({
           <div className="overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 mb-4">
             <TabsList className="inline-flex">
               <TabsTrigger value="invoices">Hoá đơn</TabsTrigger>
-              <TabsTrigger value="transactions">Giao dịch</TabsTrigger>
               <TabsTrigger value="tasks">Công việc</TabsTrigger>
               <TabsTrigger value="contracts">Hợp đồng</TabsTrigger>
               {kind === "VP" && <TabsTrigger value="overtime">Làm ngoài giờ</TabsTrigger>}
@@ -295,23 +255,6 @@ export async function ManageTypePage({
               paymentMethods={paymentMethods}
               canWrite={canInvoice}
               canSend={canSend}
-            />
-          </TabsContent>
-          <TabsContent value="transactions">
-            <AggregatedTransactionsClient
-              buildingType={kind}
-              buildings={buildingsLite}
-              rooms={rooms}
-              contracts={contracts}
-              month={month}
-              year={year}
-              buildingFilter={buildingFilter}
-              transactions={transactionsS}
-              categories={categories}
-              paymentMethods={paymentMethods}
-              parties={partiesS}
-              customers={customers}
-              canWrite={canFinance}
             />
           </TabsContent>
           {kind === "VP" && (
