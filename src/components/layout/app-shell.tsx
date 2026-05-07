@@ -163,11 +163,11 @@ export function AppShell({
       )}
 
       {/* Content */}
-      <main className="lg:ml-64 pb-24 lg:pb-8">{children}</main>
+      <main className="lg:ml-64 pb-28 lg:pb-8">{children}</main>
 
       {/* Mobile bottom nav (when inside a building) */}
       {insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[env(safe-area-inset-bottom)]">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
           <div className="grid grid-cols-5">
             {buildingItems.map((it) => {
               const Icon = it.icon;
@@ -177,7 +177,7 @@ export function AppShell({
                   key={it.href}
                   href={it.href}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
+                    "flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors",
                     active ? "text-primary" : "text-slate-400",
                   )}
                 >
@@ -197,7 +197,7 @@ export function AppShell({
 
       {/* Mobile bottom nav (top level) */}
       {!insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[env(safe-area-inset-bottom)]">
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
           <div className="grid grid-cols-4">
             {[
               ...TOP_NAV,
@@ -213,7 +213,7 @@ export function AppShell({
                   key={it.label}
                   href={it.href}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors",
+                    "flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors",
                     active ? "text-primary" : "text-slate-400",
                   )}
                 >

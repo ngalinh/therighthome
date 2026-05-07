@@ -650,14 +650,16 @@ export function EditContractForm({
             <Button variant="outline" onClick={() => setExtendOpen(true)}>
               <RefreshCw className="h-4 w-4" /> Gia hạn
             </Button>
-            {contract.status === "ACTIVE" && (
-              <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-                <XCircle className="h-4 w-4" /> Kết thúc HĐ
+            <div className="flex gap-2">
+              {contract.status === "ACTIVE" && (
+                <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                  <XCircle className="h-4 w-4" /> Kết thúc HĐ
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                <Trash2 className="h-4 w-4" /> Xoá HĐ
               </Button>
-            )}
-            <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-              <Trash2 className="h-4 w-4" /> Xoá HĐ
-            </Button>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
