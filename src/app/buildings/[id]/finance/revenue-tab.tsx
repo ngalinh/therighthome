@@ -23,7 +23,7 @@ export async function RevenueTab({
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   canWrite: boolean;
 }) {
-  const [allInvoices, manualIncomes, rooms] = await Promise.all([
+  const [allInvoices, manualIncomes, rooms, contracts] = await Promise.all([
     // All non-cancelled invoices issued up to & including the current month.
     prisma.invoice.findMany({
       where: {
@@ -80,6 +80,10 @@ export async function RevenueTab({
           take: 1,
         },
       },
+    }),
+    prisma.contract.findMany({
+      where: { buildingId },
+      select: { id: true, code: true },
     }),
   ]);
 
@@ -223,6 +227,9 @@ export async function RevenueTab({
     primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
   }));
 
+  const contractCodes = contracts.map((c) => ({ id: c.id, code: c.code }));
+  const invoiceCodes = allInvoices.map((i) => ({ id: i.id, code: i.code }));
+
   return (
     <RevenueClient
       buildingId={buildingId}
@@ -233,6 +240,8 @@ export async function RevenueTab({
       categories={categories}
       paymentMethods={paymentMethods}
       canWrite={canWrite}
+      contractCodes={contractCodes}
+      invoiceCodes={invoiceCodes}
     />
   );
 }

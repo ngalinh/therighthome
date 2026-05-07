@@ -18,6 +18,7 @@ import { ExportExcelButton } from "@/components/ui/export-button";
 type BuildingLite = { id: string; name: string; type: "CHDV" | "VP" };
 type RoomLite = { id: string; buildingId: string; number: string };
 type PartyLite = { id: string; name: string; kind: string };
+type PaymentMethodLite = { id: string; name: string };
 
 type Task = {
   id: string;
@@ -39,13 +40,14 @@ type Task = {
 };
 
 export function ManageTasksTab({
-  kind, buildings, rooms, parties, tasks,
+  kind, buildings, rooms, parties, tasks, paymentMethods,
 }: {
   kind: "CHDV" | "VP";
   buildings: BuildingLite[];
   rooms: RoomLite[];
   parties: PartyLite[];
   tasks: Task[];
+  paymentMethods: PaymentMethodLite[];
 }) {
   const [editing, setEditing] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
@@ -87,7 +89,7 @@ export function ManageTasksTab({
           {/* Mobile cards */}
           <div className="space-y-2 lg:hidden">
             {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} onEdit={() => setEditing(t)} />
+              <TaskCard key={t.id} task={t} onEdit={() => setEditing(t)} paymentMethods={paymentMethods} />
             ))}
           </div>
 
@@ -108,7 +110,7 @@ export function ManageTasksTab({
               </thead>
               <tbody>
                 {tasks.map((t) => (
-                  <TaskRow key={t.id} task={t} onEdit={() => setEditing(t)} />
+                  <TaskRow key={t.id} task={t} onEdit={() => setEditing(t)} paymentMethods={paymentMethods} />
                 ))}
               </tbody>
             </table>
@@ -141,7 +143,7 @@ export function ManageTasksTab({
   );
 }
 
-function TaskCard({ task, onEdit }: { task: Task; onEdit: () => void }) {
+function TaskCard({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => void; paymentMethods: PaymentMethodLite[] }) {
   return (
     <Card>
       <CardContent className="p-4 space-y-2">
@@ -159,14 +161,14 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: () => void }) {
         {task.notes && <div className="text-xs text-slate-500 line-clamp-2">{task.notes}</div>}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
           <div className="font-semibold text-sm">{formatVND(BigInt(task.cost))}</div>
-          <TaskActions task={task} onEdit={onEdit} />
+          <TaskActions task={task} onEdit={onEdit} paymentMethods={paymentMethods} />
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function TaskRow({ task, onEdit }: { task: Task; onEdit: () => void }) {
+function TaskRow({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => void; paymentMethods: PaymentMethodLite[] }) {
   return (
     <tr className="border-t border-slate-100 hover:bg-slate-50/60">
       <td className="px-3 py-2.5 whitespace-nowrap">{formatDateVN(task.date)}</td>
@@ -177,7 +179,7 @@ function TaskRow({ task, onEdit }: { task: Task; onEdit: () => void }) {
       <td className="px-3 py-2.5"><StatusBadge status={task.status} /></td>
       <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(task.cost))}</td>
       <td className="px-3 py-2.5 text-right">
-        <TaskActions task={task} onEdit={onEdit} />
+        <TaskActions task={task} onEdit={onEdit} paymentMethods={paymentMethods} />
       </td>
     </tr>
   );
@@ -191,26 +193,10 @@ function StatusBadge({ status }: { status: "PENDING" | "DONE" }) {
   );
 }
 
-function TaskActions({ task, onEdit }: { task: Task; onEdit: () => void }) {
+function TaskActions({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => void; paymentMethods: PaymentMethodLite[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-
-  async function pay() {
-    if (task.expenseTransactionId) {
-      return toast.info("Đã có phiếu chi cho công việc này");
-    }
-    if (!confirm(`Tạo phiếu chi ${formatVND(BigInt(task.cost))} cho công việc này?`)) return;
-    setBusy(true);
-    const res = await fetch(`/api/maintenance-tasks/${task.id}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    setBusy(false);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return toast.error(err.error || "Không tạo được phiếu chi");
-    }
-    const { code } = await res.json();
-    toast.success(`Đã tạo phiếu chi ${code}`);
-    router.refresh();
-  }
+  const [payOpen, setPayOpen] = useState(false);
 
   async function del() {
     if (!confirm("Xoá công việc này?")) return;
@@ -222,14 +208,89 @@ function TaskActions({ task, onEdit }: { task: Task; onEdit: () => void }) {
     router.refresh();
   }
 
+  function openPay() {
+    if (task.expenseTransactionId) {
+      return toast.info("Đã có phiếu chi cho công việc này");
+    }
+    setPayOpen(true);
+  }
+
   return (
     <div className="flex items-center justify-end gap-1.5">
       <Button size="sm" variant="outline" onClick={onEdit}><Edit className="h-3.5 w-3.5" /></Button>
       <Button size="sm" variant="outline" onClick={del} disabled={busy}><Trash2 className="h-3.5 w-3.5" /></Button>
-      <Button size="sm" variant={task.expenseTransactionId ? "ghost" : "gradient"} onClick={pay} disabled={busy || !!task.expenseTransactionId}>
+      <Button size="sm" variant={task.expenseTransactionId ? "ghost" : "gradient"} onClick={openPay} disabled={busy || !!task.expenseTransactionId}>
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
       </Button>
+      <PayDialog
+        task={task}
+        paymentMethods={paymentMethods}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+      />
     </div>
+  );
+}
+
+function PayDialog({ task, paymentMethods, open, onClose }: {
+  task: Task;
+  paymentMethods: PaymentMethodLite[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [pmId, setPmId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!pmId) return toast.error("Chọn Tài khoản TT");
+    setSaving(true);
+    const res = await fetch(`/api/maintenance-tasks/${task.id}/pay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentMethodId: pmId }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Không tạo được phiếu chi");
+    }
+    const { code } = await res.json();
+    toast.success(`Đã tạo phiếu chi ${code}`);
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ghi nhận phiếu chi</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="text-sm text-slate-600">
+            <div className="truncate"><span className="text-slate-500">Công việc:</span> {task.taskName}</div>
+            <div><span className="text-slate-500">Số tiền:</span> <span className="font-semibold">{formatVND(BigInt(task.cost))}</span></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tài khoản TT <span className="text-rose-500">*</span></Label>
+            <Select value={pmId} onValueChange={setPmId}>
+              <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Ghi nhận
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

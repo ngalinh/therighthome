@@ -232,6 +232,7 @@ export async function ManageTypePage({
               rooms={rooms}
               parties={partiesS}
               tasks={tasksS}
+              paymentMethods={paymentMethods}
             />
           </TabsContent>
           <TabsContent value="contracts">
