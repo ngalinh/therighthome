@@ -1,144 +1,208 @@
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND } from "@/lib/utils";
-import { MonthYearFilter } from "./month-year-filter";
+import { customerDisplayName, serializeBigInt } from "@/lib/utils";
+import { RevenueClient } from "./revenue-client";
 
 /**
- * Doanh thu = mỗi khách 1 dòng cho tháng đó.
- * Phải thu  = tổng totalAmount của các invoice thuộc tháng đó cho khách
- * Đã thu    = tổng paidAmount tương ứng
- * Số dư đầu = (số dư cuối tháng trước) hoặc OpeningBalance(CUSTOMER_REVENUE) cho tháng hiện tại
- * Số dư cuối = số dư đầu + phải thu - đã thu
+ * Sổ Thu — 1 dòng = 1 hoá đơn (theo từng tháng) hoặc 1 phiếu thu thủ công.
+ *
+ * Hoá đơn: rollover sang tháng sau khi totalAmount > sum(payments tới hết
+ * tháng trước). Tháng đầu tiên (tháng phát sinh hoá đơn) → opening = 0,
+ * due = totalAmount; tháng sau → opening = số chưa thu, due = 0.
+ *
+ * Phiếu thu thủ công (Transaction.invoiceId = null, type = INCOME) hiển thị
+ * 1 dòng trong tháng hạch toán, opening = 0, due = paid = amount → closing = 0
+ * (không rollover).
  */
 export async function RevenueTab({
-  buildingId, month, year,
+  buildingId, month, year, categories, paymentMethods, canWrite,
 }: {
   buildingId: string;
   month: number;
   year: number;
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  paymentMethods: { id: string; name: string; isCash: boolean }[];
+  canWrite: boolean;
 }) {
-  // Get all customers that had any invoice in this building
-  const invoicesThisMonth = await prisma.invoice.findMany({
-    where: { buildingId, month, year, status: { not: "CANCELLED" } },
-    include: {
-      contract: {
-        include: {
-          room: true,
-          customers: { where: { isPrimary: true }, include: { customer: true } },
+  const [allInvoices, manualIncomes, rooms] = await Promise.all([
+    // All non-cancelled invoices issued up to & including the current month.
+    prisma.invoice.findMany({
+      where: {
+        buildingId,
+        status: { not: "CANCELLED" },
+        OR: [
+          { year: { lt: year } },
+          { year, month: { lte: month } },
+        ],
+      },
+      include: {
+        contract: {
+          include: {
+            room: { select: { id: true, number: true } },
+            customers: {
+              where: { isPrimary: true },
+              include: {
+                customer: { select: { id: true, type: true, fullName: true, companyName: true } },
+              },
+            },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.transaction.findMany({
+      where: {
+        buildingId,
+        accountingMonth: month,
+        accountingYear: year,
+        type: "INCOME",
+        invoiceId: null,
+      },
+      include: {
+        category: { select: { name: true } },
+        paymentMethod: { select: { name: true } },
+        customer: { select: { type: true, fullName: true, companyName: true } },
+        party: { select: { name: true } },
+        room: { select: { id: true, number: true } },
+      },
+      orderBy: { date: "asc" },
+    }),
+    prisma.room.findMany({
+      where: { buildingId },
+      orderBy: { number: "asc" },
+      select: {
+        id: true,
+        number: true,
+        contracts: {
+          where: { status: "ACTIVE" },
+          select: {
+            customers: { where: { isPrimary: true }, select: { customerId: true }, take: 1 },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
+    }),
+  ]);
 
-  // Compute opening balance per primary-customer = previous month's closing
-  // For simplicity at the row level: opening = OpeningBalance(month, year) if exists, else 0 (Phase 5 will add full carry-forward)
-  const customerIds = invoicesThisMonth
-    .map((i) => i.contract.customers[0]?.customer.id)
-    .filter(Boolean) as string[];
-  const openings = await prisma.openingBalance.findMany({
-    where: {
-      buildingId,
-      kind: "CUSTOMER_REVENUE",
-      customerId: { in: customerIds },
-      asOfMonth: month,
-      asOfYear: year,
-    },
-  });
-  const openingMap = new Map(openings.map((o) => [o.customerId, o.amount]));
+  // Aggregate payments per invoice, split into "before this month" vs "this month".
+  const invoiceIds = allInvoices.map((i) => i.id);
+  const payments = invoiceIds.length
+    ? await prisma.transaction.findMany({
+        where: { invoiceId: { in: invoiceIds }, type: "INCOME" },
+        select: {
+          invoiceId: true,
+          accountingMonth: true,
+          accountingYear: true,
+          amount: true,
+          paymentMethod: { select: { name: true } },
+        },
+      })
+    : [];
 
-  // Aggregate per customer
-  const rows = new Map<string, {
-    customerId: string;
-    name: string;
-    rooms: string[];
+  const paidPrev = new Map<string, bigint>();
+  const paidThis = new Map<string, bigint>();
+  const pmThisByInvoice = new Map<string, Set<string>>();
+  for (const p of payments) {
+    if (!p.invoiceId || p.accountingYear == null || p.accountingMonth == null) continue;
+    const before = p.accountingYear < year || (p.accountingYear === year && p.accountingMonth < month);
+    const sameMonth = p.accountingYear === year && p.accountingMonth === month;
+    if (before) {
+      paidPrev.set(p.invoiceId, (paidPrev.get(p.invoiceId) ?? 0n) + p.amount);
+    } else if (sameMonth) {
+      paidThis.set(p.invoiceId, (paidThis.get(p.invoiceId) ?? 0n) + p.amount);
+      if (p.paymentMethod?.name) {
+        const set = pmThisByInvoice.get(p.invoiceId) ?? new Set<string>();
+        set.add(p.paymentMethod.name);
+        pmThisByInvoice.set(p.invoiceId, set);
+      }
+    }
+  }
+
+  type Row = {
+    key: string;
+    date: string;
+    roomId: string | null;
+    roomNumber: string | null;
+    category: string;
+    partyKind: string | null;
+    partyLabel: string;
+    content: string;
+    paymentMethod: string;
+    opening: bigint;
     due: bigint;
     paid: bigint;
-    opening: bigint;
-  }>();
-  for (const inv of invoicesThisMonth) {
-    const cust = inv.contract.customers[0]?.customer;
-    if (!cust) continue;
-    const cur = rows.get(cust.id) ?? {
-      customerId: cust.id,
-      name: cust.fullName || cust.companyName || "—",
-      rooms: [],
-      due: 0n,
-      paid: 0n,
-      opening: openingMap.get(cust.id) ?? 0n,
-    };
-    cur.due += inv.totalAmount;
-    cur.paid += inv.paidAmount;
-    if (!cur.rooms.includes(inv.contract.room.number)) cur.rooms.push(inv.contract.room.number);
-    rows.set(cust.id, cur);
+    closing: bigint;
+  };
+
+  const rows: Row[] = [];
+
+  for (const inv of allInvoices) {
+    const isFirstMonth = inv.month === month && inv.year === year;
+    const prev = paidPrev.get(inv.id) ?? 0n;
+    const opening = isFirstMonth ? 0n : (inv.totalAmount - prev);
+    const due = isFirstMonth ? inv.totalAmount : 0n;
+    const paid = paidThis.get(inv.id) ?? 0n;
+    const closing = opening + due - paid;
+
+    if (!isFirstMonth && opening <= 0n && paid === 0n) continue;
+
+    const customer = inv.contract.customers[0]?.customer ?? null;
+    const pmNames = Array.from(pmThisByInvoice.get(inv.id) ?? []);
+    rows.push({
+      key: `inv-${inv.id}`,
+      date: inv.dueDate.toISOString(),
+      roomId: inv.contract.room.id,
+      roomNumber: inv.contract.room.number,
+      category: "Tiền thuê phòng",
+      partyKind: "CUSTOMER",
+      partyLabel: customerDisplayName(customer),
+      content: `Hoá đơn ${inv.code}`,
+      paymentMethod: pmNames.join(", "),
+      opening,
+      due,
+      paid,
+      closing,
+    });
   }
-  const data = Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
 
-  const totalOpen = data.reduce((s, r) => s + r.opening, 0n);
-  const totalDue = data.reduce((s, r) => s + r.due, 0n);
-  const totalPaid = data.reduce((s, r) => s + r.paid, 0n);
-  const totalClose = totalOpen + totalDue - totalPaid;
+  for (const t of manualIncomes) {
+    const partyLabel = t.customer
+      ? customerDisplayName(t.customer)
+      : t.party?.name ?? "";
+    rows.push({
+      key: `tx-${t.id}`,
+      date: t.date.toISOString(),
+      roomId: t.roomId ?? null,
+      roomNumber: t.room?.number ?? null,
+      category: t.category?.name ?? "",
+      partyKind: t.partyKind ?? null,
+      partyLabel,
+      content: t.content,
+      paymentMethod: t.paymentMethod?.name ?? "",
+      opening: 0n,
+      due: t.amount,
+      paid: t.amount,
+      closing: 0n,
+    });
+  }
+
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+
+  const flatRooms = rooms.map((r) => ({
+    id: r.id,
+    number: r.number,
+    primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
+  }));
 
   return (
-    <div className="space-y-4">
-      <MonthYearFilter buildingId={buildingId} month={month} year={year} tab="revenue" />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniStat label="Số dư đầu" value={formatVND(totalOpen)} />
-        <MiniStat label="Phải thu" value={formatVND(totalDue)} />
-        <MiniStat label="Đã thu" value={formatVND(totalPaid)} positive />
-        <MiniStat label="Số dư cuối" value={formatVND(totalClose)} bold />
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Sổ Thu T{month}/{year}</CardTitle></CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-4 py-2 text-left">STT</th>
-                <th className="px-4 py-2 text-left">Phòng</th>
-                <th className="px-4 py-2 text-left">Tên khách</th>
-                <th className="px-4 py-2 text-right">Số dư đầu</th>
-                <th className="px-4 py-2 text-right">Phải thu</th>
-                <th className="px-4 py-2 text-right">Đã thu</th>
-                <th className="px-4 py-2 text-right">Số dư cuối</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
-              )}
-              {data.map((r, i) => {
-                const close = r.opening + r.due - r.paid;
-                return (
-                  <tr key={r.customerId} className="border-t hover:bg-slate-50">
-                    <td className="px-4 py-2.5">{i + 1}</td>
-                    <td className="px-4 py-2.5">{r.rooms.join(", ")}</td>
-                    <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                    <td className="px-4 py-2.5 text-right">{formatVND(r.opening)}</td>
-                    <td className="px-4 py-2.5 text-right">{formatVND(r.due)}</td>
-                    <td className="px-4 py-2.5 text-right text-emerald-700">{formatVND(r.paid)}</td>
-                    <td className={`px-4 py-2.5 text-right font-semibold ${close > 0n ? "text-rose-600" : ""}`}>
-                      {formatVND(close)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, positive, bold }: { label: string; value: string; positive?: boolean; bold?: boolean }) {
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-[11px] text-slate-500">{label}</div>
-        <div className={`${bold ? "text-lg" : "text-base"} font-bold mt-0.5 ${positive ? "text-emerald-600" : ""}`}>{value}</div>
-      </CardContent>
-    </Card>
+    <RevenueClient
+      buildingId={buildingId}
+      month={month}
+      year={year}
+      rows={serializeBigInt(rows)}
+      rooms={flatRooms}
+      categories={categories}
+      paymentMethods={paymentMethods}
+      canWrite={canWrite}
+    />
   );
 }

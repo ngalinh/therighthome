@@ -1,37 +1,37 @@
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND, customerDisplayName } from "@/lib/utils";
-import { MonthYearFilter } from "./month-year-filter";
+import { customerDisplayName, serializeBigInt } from "@/lib/utils";
+import { DebtClient } from "./debt-client";
 
 /**
- * Công nợ = đối với mỗi đối tượng (party / NCC), trong tháng đã có expense nào.
- * Phải trả = tổng amount EXPENSE chưa được "trả" (giả định = amount của giao dịch trong tháng đó)
- * Đã trả   = ... (đơn giản, giả định toàn bộ EXPENSE = đã trả nếu không tracking riêng)
+ * Sổ Chi — 1 dòng = 1 cọc HĐ (rollover) hoặc 1 phiếu chi thủ công.
  *
- * Vì hệ thống hiện chỉ track 1 ledger giao dịch, mặc định mỗi expense vừa là "phát sinh" vừa là "trả".
- * Người dùng có thể tạo phiếu chi với amount<thực để biểu diễn "phải trả" còn nợ.
+ * Cọc HĐ: ACTIVE → mỗi tháng 1 dòng. Tháng startDate → opening = 0,
+ * payable = depositAmount, paid = 0. Các tháng sau → opening = depositAmount,
+ * payable = 0, paid = 0 (carry-forward).
  *
- * Cách diễn giải đơn giản:
- * - Phải trả = sum amount của tất cả EXPENSE trong tháng cho party đó
- * - Đã trả  = sum amount của EXPENSE trong tháng dùng PTTT là tiền mặt/CK (tức đã chi)
- * Số dư đầu = OpeningBalance(PARTY_DEBT)
+ * Tháng terminate (TERMINATED / EXPIRED) → opening = depositAmount,
+ * paid = depositRefund (thực tế hoàn). Sau đó dừng hiển thị.
  *
- * Cho đơn giản v1: cả 2 cột bằng nhau, người dùng tự nhập opening + thêm phiếu khi muốn ghi nợ
+ * TERMINATED_LOST_DEPOSIT → tháng forfeit: opening = depositAmount,
+ * paid = depositAmount (xoá nợ vì khách mất cọc). Sau đó dừng hiển thị.
+ *
+ * Phiếu chi thủ công (Transaction.type = EXPENSE) → 1 dòng trong tháng hạch
+ * toán; opening = 0, payable = paid = amount → closing = 0.
  */
 export async function DebtTab({
-  buildingId, month, year,
+  buildingId, month, year, categories, paymentMethods, canWrite,
 }: {
   buildingId: string;
   month: number;
   year: number;
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  paymentMethods: { id: string; name: string; isCash: boolean }[];
+  canWrite: boolean;
 }) {
-  const monthEnd = new Date(year, month, 0, 23, 59, 59);
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
-  const [expenses, depositContracts] = await Promise.all([
-    prisma.transaction.findMany({
-      where: { buildingId, accountingYear: year, accountingMonth: month, type: "EXPENSE" },
-      include: { party: true, customer: true, paymentMethod: true },
-    }),
+  const [depositContracts, manualExpenses, rooms] = await Promise.all([
     prisma.contract.findMany({
       where: {
         buildingId,
@@ -39,45 +39,73 @@ export async function DebtTab({
         startDate: { lte: monthEnd },
       },
       include: {
-        room: { select: { number: true } },
+        room: { select: { id: true, number: true } },
         customers: {
           where: { isPrimary: true },
-          include: { customer: { select: { type: true, fullName: true, companyName: true } } },
+          include: {
+            customer: { select: { type: true, fullName: true, companyName: true } },
+          },
         },
       },
       orderBy: { startDate: "asc" },
     }),
+    prisma.transaction.findMany({
+      where: {
+        buildingId,
+        accountingMonth: month,
+        accountingYear: year,
+        type: "EXPENSE",
+      },
+      include: {
+        category: { select: { name: true } },
+        paymentMethod: { select: { name: true } },
+        customer: { select: { type: true, fullName: true, companyName: true } },
+        party: { select: { name: true } },
+        room: { select: { id: true, number: true } },
+      },
+      orderBy: { date: "asc" },
+    }),
+    prisma.room.findMany({
+      where: { buildingId },
+      orderBy: { number: "asc" },
+      select: {
+        id: true,
+        number: true,
+        contracts: {
+          where: { status: "ACTIVE" },
+          select: {
+            customers: { where: { isPrimary: true }, select: { customerId: true }, take: 1 },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
+    }),
   ]);
 
-  const partyIds = Array.from(new Set(expenses.map((e) => e.partyId).filter(Boolean))) as string[];
-  const openings = await prisma.openingBalance.findMany({
-    where: { buildingId, kind: "PARTY_DEBT", partyId: { in: partyIds }, asOfMonth: month, asOfYear: year },
-  });
-  const openingMap = new Map(openings.map((o) => [o.partyId, o.amount]));
+  type Row = {
+    key: string;
+    date: string;
+    roomId: string | null;
+    roomNumber: string | null;
+    category: string;
+    partyKind: string | null;
+    partyLabel: string;
+    content: string;
+    paymentMethod: string;
+    opening: bigint;
+    payable: bigint;
+    paid: bigint;
+    closing: bigint;
+  };
 
-  const rows = new Map<string, {
-    key: string; name: string; opening: bigint; payable: bigint; paid: bigint; details: string[];
-  }>();
-  for (const e of expenses) {
-    const key = e.partyId ?? "_unassigned";
-    const name = e.party?.name ?? "(chưa gán đối tượng)";
-    const cur = rows.get(key) ?? {
-      key, name,
-      opening: openingMap.get(e.partyId ?? "") ?? 0n,
-      payable: 0n, paid: 0n, details: [],
-    };
-    cur.payable += e.amount;
-    cur.paid += e.amount;
-    cur.details.push(e.content);
-    rows.set(key, cur);
-  }
+  const rows: Row[] = [];
 
-  // Add a synthetic row per contract whose deposit is still a liability in
-  // this month. ACTIVE contracts always show; TERMINATED / EXPIRED show up to
-  // and including the termination month (with depositRefund in "Đã trả" of
-  // that month); TERMINATED_LOST_DEPOSIT hides from the forfeit month onward
-  // (the deposit becomes revenue instead).
   for (const c of depositContracts) {
+    const startMonth = c.startDate.getMonth() + 1;
+    const startYear = c.startDate.getFullYear();
+    const isStartMonth = startMonth === month && startYear === year;
+
     const t = c.terminatedAt;
     const tMonth = t ? t.getMonth() + 1 : null;
     const tYear = t ? t.getFullYear() : null;
@@ -89,95 +117,78 @@ export async function DebtTab({
     if (c.status === "ACTIVE") {
       include = true;
     } else if (c.status === "TERMINATED" || c.status === "EXPIRED") {
-      // Show up to & including termination month; refund lands in that month.
       include = !afterTermination;
       if (isTerminationMonth) paid = c.depositRefund ?? 0n;
     } else if (c.status === "TERMINATED_LOST_DEPOSIT") {
-      // Hide from forfeit month onward.
-      include = !afterTermination && !isTerminationMonth;
+      include = !afterTermination;
+      if (isTerminationMonth) paid = c.depositAmount;
     }
     if (!include) continue;
 
-    const customer = c.customers[0]?.customer;
-    const detail = `Tiền cọc HĐ ${c.code} — ${customerDisplayName(customer)} — Phòng ${c.room.number}`;
-    rows.set(`dep-${c.id}`, {
+    const opening = isStartMonth ? 0n : c.depositAmount;
+    const payable = isStartMonth ? c.depositAmount : 0n;
+    const closing = opening + payable - paid;
+
+    const customer = c.customers[0]?.customer ?? null;
+    rows.push({
       key: `dep-${c.id}`,
-      name: "Khách hàng",
-      opening: 0n,
-      payable: c.depositAmount,
+      // Anchor the row to the relevant date for that month: start in start
+      // month, termination in termination month, otherwise the 1st of the
+      // current month.
+      date: (isStartMonth ? c.startDate : (isTerminationMonth && t ? t : monthStart)).toISOString(),
+      roomId: c.room.id,
+      roomNumber: c.room.number,
+      category: "Hoàn tiền cọc",
+      partyKind: "CUSTOMER",
+      partyLabel: customerDisplayName(customer),
+      content: `Tiền cọc HĐ ${c.code} — Phòng ${c.room.number}`,
+      paymentMethod: "",
+      opening,
+      payable,
       paid,
-      details: [detail],
+      closing,
     });
   }
 
-  const data = Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
+  for (const e of manualExpenses) {
+    const partyLabel = e.customer
+      ? customerDisplayName(e.customer)
+      : e.party?.name ?? "";
+    rows.push({
+      key: `tx-${e.id}`,
+      date: e.date.toISOString(),
+      roomId: e.roomId ?? null,
+      roomNumber: e.room?.number ?? null,
+      category: e.category?.name ?? "",
+      partyKind: e.partyKind ?? null,
+      partyLabel,
+      content: e.content,
+      paymentMethod: e.paymentMethod?.name ?? "",
+      opening: 0n,
+      payable: e.amount,
+      paid: e.amount,
+      closing: 0n,
+    });
+  }
 
-  const totalOpen = data.reduce((s, r) => s + r.opening, 0n);
-  const totalDue = data.reduce((s, r) => s + r.payable, 0n);
-  const totalPaid = data.reduce((s, r) => s + r.paid, 0n);
-  const totalClose = totalOpen + totalDue - totalPaid;
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+
+  const flatRooms = rooms.map((r) => ({
+    id: r.id,
+    number: r.number,
+    primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
+  }));
 
   return (
-    <div className="space-y-4">
-      <MonthYearFilter buildingId={buildingId} month={month} year={year} tab="debt" />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Số dư đầu" value={formatVND(totalOpen)} />
-        <Stat label="Phải trả" value={formatVND(totalDue)} />
-        <Stat label="Đã trả" value={formatVND(totalPaid)} />
-        <Stat label="Số dư cuối" value={formatVND(totalClose)} bold />
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Sổ Chi T{month}/{year}</CardTitle></CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-4 py-2 text-left">STT</th>
-                <th className="px-4 py-2 text-left">Đối tượng</th>
-                <th className="px-4 py-2 text-left">Nội dung</th>
-                <th className="px-4 py-2 text-right">Số dư đầu</th>
-                <th className="px-4 py-2 text-right">Phải trả</th>
-                <th className="px-4 py-2 text-right">Đã trả</th>
-                <th className="px-4 py-2 text-right">Số dư cuối</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
-              )}
-              {data.map((r, i) => {
-                const close = r.opening + r.payable - r.paid;
-                return (
-                  <tr key={r.key} className="border-t hover:bg-slate-50">
-                    <td className="px-4 py-2.5">{i + 1}</td>
-                    <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-600">{r.details.slice(0, 2).join(", ")}{r.details.length > 2 ? `, +${r.details.length - 2}` : ""}</td>
-                    <td className="px-4 py-2.5 text-right">{formatVND(r.opening)}</td>
-                    <td className="px-4 py-2.5 text-right">{formatVND(r.payable)}</td>
-                    <td className="px-4 py-2.5 text-right">{formatVND(r.paid)}</td>
-                    <td className={`px-4 py-2.5 text-right font-semibold ${close > 0n ? "text-rose-600" : ""}`}>
-                      {formatVND(close)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function Stat({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-[11px] text-slate-500">{label}</div>
-        <div className={`${bold ? "text-lg" : "text-base"} font-bold mt-0.5`}>{value}</div>
-      </CardContent>
-    </Card>
+    <DebtClient
+      buildingId={buildingId}
+      month={month}
+      year={year}
+      rows={serializeBigInt(rows)}
+      rooms={flatRooms}
+      categories={categories}
+      paymentMethods={paymentMethods}
+      canWrite={canWrite}
+    />
   );
 }

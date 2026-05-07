@@ -101,10 +101,24 @@ export default async function FinancePage({
             />
           </TabsContent>
           <TabsContent value="revenue">
-            <RevenueTab buildingId={id} month={month} year={year} />
+            <RevenueTab
+              buildingId={id}
+              month={month}
+              year={year}
+              categories={categories}
+              paymentMethods={paymentMethods}
+              canWrite={canWrite}
+            />
           </TabsContent>
           <TabsContent value="debt">
-            <DebtTab buildingId={id} month={month} year={year} />
+            <DebtTab
+              buildingId={id}
+              month={month}
+              year={year}
+              categories={categories}
+              paymentMethods={paymentMethods}
+              canWrite={canWrite}
+            />
           </TabsContent>
           <TabsContent value="cashbook">
             <CashbookTab buildingId={id} month={month} year={year} paymentMethods={paymentMethods} />
