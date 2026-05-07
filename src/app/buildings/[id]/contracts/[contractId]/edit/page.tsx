@@ -78,7 +78,15 @@ export default async function EditContractPage({
       partyKind: "MOI_GIOI",
       content: { startsWith: `Phí môi giới HĐ ${contract.code}` },
     },
-    select: { id: true, code: true, date: true, amount: true, content: true },
+    select: {
+      id: true,
+      code: true,
+      date: true,
+      amount: true,
+      content: true,
+      paymentMethodId: true,
+      paymentMethod: { select: { name: true } },
+    },
     orderBy: { date: "desc" },
   });
 
