@@ -31,7 +31,7 @@ export async function DebtTab({
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
-  const [depositContracts, manualExpenses, rooms] = await Promise.all([
+  const [depositContracts, manualExpenses, rooms, allContracts, allInvoices] = await Promise.all([
     prisma.contract.findMany({
       where: {
         buildingId,
@@ -80,6 +80,14 @@ export async function DebtTab({
           take: 1,
         },
       },
+    }),
+    prisma.contract.findMany({
+      where: { buildingId },
+      select: { id: true, code: true },
+    }),
+    prisma.invoice.findMany({
+      where: { buildingId },
+      select: { id: true, code: true },
     }),
   ]);
 
@@ -209,6 +217,9 @@ export async function DebtTab({
     primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
   }));
 
+  const contractCodes = allContracts.map((c) => ({ id: c.id, code: c.code }));
+  const invoiceCodes = allInvoices.map((i) => ({ id: i.id, code: i.code }));
+
   return (
     <DebtClient
       buildingId={buildingId}
@@ -219,6 +230,8 @@ export async function DebtTab({
       categories={categories}
       paymentMethods={paymentMethods}
       canWrite={canWrite}
+      contractCodes={contractCodes}
+      invoiceCodes={invoiceCodes}
     />
   );
 }

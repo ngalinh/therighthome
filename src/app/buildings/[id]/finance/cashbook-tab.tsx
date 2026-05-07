@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND, formatDateVN } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
+import { renderContentWithLinks } from "./render-content";
 
 /**
  * Sổ quỹ — mỗi PTTT 1 bảng:
@@ -20,16 +21,21 @@ export async function CashbookTab({
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
-  const transactions = await prisma.transaction.findMany({
-    where: { buildingId, date: { gte: start, lte: end } },
-    include: { paymentMethod: true },
-    orderBy: { date: "asc" },
-  });
-
-  const openings = await prisma.openingBalance.findMany({
-    where: { buildingId, kind: "CASHBOOK", asOfMonth: month, asOfYear: year },
-  });
+  const [transactions, openings, contractList, invoiceList] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { buildingId, date: { gte: start, lte: end } },
+      include: { paymentMethod: true },
+      orderBy: { date: "asc" },
+    }),
+    prisma.openingBalance.findMany({
+      where: { buildingId, kind: "CASHBOOK", asOfMonth: month, asOfYear: year },
+    }),
+    prisma.contract.findMany({ where: { buildingId }, select: { id: true, code: true } }),
+    prisma.invoice.findMany({ where: { buildingId }, select: { id: true, code: true } }),
+  ]);
   const openingMap = new Map(openings.map((o) => [o.paymentMethodLabel, o.amount]));
+  const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
+  const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
 
   return (
     <div className="space-y-4">
@@ -79,7 +85,7 @@ export async function CashbookTab({
                     return (
                       <tr key={t.id} className="border-t hover:bg-slate-50">
                         <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
-                        <td className="px-4 py-2 max-w-xs truncate">{t.content}</td>
+                        <td className="px-4 py-2 max-w-xs truncate">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
                         <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
                         <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
                         <td className="px-4 py-2 text-right font-medium">{formatVND(running)}</td>

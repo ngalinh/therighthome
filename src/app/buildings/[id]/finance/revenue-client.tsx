@@ -12,6 +12,7 @@ import { formatVND, formatDateVN, formatRoomNumber } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 import { CreateTransactionDialog } from "./create-transaction-dialog";
 import { EditTransactionDialog, type EditableTransaction } from "./edit-transaction-dialog";
+import { renderContentWithLinks } from "./render-content";
 
 const PARTY_KINDS = [
   { value: "CUSTOMER", label: "Khách hàng" },
@@ -45,6 +46,7 @@ type Row = {
 
 export function RevenueClient({
   buildingId, month, year, rows, rooms, categories, paymentMethods, canWrite,
+  contractCodes, invoiceCodes,
 }: {
   buildingId: string;
   month: number;
@@ -54,12 +56,17 @@ export function RevenueClient({
   categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   canWrite: boolean;
+  contractCodes: { id: string; code: string }[];
+  invoiceCodes: { id: string; code: string }[];
 }) {
   const router = useRouter();
   const [filterRoom, setFilterRoom] = useState<string>("ALL");
   const [filterParty, setFilterParty] = useState<string>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
+
+  const contractMap = useMemo(() => new Map(contractCodes.map((c) => [c.code, c.id])), [contractCodes]);
+  const invoiceMap = useMemo(() => new Map(invoiceCodes.map((i) => [i.code, i.id])), [invoiceCodes]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) =>
@@ -145,6 +152,9 @@ export function RevenueClient({
             canWrite={canWrite}
             onEdit={() => r.tx && setEditTx(r.tx)}
             onDelete={() => r.tx && deleteTx(r.tx.id)}
+            buildingId={buildingId}
+            contractMap={contractMap}
+            invoiceMap={invoiceMap}
           />
         ))}
       </div>
@@ -181,7 +191,7 @@ export function RevenueClient({
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.roomNumber ? formatRoomNumber(r.roomNumber) : <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.category || <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.partyLabel || <span className="text-slate-400">—</span>}</td>
-                    <td className="px-3 py-2.5">{r.content}</td>
+                    <td className="px-3 py-2.5">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.paymentMethod || <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.opening))}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.due))}</td>
@@ -232,11 +242,14 @@ export function RevenueClient({
   );
 }
 
-function RevenueCard({ r, canWrite, onEdit, onDelete }: {
+function RevenueCard({ r, canWrite, onEdit, onDelete, buildingId, contractMap, invoiceMap }: {
   r: Row;
   canWrite: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  buildingId: string;
+  contractMap: Map<string, string>;
+  invoiceMap: Map<string, string>;
 }) {
   const closing = BigInt(r.closing);
   return (
@@ -248,7 +261,7 @@ function RevenueCard({ r, canWrite, onEdit, onDelete }: {
               {r.roomNumber && <Badge variant="outline" className="text-[10px]">{formatRoomNumber(r.roomNumber)}</Badge>}
               {r.category && <Badge variant="outline" className="text-[10px]">{r.category}</Badge>}
             </div>
-            <div className="text-sm font-medium truncate">{r.content}</div>
+            <div className="text-sm font-medium truncate">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</div>
             <div className="text-xs text-slate-500 truncate">
               {formatDateVN(r.date)}
               {r.partyLabel && ` · ${r.partyLabel}`}
