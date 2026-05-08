@@ -86,11 +86,12 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Desktop header ── */}
-      <div className="hidden lg:block bg-gradient-to-br from-indigo-200 via-violet-100 to-pink-200 px-8 py-6 border-b border-slate-200/60">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="hidden lg:block bg-indigo-600 text-white px-8 py-6 border-b border-slate-200/60 relative overflow-hidden">
+        <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
+        <div className="max-w-7xl mx-auto flex items-center justify-between relative">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Tổng quan</h1>
-            <p className="text-sm text-slate-600 mt-0.5">Xin chào {firstName} 👋</p>
+            <p className="text-sm text-white/80 mt-0.5">Xin chào {firstName} 👋</p>
           </div>
           <Button asChild variant="gradient">
             <Link href="/buildings"><Plus className="h-4 w-4" />Toà nhà</Link>
