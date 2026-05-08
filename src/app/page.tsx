@@ -86,7 +86,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Desktop header ── */}
-      <div className="hidden lg:block bg-indigo-600 text-white px-8 py-6 border-b border-slate-200/60 relative overflow-hidden">
+      <div className="hidden lg:block bg-gradient-chdv text-white px-8 py-6 border-b border-slate-200/60 relative overflow-hidden">
         <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative">
           <div>
