@@ -14,7 +14,9 @@ export default async function BuildingsPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const role = session.user.role;
-  const buildings = await listAccessibleBuildings(session.user.id, role);
+  const buildings = (await listAccessibleBuildings(session.user.id, role))
+    .slice()
+    .sort((a, b) => (a.type === b.type ? 0 : a.type === "VP" ? -1 : 1));
 
   const counts = await prisma.room.groupBy({
     by: ["buildingId", "status"],
