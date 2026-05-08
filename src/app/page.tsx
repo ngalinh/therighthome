@@ -27,14 +27,7 @@ export default async function DashboardPage() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  // Build the 6-month range ending at the current month (inclusive).
-  const monthRange = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(year, month - 1 - (5 - i), 1);
-    return { month: d.getMonth() + 1, year: d.getFullYear() };
-  });
-  const earliest = monthRange[0];
-
-  const [activeContracts, totalRooms, occupiedRooms, monthlyInvoices, overdueInvoices, expiring, sixMonthTx] =
+  const [activeContracts, totalRooms, occupiedRooms, monthlyInvoices, overdueInvoices, expiring] =
     await Promise.all([
       prisma.contract.count({ where: { buildingId: { in: buildingIds }, status: "ACTIVE" } }),
       prisma.room.count({ where: { buildingId: { in: buildingIds } } }),
@@ -54,38 +47,10 @@ export default async function DashboardPage() {
         orderBy: { endDate: "asc" },
         take: 5,
       }),
-      prisma.transaction.findMany({
-        where: {
-          buildingId: { in: buildingIds },
-          countInBR: true,
-          OR: earliest.year === year
-            ? [{ accountingYear: year, accountingMonth: { gte: earliest.month, lte: month } }]
-            : [
-                { accountingYear: earliest.year, accountingMonth: { gte: earliest.month } },
-                { accountingYear: year, accountingMonth: { lte: month } },
-              ],
-        },
-        select: { type: true, amount: true, accountingMonth: true, accountingYear: true },
-      }),
     ]);
 
   const totalDue = monthlyInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = monthlyInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
-
-  // Aggregate income / expense per month for the 6-month chart.
-  const monthlyTotals = monthRange.map((r) => ({ ...r, income: 0, expense: 0 }));
-  for (const t of sixMonthTx) {
-    if (t.accountingMonth == null || t.accountingYear == null) continue;
-    const idx = monthlyTotals.findIndex(
-      (m) => m.month === t.accountingMonth && m.year === t.accountingYear,
-    );
-    if (idx === -1) continue;
-    const amt = Number(t.amount);
-    if (t.type === "INCOME") monthlyTotals[idx].income += amt;
-    else monthlyTotals[idx].expense += amt;
-  }
-  const totalIncome6m = monthlyTotals.reduce((s, m) => s + m.income, 0);
-  const totalExpense6m = monthlyTotals.reduce((s, m) => s + m.expense, 0);
   const firstName = session.user.name?.split(" ").pop() || "";
 
   return (
@@ -121,7 +86,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Desktop header ── */}
-      <div className="hidden lg:block bg-gradient-to-br from-indigo-50 to-pink-50 px-8 py-6 border-b border-slate-200/60">
+      <div className="hidden lg:block bg-gradient-to-br from-indigo-200 via-violet-100 to-pink-200 px-8 py-6 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Tổng quan</h1>
@@ -183,36 +148,6 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-2 gap-2.5">
                 <QuickAction href="/manage/chdv?tab=invoices" icon={Receipt} label="Hoá đơn CHDV" color="#6366f1" />
                 <QuickAction href="/manage/vp?tab=invoices" icon={Receipt} label="Hoá đơn VP" color="#10b981" />
-              </div>
-            </div>
-
-            {/* Revenue & expense chart — last 6 months ending current month */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Doanh thu &amp; Chi phí 6 tháng</p>
-                  <div className="flex items-baseline gap-3 mt-1">
-                    <span className="text-base font-bold text-emerald-600">{formatVND(totalIncome6m)}</span>
-                    <span className="text-base font-bold text-rose-600">{formatVND(totalExpense6m)}</span>
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                  <TrendingUp className="h-3 w-3" /> Tháng {month}/{year}
-                </span>
-              </div>
-              <RevenueExpenseChart points={monthlyTotals} />
-              <div className="flex justify-between mt-2 text-[10px] font-semibold text-slate-400">
-                {monthlyTotals.map((m, i) => (
-                  <span key={i}>T{m.month}</span>
-                ))}
-              </div>
-              <div className="flex items-center gap-4 mt-3 text-[11px] font-medium text-slate-600">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> Doanh thu
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-rose-500" /> Chi phí
-                </span>
               </div>
             </div>
 
@@ -357,29 +292,3 @@ function AlertRow({ icon: Icon, color, title, desc, badge, href }: {
   );
 }
 
-/* Two-line chart: revenue (emerald) and expense (rose) over 6 months. */
-function RevenueExpenseChart({ points }: { points: { income: number; expense: number }[] }) {
-  const w = 400, h = 80, padTop = 6, padBottom = 6;
-  const max = Math.max(1, ...points.map((p) => Math.max(p.income, p.expense)));
-  const xs = points.map((_, i) => (i / Math.max(1, points.length - 1)) * w);
-  const yFor = (v: number) => h - padBottom - (v / max) * (h - padTop - padBottom);
-  const incomeYs = points.map((p) => yFor(p.income));
-  const expenseYs = points.map((p) => yFor(p.expense));
-  const path = (ys: number[]) =>
-    xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${ys[i].toFixed(2)}`).join(" ");
-  const incomeLine = path(incomeYs);
-  const expenseLine = path(expenseYs);
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none">
-      <path d={`${incomeLine} L${w},${h} L0,${h} Z`} fill="#10b98114" />
-      <path d={incomeLine} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={expenseLine} fill="none" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" />
-      {xs.map((x, i) => (
-        <g key={i}>
-          <circle cx={x} cy={incomeYs[i]} r="2.5" fill="#10b981" />
-          <circle cx={x} cy={expenseYs[i]} r="2.5" fill="#f43f5e" />
-        </g>
-      ))}
-    </svg>
-  );
-}
