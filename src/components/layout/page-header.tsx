@@ -21,7 +21,7 @@ export function PageHeader({
         "px-4 lg:px-8 py-5 lg:py-6 border-b border-slate-200/60 relative overflow-hidden",
         gradient === "chdv" && "bg-gradient-chdv text-white",
         gradient === "vp" && "bg-gradient-vp text-white",
-        gradient === "brand" && "bg-indigo-600 text-white",
+        gradient === "brand" && "bg-gradient-chdv text-white",
         !gradient && "",
         className,
       )}
