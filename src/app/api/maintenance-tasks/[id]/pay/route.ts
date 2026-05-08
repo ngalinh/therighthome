@@ -42,6 +42,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     categoryId = cat?.id;
   }
 
+  const paymentMethodId = parsed.data.paymentMethodId || task.paymentMethodId || undefined;
   const code = await nextTransactionCode(task.buildingId, "EXPENSE");
   const tx = await prisma.transaction.create({
     data: {
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       content: task.taskName,
       notes: task.notes,
       categoryId,
-      paymentMethodId: parsed.data.paymentMethodId || undefined,
+      paymentMethodId,
       partyKind: task.partyKind || undefined,
       partyId: task.partyId || undefined,
       customerId: task.customerId || undefined,
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     where: { id },
     data: {
       expenseTransactionId: tx.id,
+      paymentMethodId: paymentMethodId ?? null,
       status: "DONE",
     },
   });

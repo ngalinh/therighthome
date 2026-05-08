@@ -442,7 +442,8 @@ model PaymentMethod {
   name         String
   isCash       Boolean       @default(false)
 
-  transactions Transaction[]
+  transactions     Transaction[]
+  maintenanceTasks MaintenanceTask[]
 
   @@unique([buildingType, name])
 }
@@ -541,17 +542,18 @@ enum MaintenanceStatus {
 }
 
 model MaintenanceTask {
-  id          String            @id @default(cuid())
-  buildingId  String
-  roomId      String?
-  date        DateTime
-  partyKind   PartyKind?
-  partyId     String?           // non-customer party (Thợ sửa, …)
-  customerId  String?           // if "Đối tượng" is the renter
-  taskName    String
-  status      MaintenanceStatus @default(PENDING)
-  cost        BigInt            @default(0)
-  notes       String?
+  id              String            @id @default(cuid())
+  buildingId      String
+  roomId          String?
+  date            DateTime
+  partyKind       PartyKind?
+  partyId         String?           // non-customer party (Thợ sửa, …)
+  customerId      String?           // if "Đối tượng" is the renter
+  taskName        String
+  status          MaintenanceStatus @default(PENDING)
+  cost            BigInt            @default(0)
+  paymentMethodId String?
+  notes           String?
 
   expenseTransactionId String? @unique // set after $ creates the expense
 
@@ -559,12 +561,13 @@ model MaintenanceTask {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  building    Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  room        Room?        @relation(fields: [roomId], references: [id])
-  party       Party?       @relation(fields: [partyId], references: [id])
-  customer    Customer?    @relation(fields: [customerId], references: [id])
-  transaction Transaction? @relation(fields: [expenseTransactionId], references: [id])
-  createdBy   User?        @relation(fields: [createdById], references: [id])
+  building      Building       @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  room          Room?          @relation(fields: [roomId], references: [id])
+  party         Party?         @relation(fields: [partyId], references: [id])
+  customer      Customer?      @relation(fields: [customerId], references: [id])
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  transaction   Transaction?   @relation(fields: [expenseTransactionId], references: [id])
+  createdBy     User?          @relation(fields: [createdById], references: [id])
 
   @@index([buildingId, date])
 }

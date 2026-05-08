@@ -14,7 +14,7 @@ export default async function FinancePage({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; month?: string; year?: string }>;
+  searchParams: Promise<{ tab?: string; month?: string; year?: string; range?: string; from?: string; to?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect("/login");
@@ -30,6 +30,9 @@ export default async function FinancePage({
   const month = Number(sp.month ?? now.getMonth() + 1);
   const year = Number(sp.year ?? now.getFullYear());
   const tab = sp.tab ?? "revenue";
+  const range = sp.range ?? "month";
+  const fromDate = sp.from ?? null;
+  const toDate = sp.to ?? null;
 
   const [categories, paymentMethods] = await Promise.all([
     prisma.transactionCategory.findMany({
@@ -103,7 +106,7 @@ export default async function FinancePage({
             <CashbookTab buildingId={id} month={month} year={year} paymentMethods={paymentMethods} />
           </TabsContent>
           <TabsContent value="pnl">
-            <PnLTab buildingId={id} month={month} year={year} />
+            <PnLTab buildingId={id} range={range} from={fromDate} to={toDate} />
           </TabsContent>
         </Tabs>
       </PageBody>

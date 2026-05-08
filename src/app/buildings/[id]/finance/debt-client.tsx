@@ -167,10 +167,9 @@ export function DebtClient({
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                 <th className="px-3 py-2 text-left whitespace-nowrap">Ngày tháng</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">Phòng</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">Phòng / Đối tượng</th>
                 <th className="px-3 py-2 text-left whitespace-nowrap">Loại chi</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">Đối tượng</th>
-                <th className="px-3 py-2 text-left">Nội dung</th>
+                <th className="px-3 py-2 text-left min-w-[320px]">Nội dung</th>
                 <th className="px-3 py-2 text-left whitespace-nowrap">Tài khoản TT</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Số dư đầu</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Phải trả</th>
@@ -181,17 +180,19 @@ export function DebtClient({
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={canWrite ? 11 : 10} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
+                <tr><td colSpan={canWrite ? 10 : 9} className="px-4 py-6 text-center text-slate-500">Chưa có dữ liệu</td></tr>
               )}
               {filtered.map((r) => {
                 const closing = BigInt(r.closing);
                 return (
                   <tr key={r.key} className="border-t hover:bg-slate-50">
                     <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{formatDateVN(r.date)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{r.roomNumber ? formatRoomNumber(r.roomNumber) : <span className="text-slate-400">—</span>}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="font-medium">{r.roomNumber ? formatRoomNumber(r.roomNumber) : <span className="text-slate-400">—</span>}</div>
+                      {r.partyLabel && <div className="text-xs text-slate-500">{r.partyLabel}</div>}
+                    </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.category || <span className="text-slate-400">—</span>}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{r.partyLabel || <span className="text-slate-400">—</span>}</td>
-                    <td className="px-3 py-2.5">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</td>
+                    <td className="px-3 py-2.5 min-w-[320px]"><div className="line-clamp-2">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</div></td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.paymentMethod || <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.opening))}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.payable))}</td>

@@ -1,8 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND, formatDateVN } from "@/lib/utils";
+import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 import { renderContentWithLinks } from "./render-content";
+
+const PARTY_KIND_LABEL: Record<string, string> = {
+  CUSTOMER: "Khách hàng",
+  THO_SUA_CHUA: "Thợ sửa chữa",
+  THO_XAY: "Thợ xây",
+  DON_VE_SINH: "Dọn vệ sinh",
+  BAO_VE: "Bảo vệ",
+  NHA_NUOC: "Nhà nước",
+  MOI_GIOI: "Môi giới",
+  TOA_NHA: "Toà nhà",
+  NCC_KHAC: "NCC khác",
+  OTHER: "Khác",
+};
 
 /**
  * Sổ quỹ — mỗi PTTT 1 bảng:
@@ -24,7 +37,12 @@ export async function CashbookTab({
   const [transactions, openings, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
       where: { buildingId, date: { gte: start, lte: end } },
-      include: { paymentMethod: true },
+      include: {
+        paymentMethod: true,
+        category: { select: { name: true } },
+        customer: { select: { type: true, fullName: true, companyName: true } },
+        party: { select: { name: true } },
+      },
       orderBy: { date: "asc" },
     }),
     prisma.openingBalance.findMany({
@@ -65,6 +83,8 @@ export async function CashbookTab({
                 <thead>
                   <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                     <th className="px-4 py-2 text-left">Ngày</th>
+                    <th className="px-4 py-2 text-left">Loại thu/chi</th>
+                    <th className="px-4 py-2 text-left">Đối tượng</th>
                     <th className="px-4 py-2 text-left">Nội dung</th>
                     <th className="px-4 py-2 text-right">Thu</th>
                     <th className="px-4 py-2 text-right">Chi</th>
@@ -73,18 +93,23 @@ export async function CashbookTab({
                 </thead>
                 <tbody>
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={4} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
+                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
                     <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
                   </tr>
                   {txs.length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-4 text-center text-slate-500 text-sm">Không có giao dịch</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-500 text-sm">Không có giao dịch</td></tr>
                   )}
                   {txs.map((t) => {
                     if (t.type === "INCOME") running += t.amount;
                     else running -= t.amount;
+                    const partyLabel = t.customer
+                      ? customerDisplayName(t.customer)
+                      : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
                     return (
                       <tr key={t.id} className="border-t hover:bg-slate-50">
                         <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{partyLabel || <span className="text-slate-400">—</span>}</td>
                         <td className="px-4 py-2 max-w-xs truncate">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
                         <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
                         <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
@@ -93,7 +118,7 @@ export async function CashbookTab({
                     );
                   })}
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={4} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
+                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
                     <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
                   </tr>
                 </tbody>
