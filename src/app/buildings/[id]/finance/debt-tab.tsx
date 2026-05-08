@@ -164,7 +164,7 @@ export async function DebtTab({
       category: "Hoàn tiền cọc",
       partyKind: "CUSTOMER",
       partyLabel: customerDisplayName(customer),
-      content: `Tiền cọc HĐ ${c.code} — Phòng ${c.room.number}`,
+      content: `Tiền cọc HĐ ${c.code}`,
       paymentMethod: "",
       opening,
       payable,

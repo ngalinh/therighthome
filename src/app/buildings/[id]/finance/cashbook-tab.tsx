@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 import { renderContentWithLinks } from "./render-content";
 
@@ -42,6 +42,7 @@ export async function CashbookTab({
         category: { select: { name: true } },
         customer: { select: { type: true, fullName: true, companyName: true } },
         party: { select: { name: true } },
+        room: { select: { number: true } },
       },
       orderBy: { date: "asc" },
     }),
@@ -105,11 +106,19 @@ export async function CashbookTab({
                     const partyLabel = t.customer
                       ? customerDisplayName(t.customer)
                       : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
+                    const roomLabel = t.room ? formatRoomNumber(t.room.number) : "";
                     return (
                       <tr key={t.id} className="border-t hover:bg-slate-50">
                         <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
                         <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{partyLabel || <span className="text-slate-400">—</span>}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {partyLabel || roomLabel ? (
+                            <>
+                              {partyLabel && <div>{partyLabel}</div>}
+                              {roomLabel && <div className="text-xs text-slate-500">{roomLabel}</div>}
+                            </>
+                          ) : <span className="text-slate-400">—</span>}
+                        </td>
                         <td className="px-4 py-2 max-w-xs truncate">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
                         <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
                         <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>

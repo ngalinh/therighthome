@@ -28,7 +28,7 @@ export function PnLFilter({
   const [customTo, setCustomTo] = useState(to ?? "");
 
   function setRange(r: string) {
-    const params = new URLSearchParams(sp);
+    const params = new URLSearchParams(sp.toString());
     params.set("tab", "pnl");
     params.set("range", r);
     if (r !== "custom") {
@@ -36,16 +36,18 @@ export function PnLFilter({
       params.delete("to");
     }
     router.push(`/buildings/${buildingId}/finance?${params}`);
+    router.refresh();
   }
 
   function applyCustom() {
     if (!customFrom || !customTo) return;
-    const params = new URLSearchParams(sp);
+    const params = new URLSearchParams(sp.toString());
     params.set("tab", "pnl");
     params.set("range", "custom");
     params.set("from", customFrom);
     params.set("to", customTo);
     router.push(`/buildings/${buildingId}/finance?${params}`);
+    router.refresh();
   }
 
   return (

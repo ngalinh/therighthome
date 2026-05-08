@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND } from "@/lib/utils";
@@ -53,12 +54,18 @@ export async function PnLTab({
   }
   // range === "all" or invalid custom → leave bounds null (no filter)
 
-  const where: Record<string, unknown> = { buildingId, countInBR: true };
+  const where: Prisma.TransactionWhereInput = { buildingId, countInBR: true };
   if (fromY != null && fromM != null && toY != null && toM != null) {
-    where.AND = [
-      { OR: [{ accountingYear: { gt: fromY } }, { accountingYear: fromY, accountingMonth: { gte: fromM } }] },
-      { OR: [{ accountingYear: { lt: toY } }, { accountingYear: toY, accountingMonth: { lte: toM } }] },
-    ];
+    // Build a list of (year, month) pairs in range and use OR — simpler and
+    // less error-prone than nested year/month range expressions.
+    const pairs: Array<{ accountingYear: number; accountingMonth: number }> = [];
+    let yy = fromY, mm = fromM;
+    while (yy < toY || (yy === toY && mm <= toM)) {
+      pairs.push({ accountingYear: yy, accountingMonth: mm });
+      mm++;
+      if (mm > 12) { mm = 1; yy++; }
+    }
+    where.OR = pairs;
   }
 
   const transactions = await prisma.transaction.findMany({
