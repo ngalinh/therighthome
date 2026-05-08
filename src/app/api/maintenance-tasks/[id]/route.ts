@@ -13,6 +13,7 @@ const updateSchema = z.object({
   taskName: z.string().optional(),
   status: z.enum(["PENDING", "DONE"]).optional(),
   cost: z.string().optional(),
+  paymentMethodId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -39,9 +40,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       taskName: d.taskName,
       status: d.status,
       cost: d.cost !== undefined ? BigInt(d.cost) : undefined,
+      paymentMethodId: d.paymentMethodId === undefined ? undefined : d.paymentMethodId || null,
       notes: d.notes === undefined ? undefined : d.notes || null,
     },
   });
+  // If a payment method change is given and the task already has a linked
+  // expense transaction, propagate it so Sổ Chi/Sổ quỹ stay in sync.
+  if (d.paymentMethodId !== undefined && existing.expenseTransactionId) {
+    await prisma.transaction.update({
+      where: { id: existing.expenseTransactionId },
+      data: { paymentMethodId: d.paymentMethodId || null },
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 

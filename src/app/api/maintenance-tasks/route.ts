@@ -14,6 +14,7 @@ const createSchema = z.object({
   taskName: z.string().min(1),
   status: z.enum(["PENDING", "DONE"]).default("PENDING"),
   cost: z.string().default("0"),
+  paymentMethodId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       taskName: d.taskName,
       status: d.status,
       cost: BigInt(d.cost || "0"),
+      paymentMethodId: d.paymentMethodId || null,
       notes: d.notes || null,
       createdById: session.user.id,
     },

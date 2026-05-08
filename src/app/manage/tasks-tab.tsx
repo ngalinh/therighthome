@@ -31,6 +31,7 @@ type Task = {
   taskName: string;
   status: "PENDING" | "DONE";
   cost: string;
+  paymentMethodId: string | null;
   notes: string | null;
   expenseTransactionId: string | null;
   building: { id: string; name: string; type: "CHDV" | "VP" };
@@ -125,6 +126,7 @@ export function ManageTasksTab({
           buildings={buildings}
           rooms={rooms}
           parties={parties}
+          paymentMethods={paymentMethods}
           onClose={() => setCreating(false)}
         />
       )}
@@ -136,6 +138,7 @@ export function ManageTasksTab({
           buildings={buildings}
           rooms={rooms}
           parties={parties}
+          paymentMethods={paymentMethods}
           onClose={() => setEditing(null)}
         />
       )}
@@ -239,7 +242,7 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [pmId, setPmId] = useState("");
+  const [pmId, setPmId] = useState(task.paymentMethodId ?? "");
   const [saving, setSaving] = useState(false);
 
   async function submit() {
@@ -295,7 +298,7 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
 }
 
 function TaskDialog({
-  mode, task, kind, buildings, rooms, parties, onClose,
+  mode, task, kind, buildings, rooms, parties, paymentMethods, onClose,
 }: {
   mode: "create" | "edit";
   task?: Task;
@@ -303,6 +306,7 @@ function TaskDialog({
   buildings: BuildingLite[];
   rooms: RoomLite[];
   parties: PartyLite[];
+  paymentMethods: PaymentMethodLite[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -313,6 +317,7 @@ function TaskDialog({
   const [taskName, setTaskName] = useState(task?.taskName ?? "");
   const [status, setStatus] = useState<"PENDING" | "DONE">(task?.status ?? "PENDING");
   const [cost, setCost] = useState(task?.cost ?? "0");
+  const [paymentMethodId, setPaymentMethodId] = useState<string>(task?.paymentMethodId ?? "");
   const [notes, setNotes] = useState(task?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -335,6 +340,7 @@ function TaskDialog({
       taskName: taskName.trim(),
       status,
       cost: parseVNDInput(cost).toString(),
+      paymentMethodId: paymentMethodId || null,
       notes: notes || null,
     };
     const res = await fetch(
@@ -417,9 +423,21 @@ function TaskDialog({
             <Label className="text-xs">Công việc</Label>
             <Input value={taskName} onChange={(e) => setTaskName(e.target.value)} placeholder="VD: Sửa bồn rửa phòng 305" />
           </div>
-          <div className="space-y-1 col-span-2">
+          <div className="space-y-1">
             <Label className="text-xs">Chi phí (₫)</Label>
             <Input value={costDisplay} inputMode="numeric" onChange={(e) => setCost(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Tài khoản TT</Label>
+            <Select value={paymentMethodId || "_none"} onValueChange={(v) => setPaymentMethodId(v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Không —</SelectItem>
+                {paymentMethods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1 col-span-2">
             <Label className="text-xs">Ghi chú</Label>
