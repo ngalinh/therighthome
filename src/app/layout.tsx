@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
       </head>
-      <body className="min-h-dvh bg-slate-50 antialiased">
+      <body className="min-h-dvh bg-[linear-gradient(135deg,#eef2ff_0%,#faf5ff_45%,#fdf2f8_100%)] bg-fixed antialiased">
         <Providers>{children}</Providers>
         <Toaster position="top-center" richColors closeButton />
         <script
