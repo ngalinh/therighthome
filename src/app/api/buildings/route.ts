@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { listAccessibleBuildings } from "@/lib/permissions";
 
 const createSchema = z.object({
   name: z.string().min(1).max(120),
@@ -9,6 +10,15 @@ const createSchema = z.object({
   type: z.enum(["CHDV", "VP"]),
   roomCount: z.number().int().min(0).max(500).default(0),
 });
+
+export async function GET() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const buildings = await listAccessibleBuildings(session.user.id, session.user.role);
+  return NextResponse.json(
+    buildings.map((b) => ({ id: b.id, name: b.name, type: b.type })),
+  );
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
