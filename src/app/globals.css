@@ -831,7 +831,7 @@
 
   /* Buildings hero (dark gradient card on top of buildings list) */
   .bld-hero-card {
-    background: linear-gradient(140deg, #261c14 0%, #3a2820 50%, #5a3220 100%);
+    background: linear-gradient(140deg, #6b4226 0%, #855236 50%, #a07349 100%);
     color: #f5e8d2;
     border-radius: var(--r-xl);
     padding: 30px 34px;

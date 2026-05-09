@@ -50,7 +50,6 @@ export function AppShell({
   const [manageExpanded, setManageExpanded] = useState(isManageActive);
 
   const isBuildingsActive = pathname === "/buildings" || pathname.startsWith("/buildings/");
-  const [buildingsExpanded, setBuildingsExpanded] = useState(isBuildingsActive);
   const [buildings, setBuildings] = useState<BuildingLite[]>([]);
   useEffect(() => {
     fetch("/api/buildings", { cache: "no-store" })
@@ -90,8 +89,6 @@ export function AppShell({
           />
           <BuildingsNavGroup
             buildings={buildings}
-            expanded={buildingsExpanded}
-            onToggle={() => setBuildingsExpanded((v) => !v)}
             insideBuilding={insideBuilding}
             buildingItems={buildingItems}
             isActive={isActive}
@@ -158,8 +155,6 @@ export function AppShell({
               />
               <BuildingsNavGroup
                 buildings={buildings}
-                expanded={buildingsExpanded}
-                onToggle={() => setBuildingsExpanded((v) => !v)}
                 insideBuilding={insideBuilding}
                 buildingItems={buildingItems}
                 isActive={isActive}
@@ -396,27 +391,24 @@ function NavGroupItem({
 }
 
 function BuildingsNavGroup({
-  buildings, expanded, onToggle,
+  buildings,
   insideBuilding, buildingItems,
   isActive, isBuildingsActive,
   onChildClick,
 }: {
   buildings: BuildingLite[];
-  expanded: boolean;
-  onToggle: () => void;
   insideBuilding?: { buildingId: string; buildingName: string; type: "CHDV" | "VP" };
   buildingItems: NavItem[];
   isActive: (href: string) => boolean;
   isBuildingsActive: boolean;
   onChildClick?: () => void;
 }) {
-  const open = expanded || isBuildingsActive;
-  const onAllList = isActive("/buildings") && !insideBuilding;
+  const open = isBuildingsActive;
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggle}
+      <Link
+        href="/buildings"
+        onClick={onChildClick}
         className="w-full relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-medium transition-all"
         style={
           isBuildingsActive
@@ -425,30 +417,18 @@ function BuildingsNavGroup({
         }
       >
         <Building2 className="h-[18px] w-[18px] shrink-0" />
-        <span className="flex-1 text-left truncate">Toà nhà</span>
+        <span className="flex-1 truncate">Toà nhà</span>
         {open ? (
           <ChevronDown className="h-3.5 w-3.5 opacity-60" />
         ) : (
           <ChevronRight className="h-3.5 w-3.5 opacity-50" />
         )}
-      </button>
+      </Link>
       {open && (
         <div
           className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
           style={{ borderLeft: "1px solid var(--sidebar-border)" }}
         >
-          <Link
-            href="/buildings"
-            onClick={onChildClick}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-medium transition-all"
-            style={
-              onAllList
-                ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
-                : { color: "var(--text-on-sidebar-2)" }
-            }
-          >
-            <span className="truncate">Tất cả toà nhà</span>
-          </Link>
           {buildings.map((b) => {
             const isThis = insideBuilding?.buildingId === b.id;
             return (
