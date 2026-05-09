@@ -418,8 +418,8 @@
   .stat.accent .lbl-ico { background: rgba(255,255,255,.65); color: var(--accent-ink); }
 
   .stat.dark {
-    background: linear-gradient(140deg, #261c14 0%, #3a2820 50%, #5a3220 100%);
-    border-color: #261c14; color: #f5e8d2;
+    background: linear-gradient(140deg, #3a2820 0%, #4d3527 50%, #6b4226 100%);
+    border-color: #4d3527; color: #f5e8d2;
   }
   .stat.dark .stat-label { color: #d6b896; }
   .stat.dark .stat-value { color: #fff7e8; }
