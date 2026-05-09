@@ -23,6 +23,67 @@ export function parseVNDInput(s: string): bigint {
   return BigInt(digits);
 }
 
+// Convert a non-negative integer (VND) to Vietnamese words. Used to render
+// "Bằng chữ: …" after monetary placeholders in contract templates.
+export function numberToVietnameseWords(input: bigint | number | string | null | undefined): string {
+  if (input === null || input === undefined || input === "") return "";
+  let n: bigint;
+  try {
+    n = typeof input === "bigint" ? input : BigInt(typeof input === "number" ? Math.trunc(input) : input);
+  } catch {
+    return "";
+  }
+  if (n < 0n) return "âm " + numberToVietnameseWords(-n);
+  if (n === 0n) return "không đồng";
+
+  const digits = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+
+  // Read a 3-digit group. `leading` controls whether to emit the hundreds/tens
+  // prefix when the higher digits are zero (true for non-leading groups).
+  function readGroup(num: number, leading: boolean): string {
+    const tr = Math.floor(num / 100);
+    const ch = Math.floor((num % 100) / 10);
+    const dv = num % 10;
+    const out: string[] = [];
+    if (tr > 0 || leading) {
+      out.push(`${digits[tr]} trăm`);
+      if (ch === 0 && dv > 0) out.push("lẻ");
+    }
+    if (ch > 1) {
+      out.push(`${digits[ch]} mươi`);
+      if (dv === 1) out.push("mốt");
+      else if (dv === 5) out.push("lăm");
+      else if (dv > 0) out.push(digits[dv]);
+    } else if (ch === 1) {
+      out.push("mười");
+      if (dv === 5) out.push("lăm");
+      else if (dv > 0) out.push(digits[dv]);
+    } else if (ch === 0) {
+      if (dv > 0) out.push(digits[dv]);
+    }
+    return out.join(" ").trim();
+  }
+
+  const groups: number[] = [];
+  let rest = n;
+  while (rest > 0n) {
+    groups.push(Number(rest % 1000n));
+    rest = rest / 1000n;
+  }
+  // groups[0] = units, groups[1] = thousands, groups[2] = millions, …
+  const scales = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
+  const parts: string[] = [];
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const g = groups[i];
+    if (g === 0) continue;
+    const isLeading = i === groups.length - 1;
+    const text = readGroup(g, !isLeading);
+    parts.push(text + (scales[i] ? " " + scales[i] : ""));
+  }
+  const joined = parts.join(" ").replace(/\s+/g, " ").trim();
+  return `${joined} đồng`;
+}
+
 export function formatDateVN(d: Date | string | null | undefined): string {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;

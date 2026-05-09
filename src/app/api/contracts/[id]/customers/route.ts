@@ -16,6 +16,13 @@ const addSchema = z.object({
   licensePlate: z.string().optional(),
   companyName: z.string().optional(),
   taxNumber: z.string().optional(),
+  // CCCD-scan extras
+  dateOfBirth: z.string().optional(),
+  hometown: z.string().optional(),
+  permanentAddress: z.string().optional(),
+  idIssuedDate: z.string().optional(),
+  frontUrl: z.string().optional(),
+  backUrl: z.string().optional(),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -51,6 +58,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         licensePlate: d.licensePlate,
         companyName: d.companyName,
         taxNumber: d.taxNumber,
+        dateOfBirth: d.dateOfBirth ? new Date(d.dateOfBirth) : null,
+        idIssuedDate: d.idIssuedDate ? new Date(d.idIssuedDate) : null,
+        hometown: d.hometown,
+        permanentAddress: d.permanentAddress,
+        idCardFrontUrl: d.frontUrl,
+        idCardBackUrl: d.backUrl,
       },
     });
     customerId = created.id;

@@ -13,6 +13,7 @@ export type CCCDData = {
   gender?: string;
   hometown?: string;
   permanentAddress?: string;
+  idIssuedDate?: string;
   frontUrl?: string;
   backUrl?: string;
 };
@@ -76,8 +77,9 @@ export function CCCDScanner({
         <Field label="Số CCCD" value={data.idNumber ?? ""} onChange={(v) => update("idNumber", v)} />
         <Field label="Ngày sinh" type="date" value={data.dateOfBirth ?? ""} onChange={(v) => update("dateOfBirth", v)} />
         <Field label="Giới tính" value={data.gender ?? ""} onChange={(v) => update("gender", v)} />
+        <Field label="Ngày cấp" type="date" value={data.idIssuedDate ?? ""} onChange={(v) => update("idIssuedDate", v)} />
         <Field label="Quê quán" value={data.hometown ?? ""} onChange={(v) => update("hometown", v)} className="sm:col-span-2" />
-        <Field label="Thường trú" value={data.permanentAddress ?? ""} onChange={(v) => update("permanentAddress", v)} className="sm:col-span-2" />
+        <Field label="Nơi thường trú" value={data.permanentAddress ?? ""} onChange={(v) => update("permanentAddress", v)} className="sm:col-span-2" />
       </div>
 
       <Button

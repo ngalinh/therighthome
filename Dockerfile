@@ -16,7 +16,10 @@ RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat openssl su-exec
+# libreoffice + fonts: used by /api/contracts/[id]/pdf to convert generated
+# DOCX → PDF for in-app preview/print/share.
+RUN apk add --no-cache libc6-compat openssl su-exec \
+    libreoffice ttf-dejavu fontconfig
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

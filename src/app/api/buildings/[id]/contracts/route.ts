@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { nextContractCode } from "@/lib/codes";
 import { renderContractDocx } from "@/lib/docx";
-import { addMonths, formatDateVN, formatVND } from "@/lib/utils";
+import { addMonths } from "@/lib/utils";
+import { buildContractPlaceholders, resolveTemplateUrl } from "@/lib/contract-template";
 
 const customerSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -17,6 +18,7 @@ const customerSchema = z.discriminatedUnion("kind", [
       gender: z.string().optional(),
       hometown: z.string().optional(),
       permanentAddress: z.string().optional(),
+      idIssuedDate: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
       licensePlate: z.string().optional(),
@@ -89,7 +91,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
               fullName: c.data.fullName,
               idNumber: c.data.idNumber,
               dateOfBirth: c.data.dateOfBirth ? new Date(c.data.dateOfBirth) : null,
+              idIssuedDate: c.data.idIssuedDate ? new Date(c.data.idIssuedDate) : null,
               hometown: c.data.hometown,
+              permanentAddress: c.data.permanentAddress,
               phone: c.data.phone,
               email: c.data.email,
               licensePlate: c.data.licensePlate,
@@ -152,7 +156,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           ? { create: d.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: BigInt(y.rent) })) }
           : undefined,
       },
-      include: { room: true, customers: { include: { customer: true } } },
+      include: {
+        room: true,
+        customers: { include: { customer: true }, orderBy: { orderIdx: "asc" } },
+      },
     });
 
     await tx.room.update({ where: { id: d.roomId }, data: { status: "OCCUPIED" } });
@@ -160,41 +167,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return created;
   });
 
-  // Resolve which template to use:
-  //   - VP + COMPANY primary  → setting.contractTemplateUrlCompany OR appSetting.defaultContractTemplateVpCompany
-  //   - VP + INDIVIDUAL       → setting.contractTemplateUrl       OR appSetting.defaultContractTemplateVpIndividual
-  //   - CHDV                  → setting.contractTemplateUrl       OR appSetting.defaultContractTemplateChdv
-  const primary = contract.customers[0]?.customer;
-  const isVpCompany = building.type === "VP" && primary?.type === "COMPANY";
-  const appSetting = await prisma.appSetting.findUnique({ where: { id: 1 } });
-  const templateUrl = isVpCompany
-    ? (building.setting?.contractTemplateUrlCompany ?? appSetting?.defaultContractTemplateVpCompany ?? null)
-    : building.type === "VP"
-      ? (building.setting?.contractTemplateUrl ?? appSetting?.defaultContractTemplateVpIndividual ?? null)
-      : (building.setting?.contractTemplateUrl ?? appSetting?.defaultContractTemplateChdv ?? null);
-
   // Try to generate DOCX from template (best-effort, non-blocking on failure)
+  const primary = contract.customers[0]?.customer;
+  const appSetting = await prisma.appSetting.findUnique({ where: { id: 1 } });
+  const templateUrl = resolveTemplateUrl({
+    buildingType: building.type,
+    primaryType: primary?.type,
+    buildingSetting: building.setting,
+    appSetting,
+  });
+
   if (templateUrl) {
     try {
-      const docxUrl = await renderContractDocx(templateUrl, {
-        ma_hd: contract.code,
-        toa_nha: building.name,
-        dia_chi_toa: building.address,
-        so_phong: contract.room.number,
-        ten_khach: primary?.fullName ?? primary?.companyName ?? "",
-        cccd: primary?.idNumber ?? "",
-        sdt: primary?.phone ?? "",
-        email: primary?.email ?? "",
-        cong_ty: primary?.companyName ?? "",
-        mst: primary?.taxNumber ?? "",
-        ngay_bat_dau: formatDateVN(contract.startDate),
-        ngay_ket_thuc: formatDateVN(contract.endDate),
-        thoi_han: `${d.termMonths} tháng`,
-        gia_thue: formatVND(contract.monthlyRent),
-        tien_coc: formatVND(contract.depositAmount),
-        ngay_thanh_toan: String(d.paymentDay),
-        ghi_chu: d.notes ?? "",
-      });
+      const docxUrl = await renderContractDocx(
+        templateUrl,
+        buildContractPlaceholders({
+          contract,
+          building,
+          room: contract.room,
+          customers: contract.customers.map((cc) => cc.customer),
+        }),
+      );
       await prisma.contract.update({ where: { id: contract.id }, data: { generatedDocxUrl: docxUrl } });
     } catch (e) {
       console.error("DOCX render failed", e);

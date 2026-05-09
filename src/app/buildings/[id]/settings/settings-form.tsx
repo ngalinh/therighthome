@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseVNDInput } from "@/lib/utils";
+import { PLACEHOLDER_HELP } from "@/lib/contract-template";
 
 type Setting = {
   electricityPricePerKwh: string;
@@ -156,25 +157,7 @@ export function BuildingSettingsForm({
 
           <details className="mt-4">
             <summary className="text-xs text-slate-600 cursor-pointer">Các placeholder hỗ trợ trong file mẫu</summary>
-            <pre className="text-[11px] bg-slate-50 p-3 rounded-lg mt-2 overflow-auto">
-{`{ma_hd}                Mã hợp đồng
-{toa_nha}              Tên toà nhà
-{dia_chi_toa}          Địa chỉ toà nhà
-{so_phong}             Số phòng
-{ten_khach}            Tên khách (cá nhân hoặc công ty)
-{cccd}                 Số CCCD
-{sdt}                  Số điện thoại
-{email}                Email
-{cong_ty}              Tên công ty (nếu có)
-{mst}                  Mã số thuế (nếu có)
-{ngay_bat_dau}         Ngày bắt đầu
-{ngay_ket_thuc}        Ngày kết thúc
-{thoi_han}             Thời hạn hợp đồng
-{gia_thue}             Giá thuê / tháng
-{tien_coc}             Tiền cọc
-{ngay_thanh_toan}      Ngày thanh toán hàng tháng
-{ghi_chu}              Ghi chú`}
-            </pre>
+            <pre className="text-[11px] bg-slate-50 p-3 rounded-lg mt-2 overflow-auto">{PLACEHOLDER_HELP}</pre>
           </details>
         </CardContent>
       </Card>
