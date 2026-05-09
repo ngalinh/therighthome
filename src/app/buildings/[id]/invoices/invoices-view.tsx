@@ -364,7 +364,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
             </div>
             <div className="text-sm space-y-0.5">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-medium">Phòng {inv.contract.room.number}</span>
+                <span className="font-medium">{inv.contract.room.number}</span>
                 <span className="text-slate-700 break-words">{name}</span>
               </div>
               <div className="flex items-baseline gap-3 flex-wrap">
