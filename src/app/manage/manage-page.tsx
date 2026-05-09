@@ -220,7 +220,7 @@ export async function ManageTypePage({
             <TabsList className="inline-flex">
               <TabsTrigger value="invoices">Hoá đơn</TabsTrigger>
               <TabsTrigger value="tasks">Công việc</TabsTrigger>
-              <TabsTrigger value="contracts">Hợp đồng</TabsTrigger>
+              <TabsTrigger value="contracts">HĐ sắp hết hạn</TabsTrigger>
               {kind === "VP" && <TabsTrigger value="overtime">Làm ngoài giờ</TabsTrigger>}
             </TabsList>
           </div>

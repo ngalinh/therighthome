@@ -166,6 +166,7 @@
     min-height: 2.5rem;
     min-width: 0;
     line-height: 1.25rem;
+    padding-right: 2.25rem;
   }
   input[type="date"]::-webkit-date-and-time-value,
   input[type="time"]::-webkit-date-and-time-value,
@@ -173,6 +174,21 @@
   input[type="month"]::-webkit-date-and-time-value {
     text-align: left;
     min-height: 1.25rem;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+    margin-left: 4px;
+    padding: 2px;
+  }
+  input[type="date"]:hover::-webkit-calendar-picker-indicator,
+  input[type="time"]:hover::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator,
+  input[type="month"]:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
   }
 }
 
