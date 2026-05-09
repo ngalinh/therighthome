@@ -193,7 +193,7 @@ export function AppShell({
                       "h-7 w-7 rounded-xl flex items-center justify-center mb-0.5 transition-all",
                       active && "shadow-design-pop",
                     )}
-                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)", color: "#fff" } : {}}
+                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, var(--accent-coral-2) 100%)", color: "#fff" } : {}}
                   >
                     <Icon className="h-4 w-4" />
                   </div>
@@ -233,7 +233,7 @@ export function AppShell({
                       "h-7 w-7 rounded-xl flex items-center justify-center mb-0.5 transition-all",
                       active && "shadow-design-pop",
                     )}
-                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)", color: "#fff" } : {}}
+                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, var(--accent-coral-2) 100%)", color: "#fff" } : {}}
                   >
                     <Icon className="h-4 w-4" />
                   </div>
@@ -258,8 +258,8 @@ function BrandHeader() {
       <div
         className="h-10 w-10 rounded-full flex items-center justify-center text-white font-serif text-2xl shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
         style={{
-          background: "linear-gradient(135deg, var(--accent-coral) 0%, #f59072 100%)",
-          boxShadow: "0 6px 18px -6px rgba(238, 90, 54, .55), inset 0 1px 0 rgba(255,255,255,.3)",
+          background: "linear-gradient(135deg, var(--accent-coral) 0%, #d5866c 100%)",
+          boxShadow: "0 6px 18px -6px rgba(201, 100, 66, .55), inset 0 1px 0 rgba(255,255,255,.3)",
         }}
       >
         R
@@ -307,7 +307,7 @@ function NavItemRow({
       style={
         active
           ? {
-              background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)",
+              background: "linear-gradient(135deg, var(--accent-coral) 0%, var(--accent-coral-2) 100%)",
               color: "#fff",
             }
           : { color: "var(--text-on-sidebar)" }
@@ -449,8 +449,8 @@ function PromoCard() {
       <div
         className="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white shrink-0 animate-float"
         style={{
-          background: "linear-gradient(135deg, var(--accent-coral), #f37b58)",
-          boxShadow: "0 4px 12px -4px rgba(238, 90, 54, .55)",
+          background: "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+          boxShadow: "0 4px 12px -4px rgba(201, 100, 66, .55)",
         }}
       >
         <Sparkles className="h-4 w-4" />
