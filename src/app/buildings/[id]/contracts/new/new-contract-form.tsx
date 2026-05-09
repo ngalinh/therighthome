@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -203,7 +204,7 @@ export function NewContractForm({
                 </Select>
               </Field>
               <Field label="Ngày bắt đầu" required>
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </Field>
               <Field label="Ngày kết thúc (tự động)">
                 <Input value={endDate} disabled />
@@ -290,8 +291,7 @@ export function NewContractForm({
                 </Field>
                 {trStatus === "REGISTERED" && (
                   <Field label="Thời hạn">
-                    <Input
-                      type="date"
+                    <DateInput
                       value={trExpiresAt}
                       disabled={trIndefinite}
                       onChange={(e) => setTrExpiresAt(e.target.value)}
