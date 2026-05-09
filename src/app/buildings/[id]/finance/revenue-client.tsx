@@ -263,7 +263,7 @@ function RevenueCard({ r, canWrite, onEdit, onDelete, buildingId, contractMap, i
               {r.category && <Badge variant="outline" className="text-[10px]">{r.category}</Badge>}
             </div>
             <div className="text-sm font-medium truncate">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</div>
-            <div className="text-xs text-slate-500 truncate">
+            <div className="text-xs text-slate-500 truncate mt-1.5">
               {formatDateVN(r.date)}
               {r.partyLabel && ` · ${r.partyLabel}`}
               {r.paymentMethod && ` · ${r.paymentMethod}`}

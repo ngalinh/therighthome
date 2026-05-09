@@ -407,7 +407,7 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex flex-wrap items-start gap-3 justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs font-mono text-slate-500">{inv.code}</span>
@@ -420,7 +420,7 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
             <div className="text-xs text-slate-500 mb-1">{inv.building.name}</div>
             <div className="text-sm space-y-0.5">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-medium">Phòng {inv.contract.room.number}</span>
+                <span className="font-medium">{inv.contract.room.number}</span>
                 <span className="text-slate-700 break-words">{name}</span>
               </div>
               <div className="flex items-baseline gap-3 flex-wrap">
@@ -432,7 +432,7 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
               )}
             </div>
           </div>
-          <div className="flex gap-1.5 items-center">
+          <div className="flex gap-1.5 items-center justify-end sm:justify-start flex-wrap">
             <Button asChild variant="outline" size="sm">
               <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
             </Button>
