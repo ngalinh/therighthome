@@ -386,9 +386,12 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
-    padding: 22px 24px;
+    padding: 22px 18px;
     position: relative; overflow: hidden;
     transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .25s var(--ease);
+  }
+  @media (min-width: 1024px) {
+    .stat { padding: 22px 24px; }
   }
   .stat:hover {
     transform: translateY(-4px);

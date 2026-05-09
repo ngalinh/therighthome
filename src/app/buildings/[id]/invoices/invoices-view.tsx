@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { EmptyState } from "@/components/ui/empty";
 import { Receipt, Send, Plus, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { formatVND, formatVNDCompact, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
 
 type Invoice = {
@@ -172,9 +172,9 @@ export function InvoicesView({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} variant="tan" />
-        <GradStat label="Đã thu" value={formatVND(totalPaid)} variant="sage" />
-        <GradStat label="Còn lại" value={formatVND(totalDue - totalPaid)} variant="accent" />
+        <GradStat label="Tổng phải thu" value={formatVNDCompact(totalDue)} variant="tan" />
+        <GradStat label="Đã thu" value={formatVNDCompact(totalPaid)} variant="sage" />
+        <GradStat label="Còn lại" value={formatVNDCompact(totalDue - totalPaid)} variant="accent" />
         <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} variant="dark" />
       </div>
 
