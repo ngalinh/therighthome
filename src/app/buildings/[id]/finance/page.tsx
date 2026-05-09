@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { can, getBuildingPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageBody } from "@/components/layout/page-header";
+import { PageHeader, PageBody } from "@/components/layout/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RevenueTab } from "./revenue-tab";
 import { DebtTab } from "./debt-tab";
@@ -45,21 +45,12 @@ export default async function FinancePage({
     }),
   ]);
 
-  const isChdv = building.type === "CHDV";
-
   return (
     <AppShell
       user={{ name: session.user.name || "", email: session.user.email || "", role: session.user.role }}
       buildingNav={{ buildingId: id, buildingName: building.name, type: building.type }}
     >
-      {/* Gradient page header */}
-      <div className={`relative overflow-hidden ${isChdv ? "bg-gradient-chdv" : "bg-gradient-vp"} text-white px-4 lg:px-8 py-5`}>
-        <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
-        <div className="max-w-7xl mx-auto">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-0.5">{building.name}</p>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight">Tài chính</h1>
-        </div>
-      </div>
+      <PageHeader title="Tài chính" description={building.name} />
 
       <PageBody>
         <Tabs defaultValue={tab} className="w-full">
