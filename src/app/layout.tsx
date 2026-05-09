@@ -1,7 +1,30 @@
 import type { Metadata, Viewport } from "next";
+import { Be_Vietnam_Pro, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
+
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "The Right Home — Quản lý CHDV & VP",
@@ -11,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6366f1",
+  themeColor: "#ee5a36",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -20,12 +43,16 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${beVietnamPro.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
       </head>
-      <body className="min-h-dvh bg-[linear-gradient(135deg,#eef2ff_0%,#faf5ff_45%,#fdf2f8_100%)] bg-fixed antialiased">
+      <body className="min-h-dvh">
         <Providers>{children}</Providers>
         <Toaster position="top-center" richColors closeButton />
         <script

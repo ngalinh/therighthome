@@ -3,16 +3,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { listAccessibleBuildings } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageBody } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Building2, FileText, Receipt, AlertCircle, Plus, ArrowRight,
-  TrendingUp, Wallet, Bell, ChevronRight, Clock, Sparkles,
+  Building2, FileText, AlertCircle, Plus, Wallet, ArrowUp, ArrowRight,
+  Receipt, Briefcase, Send, Users, Clock, Check, Download, Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+
+const VI_MONTHS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -51,245 +49,431 @@ export default async function DashboardPage() {
 
   const totalDue = monthlyInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = monthlyInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
-  const firstName = session.user.name?.split(" ").pop() || "";
+  const remaining = Math.max(totalDue - totalPaid, 0);
+  const paidPct = totalDue > 0 ? Math.round((totalPaid / totalDue) * 1000) / 10 : 0;
+  const occupancyPct = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+
+  const firstName = session.user.name?.split(" ").pop() || "Admin";
+  const monthLabel = `Tháng ${month} · ${year}`;
+
+  // Building counts for stats
+  const buildingsWithCounts = await prisma.building.findMany({
+    where: { id: { in: buildingIds } },
+    select: {
+      id: true, name: true, type: true, address: true,
+      _count: { select: { rooms: true } },
+      rooms: { where: { status: "OCCUPIED" }, select: { id: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 4,
+  });
 
   return (
     <AppShell user={{ name: session.user.name || "", email: session.user.email || "", role }}>
-      {/* ── Mobile hero ── */}
-      <div className="lg:hidden bg-gradient-brand text-white px-5 pt-5 pb-16 relative overflow-hidden">
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 pointer-events-none" />
-        <div className="absolute bottom-0 left-8 w-32 h-32 rounded-full bg-white/6 pointer-events-none" />
-        <div className="flex items-center justify-between mb-5 relative">
-          <div>
-            <p className="text-sm text-white/75 mb-0.5">Xin chào,</p>
-            <h1 className="text-2xl font-bold tracking-tight">{firstName} ✨</h1>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="relative w-10 h-10 rounded-[14px] bg-white/20 flex items-center justify-center">
-              <Bell className="h-5 w-5" />
-              {overdueInvoices > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-400 border-2 border-white/80" />
-              )}
-            </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-rose-400 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-              {(session.user.name || "?").charAt(0).toUpperCase()}
-            </div>
-          </div>
-        </div>
-        <div className="relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-[14px] text-sm"
-          style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(10px)" }}>
-          <svg className="h-4 w-4 opacity-75" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-          </svg>
-          <span className="text-white/75">Tìm phòng, hợp đồng, khách thuê…</span>
-        </div>
-      </div>
-
-      {/* ── Desktop header ── */}
-      <div className="hidden lg:block bg-gradient-chdv text-white px-8 py-6 border-b border-slate-200/60 relative overflow-hidden">
-        <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
-        <div className="max-w-7xl mx-auto flex items-center justify-between relative">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Tổng quan</h1>
-            <p className="text-sm text-white/80 mt-0.5">Xin chào {firstName} 👋</p>
-          </div>
-          <Button asChild variant="gradient">
-            <Link href="/buildings"><Plus className="h-4 w-4" />Toà nhà</Link>
-          </Button>
-        </div>
-      </div>
-
-      <PageBody>
+      <div className="px-4 lg:px-9 pt-6 lg:pt-9 pb-12 lg:pb-20 max-w-[1360px] mx-auto">
         {buildings.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <div className="rounded-2xl bg-gradient-brand/10 inline-flex p-4 mb-4">
-                <Building2 className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold">Chưa có toà nhà nào</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-                Bắt đầu bằng cách thêm toà nhà đầu tiên (CHDV hoặc Văn phòng).
-              </p>
-              <Button asChild variant="gradient" className="mt-5">
-                <Link href="/buildings"><Plus className="h-4 w-4" />Thêm toà nhà</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <EmptyState />
         ) : (
-          <div className="space-y-5">
-            {/* Mobile: warm-mint stat cards floating over hero */}
-            <div className="lg:hidden grid grid-cols-2 gap-3 -mt-10">
-              <MobileStatCard
-                gradient="linear-gradient(135deg, #fbbf24 0%, #fb7185 50%, #ec4899 100%)"
-                shadow="rgba(251,113,133,0.45)"
-                label="Doanh thu tháng"
-                value={formatVND(totalPaid)}
-                delta={`/${formatVND(totalDue)}`}
-              />
-              <MobileStatCard
-                gradient="linear-gradient(135deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%)"
-                shadow="rgba(99,102,241,0.45)"
-                label="Phòng đang thuê"
-                value={`${occupiedRooms}/${totalRooms}`}
-                delta={`${totalRooms > 0 ? Math.round(occupiedRooms / totalRooms * 100) : 0}%`}
-              />
-            </div>
+          <>
+            <header className="rise flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 lg:gap-6 mb-8">
+              <div className="min-w-0">
+                <div className="page-eyebrow">
+                  <span className="dot" />
+                  {monthLabel}
+                </div>
+                <h1 className="page-title">
+                  Xin chào, <span className="accent">{firstName}</span>.
+                </h1>
+                <p className="page-sub">
+                  {overdueInvoices > 0 && (
+                    <>Hôm nay có <strong>{overdueInvoices} hoá đơn quá hạn</strong> cần xử lý</>
+                  )}
+                  {overdueInvoices > 0 && expiring.length > 0 && " và "}
+                  {expiring.length > 0 && (
+                    <><strong>{expiring.length} hợp đồng</strong> sắp hết hạn.</>
+                  )}
+                  {overdueInvoices === 0 && expiring.length === 0 && (
+                    <>Mọi thứ đang ổn. Tiếp tục theo dõi <strong>{activeContracts} hợp đồng</strong> đang hoạt động.</>
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                <Link href="/manage/chdv" className="btn btn-ghost">
+                  <Download className="h-3.5 w-3.5" /> Báo cáo
+                </Link>
+                <Link href="/manage/chdv?tab=invoices" className="btn btn-primary">
+                  <Plus className="h-3.5 w-3.5" /> Hoá đơn mới
+                </Link>
+              </div>
+            </header>
 
-            {/* Desktop: 4 stat tiles */}
-            <div className="hidden lg:grid lg:grid-cols-4 gap-4">
-              <StatTile gradient="from-indigo-500 to-purple-500" icon={Building2} label="Toà nhà" value={String(buildings.length)} hint={`${occupiedRooms}/${totalRooms} phòng đang thuê`} />
-              <StatTile gradient="from-sky-400 to-indigo-500" icon={FileText} label="Hợp đồng" value={String(activeContracts)} hint="Đang hoạt động" />
-              <StatTile gradient="from-lime-400 to-teal-500" icon={Wallet} label={`Đã thu T${month}`} value={formatVND(totalPaid)} hint={`${formatVND(totalDue - totalPaid)} còn lại`} />
-              <StatTile gradient="from-rose-500 to-pink-500" icon={AlertCircle} label="Quá hạn" value={String(overdueInvoices)} hint="Hoá đơn cần xử lý" />
+            {/* Stat grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 lg:gap-5">
+              <StatCard
+                icon={Building2}
+                label="Toà nhà"
+                value={buildings.length}
+                foot={
+                  <>
+                    {occupiedRooms}/{totalRooms} phòng
+                    {totalRooms > 0 && (
+                      <span className="stat-trend up ml-1.5">
+                        <ArrowUp className="h-2.5 w-2.5" strokeWidth={2.4} />
+                        {occupancyPct}%
+                      </span>
+                    )}
+                  </>
+                }
+                spark={[3, 3, 4, 4, 5, 5, 6, 6]}
+                cornerMark="B"
+                className="rise-1"
+              />
+              <StatCard
+                icon={FileText}
+                label="Hợp đồng"
+                value={activeContracts}
+                foot="Đang hoạt động"
+                spark={[32, 35, 38, 40, 42, 44, 46, activeContracts]}
+                sparkColor="var(--sage)"
+                cornerMark="H"
+                iconClass="bg-sage-soft text-sage-ink"
+                className="rise-2"
+              />
+              <StatCard
+                icon={Wallet}
+                label={`Đã thu T${month}`}
+                value={formatVND(totalPaid).replace(" ₫", "")}
+                valueSuffix="₫"
+                foot={`còn ${formatVND(remaining)}`}
+                spark={[0, 0, 0, 0, 1, 2, 3, 4]}
+                sparkColor="var(--accent-ink)"
+                cornerMark="₫"
+                variant="accent"
+                className="rise-3"
+              />
+              <StatCard
+                icon={AlertCircle}
+                label="Quá hạn"
+                value={overdueInvoices}
+                foot="cần xử lý ngay"
+                spark={[12, 15, 18, 22, 26, 28, 30, overdueInvoices]}
+                sparkColor="#ffb78f"
+                cornerMark="!"
+                variant="dark"
+                className="rise-4"
+              />
             </div>
 
             {/* Quick actions */}
-            <div>
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Thao tác nhanh</h2>
-              <div className="grid grid-cols-2 gap-2.5">
-                <QuickAction href="/manage/chdv?tab=invoices" icon={Receipt} label="Hoá đơn CHDV" color="#6366f1" />
-                <QuickAction href="/manage/vp?tab=invoices" icon={Receipt} label="Hoá đơn VP" color="#10b981" />
-              </div>
-            </div>
-
-            {/* Buildings horizontal scroll */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">Toà nhà của bạn</h2>
-                <Link href="/buildings" className="text-sm text-primary flex items-center gap-1 font-medium">
-                  Tất cả <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
-                {buildings.slice(0, 6).map((b) => (
-                  <Link key={b.id} href={`/buildings/${b.id}`} className="shrink-0 lg:shrink w-[200px] lg:w-auto">
-                    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                      <div className={`h-1.5 ${b.type === "CHDV" ? "bg-gradient-chdv" : "bg-gradient-vp"}`} />
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-bold ${b.type === "CHDV" ? "bg-gradient-chdv" : "bg-gradient-vp"}`}>
-                            {b.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <Badge variant={b.type === "CHDV" ? "chdv" : "vp"} className="text-[10px]">{b.type}</Badge>
-                        </div>
-                        <h3 className="font-semibold text-sm leading-tight line-clamp-1">{b.name}</h3>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{b.address}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Alerts */}
-            {(overdueInvoices > 0 || expiring.length > 0) && (
+            <div className="section-head rise-2">
               <div>
-                <h2 className="text-base font-semibold mb-3">Cần xử lý</h2>
-                <div className="space-y-2">
+                <h2 className="section-title">Thao tác nhanh</h2>
+                <div className="section-sub">Truy cập các tác vụ thường dùng</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+              <QuickAction
+                href="/manage/chdv?tab=invoices"
+                icon={Receipt}
+                title="Hoá đơn CHDV"
+                sub="Tạo hàng loạt"
+                className="rise-3"
+              />
+              <QuickAction
+                href="/manage/vp?tab=invoices"
+                icon={Briefcase}
+                title="Hoá đơn VP"
+                sub="Theo hợp đồng"
+                iconClass="sage"
+                className="rise-3"
+              />
+              <QuickAction
+                href={buildings[0] ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE` : "/buildings"}
+                icon={Send}
+                title="Gửi nhắc nhở"
+                sub="Email · SMS"
+                iconClass="sun"
+                className="rise-4"
+              />
+              <QuickAction
+                href={buildings[0] ? `/buildings/${buildings[0].id}/contracts/new` : "/buildings"}
+                icon={Users}
+                title="Khách thuê mới"
+                sub="Tạo hợp đồng"
+                iconClass="plum"
+                className="rise-4"
+              />
+            </div>
+
+            {/* Two column: buildings + alerts */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6 lg:gap-8 mt-11">
+              <section>
+                <div className="section-head rise-3">
+                  <div>
+                    <h2 className="section-title">Toà nhà</h2>
+                    <div className="section-sub">
+                      {buildings.length} toà · {totalRooms} phòng
+                    </div>
+                  </div>
+                  <Link
+                    href="/buildings"
+                    className="text-[12.5px] font-semibold flex items-center gap-1"
+                    style={{ color: "var(--accent-coral)" }}
+                  >
+                    Xem tất cả <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 lg:gap-4">
+                  {buildingsWithCounts.map((b, i) => {
+                    const filled = b.rooms.length;
+                    const total = b._count.rooms;
+                    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+                    return (
+                      <Link
+                        key={b.id}
+                        href={`/buildings/${b.id}`}
+                        className={`building-card rise-${Math.min(6, 4 + Math.floor(i / 2))}`}
+                      >
+                        <div className="b-row">
+                          <div className="b-num">{extractNum(b.name)}</div>
+                          <span className={`b-tag ${b.type === "CHDV" ? "chdv" : "vp"}`}>
+                            {b.type === "CHDV" ? "CHDV" : "VP"}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="b-name line-clamp-2">{b.name}</div>
+                        </div>
+                        <div className="b-meter">
+                          <div className="b-meter-row">
+                            <span>
+                              {filled}/{total} phòng
+                            </span>
+                            <strong>{pct}%</strong>
+                          </div>
+                          <div className="b-bar">
+                            <span style={{ width: pct + "%", animationDelay: 0.3 + i * 0.05 + "s" }} />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <div className="section-head rise-3">
+                  <div>
+                    <h2 className="section-title">Cần xử lý</h2>
+                    <div className="section-sub">Theo độ ưu tiên</div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2.5">
                   {overdueInvoices > 0 && (
-                    <AlertRow
-                      icon={AlertCircle}
-                      color="#ef4444"
-                      title={`${overdueInvoices} hoá đơn quá hạn`}
-                      desc="Cần xử lý ngay"
-                      badge={String(overdueInvoices)}
-                      href={buildings[0] ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE` : "/buildings"}
-                    />
+                    <Link
+                      href={
+                        buildings[0]
+                          ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE`
+                          : "/buildings"
+                      }
+                      className="alert rise-4"
+                    >
+                      <div className="pulse">
+                        <AlertCircle className="h-4 w-4" />
+                      </div>
+                      <div className="alert-body">
+                        <div className="alert-title">Hoá đơn quá hạn</div>
+                        <div className="alert-sub">cần xử lý ngay</div>
+                      </div>
+                      <div className="alert-count">{overdueInvoices}</div>
+                    </Link>
                   )}
                   {expiring.length > 0 && (
-                    <AlertRow
-                      icon={Clock}
-                      color="#f59e0b"
-                      title={`${expiring.length} hợp đồng sắp hết hạn`}
-                      desc="Trong 30 ngày tới"
-                      badge={String(expiring.length)}
-                      href={buildings[0] ? `/buildings/${buildings[0].id}/contracts` : "/buildings"}
-                    />
+                    <Link
+                      href={
+                        buildings[0]
+                          ? `/buildings/${buildings[0].id}/contracts`
+                          : "/buildings"
+                      }
+                      className="alert warn rise-4"
+                    >
+                      <div className="pulse">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <div className="alert-body">
+                        <div className="alert-title">Hợp đồng sắp hết hạn</div>
+                        <div className="alert-sub">trong 30 ngày tới</div>
+                      </div>
+                      <div className="alert-count">{expiring.length}</div>
+                    </Link>
                   )}
-                  <AlertRow
-                    icon={Sparkles}
-                    color="#8b5cf6"
-                    title={`${activeContracts} hợp đồng đang hoạt động`}
-                    desc={`${occupiedRooms}/${totalRooms} phòng · T${month}/${year}`}
-                    href="/buildings"
+                  <div className="alert good rise-5">
+                    <div className="pulse">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div className="alert-body">
+                      <div className="alert-title">Hợp đồng đang hoạt động</div>
+                      <div className="alert-sub">
+                        {occupiedRooms}/{totalRooms} phòng — {occupancyPct}% lấp đầy
+                      </div>
+                    </div>
+                    <div className="alert-count">{activeContracts}</div>
+                  </div>
+                  <RevenueRingCard
+                    paid={totalPaid}
+                    target={totalDue}
+                    pct={paidPct}
+                    monthLabel={`Doanh thu T${month}`}
                   />
                 </div>
-              </div>
-            )}
-          </div>
+              </section>
+            </div>
+          </>
         )}
-      </PageBody>
+      </div>
     </AppShell>
   );
 }
 
-function MobileStatCard({ gradient, shadow, label, value, delta }: {
-  gradient: string; shadow: string; label: string; value: string; delta: string;
+/* ── Helpers ──────────────────────────────────────────────── */
+
+function extractNum(name: string): string {
+  // Take leading digits (e.g. "46/57 Đường số 18" → "46")
+  const match = name.match(/^\d+/);
+  return match ? match[0] : name.slice(0, 2).toUpperCase();
+}
+
+function StatCard({
+  icon: Icon, label, value, valueSuffix, foot, spark, sparkColor = "var(--accent-coral)",
+  cornerMark, variant, className, iconClass,
+}: {
+  icon: typeof Building2;
+  label: string;
+  value: number | string;
+  valueSuffix?: string;
+  foot: React.ReactNode;
+  spark: number[];
+  sparkColor?: string;
+  cornerMark?: string;
+  variant?: "accent" | "dark" | "sage";
+  className?: string;
+  iconClass?: string;
 }) {
   return (
-    <div className="rounded-[20px] p-4 text-white relative overflow-hidden"
-      style={{ background: gradient, boxShadow: `0 14px 28px -10px ${shadow}` }}>
-      <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full bg-white/15" />
-      <div className="relative">
-        <p className="text-[11px] font-semibold opacity-90 mb-1">{label}</p>
-        <p className="text-xl font-bold tracking-tight leading-tight">{value}</p>
-        <div className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/22">
-          <TrendingUp className="h-3 w-3" /> {delta}
-        </div>
+    <div className={`stat ${variant ?? ""} ${className ?? ""}`}>
+      <div className="stat-label">
+        <span className={`lbl-ico ${iconClass ?? ""}`}>
+          <Icon className="h-3 w-3" />
+        </span>
+        {label}
+      </div>
+      <div className="stat-value">
+        {value}
+        {valueSuffix && <sup>{valueSuffix}</sup>}
+      </div>
+      <div className="stat-foot">{foot}</div>
+      <Sparkline data={spark} color={sparkColor} />
+      {cornerMark && <div className="corner-mark">{cornerMark}</div>}
+    </div>
+  );
+}
+
+function QuickAction({
+  href, icon: Icon, title, sub, iconClass, className,
+}: {
+  href: string; icon: typeof Receipt; title: string; sub: string;
+  iconClass?: "sage" | "sun" | "plum";
+  className?: string;
+}) {
+  return (
+    <Link href={href} className={`quick ${className ?? ""}`}>
+      <div className={`ico-wrap ${iconClass ?? ""}`}>
+        <Icon className="h-[18px] w-[18px]" />
+      </div>
+      <div>
+        <div className="q-title">{title}</div>
+        <div className="q-sub">{sub}</div>
+      </div>
+      <ArrowRight className="q-arrow h-3.5 w-3.5" />
+    </Link>
+  );
+}
+
+function Sparkline({ data, color = "var(--accent-coral)" }: { data: number[]; color?: string }) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const w = 60, h = 22;
+  const pts = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - ((v - min) / range) * h;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const lastX = w;
+  const lastY = h - ((data[data.length - 1] - min) / range) * h;
+  return (
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx={lastX} cy={lastY} r="2" fill={color} />
+    </svg>
+  );
+}
+
+function RevenueRingCard({
+  paid, target, pct, monthLabel,
+}: {
+  paid: number; target: number; pct: number; monthLabel: string;
+}) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - Math.min(pct, 100) / 100);
+  return (
+    <div className="rev-card rise-5">
+      <div className="rev-ring">
+        <svg width="64" height="64" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="32" cy="32" r={r} stroke="rgba(255,255,255,.12)" strokeWidth="6" fill="none" />
+          <circle
+            cx="32" cy="32" r={r}
+            stroke="#ffb78f" strokeWidth="6" fill="none"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <div className="rev-pct">{pct.toFixed(1)}%</div>
+      </div>
+      <div className="min-w-0">
+        <div className="rev-eyebrow">{monthLabel}</div>
+        <div className="rev-num">{formatVND(paid)}</div>
+        <div className="rev-sub">Mục tiêu: {formatVND(target)}</div>
       </div>
     </div>
   );
 }
 
-function StatTile({ gradient, icon: Icon, label, value, hint }: {
-  gradient: string; icon: typeof Building2; label: string; value: string; hint?: string;
-}) {
+function EmptyState() {
   return (
-    <div className={`stat-tile bg-gradient-to-br ${gradient}`}>
-      <div className="absolute -right-4 -top-4 opacity-15"><Icon className="h-24 w-24" /></div>
-      <div className="relative">
-        <div className="text-xs uppercase tracking-wider text-white/80 font-medium">{label}</div>
-        <div className="text-2xl lg:text-3xl font-bold mt-1 leading-tight">{value}</div>
-        {hint && <div className="text-xs text-white/80 mt-1">{hint}</div>}
+    <div className="card-soft p-12 text-center max-w-lg mx-auto mt-12 rise">
+      <div className="ico-wrap mx-auto mb-4 h-12 w-12">
+        <Building2 className="h-6 w-6" />
       </div>
+      <h3 className="font-serif text-2xl font-medium" style={{ color: "var(--text)" }}>
+        Chưa có toà nhà nào
+      </h3>
+      <p className="page-sub mx-auto mt-2">
+        Bắt đầu bằng cách thêm toà nhà đầu tiên (CHDV hoặc Văn phòng).
+      </p>
+      <Link href="/buildings" className="btn btn-primary mt-5 inline-flex">
+        <Plus className="h-3.5 w-3.5" /> Thêm toà nhà
+      </Link>
     </div>
   );
 }
-
-function QuickAction({ href, icon: Icon, label, color }: {
-  href: string; icon: typeof FileText; label: string; color: string;
-}) {
-  return (
-    <Link href={href}>
-      <div className="bg-white rounded-2xl p-3 flex flex-col items-center gap-2 border border-slate-100 hover:shadow-md transition-shadow">
-        <div className="w-9 h-9 rounded-[12px] flex items-center justify-center" style={{ background: color + "18", color }}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="text-[11px] font-semibold text-slate-700 text-center">{label}</span>
-      </div>
-    </Link>
-  );
-}
-
-function AlertRow({ icon: Icon, color, title, desc, badge, href }: {
-  icon: typeof AlertCircle; color: string; title: string; desc: string; badge?: string; href: string;
-}) {
-  return (
-    <Link href={href}>
-      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-100 hover:shadow-sm transition-all">
-        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0" style={{ background: color + "15", color }}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{title}</p>
-          <p className="text-xs text-slate-500">{desc}</p>
-        </div>
-        {badge && (
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: color }}>{badge}</span>
-        )}
-        <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
-      </div>
-    </Link>
-  );
-}
-
