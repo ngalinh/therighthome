@@ -8,13 +8,15 @@ import { buildContractPlaceholders, resolveTemplateUrl } from "@/lib/contract-te
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-// POST /api/contracts/:id/generate-docx
+// POST /api/contracts/:id/generate-docx[?force=1]
 // Generates the contract DOCX from the building's template (or app default).
-// Per product spec: only generates if no docx already exists.
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+// By default refuses if a DOCX already exists; pass `?force=1` to regenerate
+// (used after uploading a new template).
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
+  const force = req.nextUrl.searchParams.get("force") === "1";
 
   const contract = await prisma.contract.findUnique({
     where: { id },
@@ -29,7 +31,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (contract.generatedDocxUrl) {
+  if (contract.generatedDocxUrl && !force) {
     return NextResponse.json({ error: "Hợp đồng đã được tạo trước đó" }, { status: 409 });
   }
 

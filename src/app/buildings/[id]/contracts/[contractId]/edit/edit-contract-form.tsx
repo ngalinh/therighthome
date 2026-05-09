@@ -518,6 +518,7 @@ export function EditContractForm({
           </CardContent>
         </Card>
 
+        {buildingType === "VP" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -564,6 +565,7 @@ export function EditContractForm({
             )}
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -1255,13 +1257,14 @@ function GeneratedContractCard({
     return () => { cancelled = true; };
   }, [docxUrl, contractId]);
 
-  async function generate() {
+  async function generate(force = false) {
     setGenerating(true);
-    const res = await fetch(`/api/contracts/${contractId}/generate-docx`, { method: "POST" });
+    const url = `/api/contracts/${contractId}/generate-docx${force ? "?force=1" : ""}`;
+    const res = await fetch(url, { method: "POST" });
     setGenerating(false);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) return toast.error(d.error || "Tạo HĐ thất bại", { duration: 8000 });
-    toast.success("Đã tạo hợp đồng");
+    toast.success(force ? "Đã tạo lại hợp đồng theo mẫu mới" : "Đã tạo hợp đồng");
     router.refresh();
   }
 
@@ -1299,7 +1302,7 @@ function GeneratedContractCard({
             <p className="text-xs text-slate-500">
               Bấm để tạo hợp đồng từ mẫu của toà nhà (hoặc mẫu mặc định) với toàn bộ thông tin hiện có.
             </p>
-            <Button variant="gradient" size="sm" onClick={generate} disabled={generating} className="w-full">
+            <Button variant="gradient" size="sm" onClick={() => generate(false)} disabled={generating} className="w-full">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               Tạo hợp đồng
             </Button>
@@ -1341,6 +1344,16 @@ function GeneratedContractCard({
             <p className="text-[11px] text-slate-500">
               Edit: tải về .docx để chỉnh sửa rồi upload lại bản đã ký ở khung &ldquo;File hợp đồng&rdquo;.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => generate(true)}
+              disabled={generating}
+              className="w-full"
+            >
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Tạo lại theo mẫu mới
+            </Button>
           </>
         )}
       </CardContent>
