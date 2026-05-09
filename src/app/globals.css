@@ -418,13 +418,22 @@
   .stat.accent .lbl-ico { background: rgba(255,255,255,.65); color: var(--accent-ink); }
 
   .stat.dark {
-    background: linear-gradient(140deg, #3a2820 0%, #4d3527 50%, #6b4226 100%);
-    border-color: #4d3527; color: #f5e8d2;
+    background: linear-gradient(140deg, #6b4226 0%, #855236 50%, #a07349 100%);
+    border-color: #855236; color: #f5e8d2;
   }
-  .stat.dark .stat-label { color: #d6b896; }
+  .stat.dark .stat-label { color: #e8d3b8; }
   .stat.dark .stat-value { color: #fff7e8; }
-  .stat.dark .stat-foot { color: #b8a78a; }
-  .stat.dark .lbl-ico { background: rgba(255,255,255,.1); color: #ffb78f; }
+  .stat.dark .stat-foot { color: #d4bfa3; }
+  .stat.dark .lbl-ico { background: rgba(255,255,255,.15); color: #ffd9b8; }
+
+  .stat.tan {
+    background: linear-gradient(135deg, #f4e7d0 0%, #e8d4b3 100%);
+    border-color: #dcc59a;
+  }
+  .stat.tan .stat-label,
+  .stat.tan .stat-value { color: #4d2f1e; }
+  .stat.tan .stat-foot { color: #6b4226; opacity: .82; }
+  .stat.tan .lbl-ico { background: rgba(255,255,255,.6); color: #6b4226; }
 
   .stat.sage {
     background: linear-gradient(135deg, #e3efd9 0%, #c9deba 100%);
@@ -443,8 +452,9 @@
     z-index: 0; font-style: italic;
   }
   .stat.accent .corner-mark { color: rgba(138,46,21,0.07); }
-  .stat.dark .corner-mark { color: rgba(255,255,255,0.04); }
+  .stat.dark .corner-mark { color: rgba(255,255,255,0.06); }
   .stat.sage .corner-mark { color: rgba(45,87,54,0.08); }
+  .stat.tan .corner-mark { color: rgba(77,47,30,0.07); }
 
   .spark {
     position: absolute; bottom: 18px; right: 18px;
