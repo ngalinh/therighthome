@@ -46,7 +46,8 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const expiryCutoff = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  const expiryWindowDays = building.type === "VP" ? 60 : 30;
+  const expiryCutoff = new Date(Date.now() + expiryWindowDays * 24 * 3600 * 1000);
   const [expiringContracts, monthInvoices, overdue, totalContracts, totalInvoices, totalTransactions] = await Promise.all([
     prisma.contract.count({
       where: {
@@ -110,7 +111,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
             icon={Clock}
             label="HĐ sắp hết hạn"
             value={String(expiringContracts)}
-            hint="Trong 30 ngày"
+            hint={`Trong ${expiryWindowDays} ngày`}
             variant="tan"
             className="rise-2"
           />
