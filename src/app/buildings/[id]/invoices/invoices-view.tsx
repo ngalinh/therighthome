@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -448,7 +449,7 @@ function PayDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Ngày thanh toán</Label>
-            <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+            <DateInput value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>Phương thức thanh toán</Label>

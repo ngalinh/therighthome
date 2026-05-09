@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -295,7 +296,7 @@ export function InvoiceDetail({
               )}
               <div className="space-y-1">
                 <Label className="text-xs">Hạn thanh toán</Label>
-                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={!canWrite} />
+                <DateInput value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={!canWrite} />
               </div>
             </div>
             <div className="space-y-1">

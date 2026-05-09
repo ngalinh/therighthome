@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -65,11 +66,11 @@ export function PnLFilter({
         <>
           <div className="space-y-1">
             <Label className="text-xs">Từ ngày</Label>
-            <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-[160px]" />
+            <DateInput value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-[160px]" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Đến ngày</Label>
-            <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-[160px]" />
+            <DateInput value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-[160px]" />
           </div>
           <Button size="sm" onClick={applyCustom} disabled={!customFrom || !customTo}>Áp dụng</Button>
         </>

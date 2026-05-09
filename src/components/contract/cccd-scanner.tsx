@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { Camera, Loader2, X, Check, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -152,7 +153,11 @@ function Field({
   return (
     <div className={`space-y-1 ${className ?? ""}`}>
       <Label className="text-xs">{label}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      {type === "date" ? (
+        <DateInput value={value} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      )}
     </div>
   );
 }
