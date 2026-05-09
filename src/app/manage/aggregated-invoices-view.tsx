@@ -418,13 +418,17 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
               {inv.sentAt && <Badge variant="secondary" className="text-[10px]">Đã gửi</Badge>}
             </div>
             <div className="text-xs text-slate-500 mb-1">{inv.building.name}</div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="font-medium">Phòng {inv.contract.room.number}</span>
-              <span className="text-slate-700">{name}</span>
-              <span className="text-slate-500">Hạn: {formatDateVN(inv.dueDate)}</span>
-              <span className="font-semibold text-emerald-700">{formatVND(BigInt(inv.totalAmount))}</span>
+            <div className="text-sm space-y-0.5">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="font-medium">Phòng {inv.contract.room.number}</span>
+                <span className="text-slate-700 break-words">{name}</span>
+              </div>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className="text-slate-500">Hạn: {formatDateVN(inv.dueDate)}</span>
+                <span className="font-semibold text-emerald-700">{formatVND(BigInt(inv.totalAmount))}</span>
+              </div>
               {remaining > 0n && (
-                <span className="text-rose-600 text-xs">Còn {formatVND(remaining)}</span>
+                <div className="text-rose-600 text-xs">Còn {formatVND(remaining)}</div>
               )}
             </div>
           </div>
