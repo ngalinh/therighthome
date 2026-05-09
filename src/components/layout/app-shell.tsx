@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 import {
   Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X,
   ChevronRight, ChevronDown, ClipboardList, KeyRound, Search, Calendar,
-  Bell, Moon, Sparkles,
+  Bell, Moon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -96,7 +96,6 @@ export function AppShell({
           />
           <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
         </nav>
-        <PromoCard />
         <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
       </aside>
 
@@ -479,44 +478,6 @@ function BuildingsNavGroup({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function PromoCard() {
-  return (
-    <div
-      className="relative overflow-hidden mx-3.5 mt-3.5 mb-2 p-3.5 rounded-[14px] flex gap-2.5 items-start"
-      style={{
-        background: "linear-gradient(135deg, var(--accent-tint) 0%, var(--sun-soft) 100%)",
-        border: "1px solid var(--accent-soft)",
-      }}
-    >
-      <span
-        className="absolute -top-5 -right-5 w-14 h-14 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(255,255,255,.6), transparent 70%)" }}
-        aria-hidden
-      />
-      <div
-        className="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white shrink-0 animate-float"
-        style={{
-          background: "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
-          boxShadow: "0 4px 12px -4px rgba(201, 100, 66, .55)",
-        }}
-      >
-        <Sparkles className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[12px] font-bold tracking-wide" style={{ color: "var(--accent-ink)" }}>
-          Mẹo hôm nay
-        </div>
-        <div
-          className="text-[11.5px] leading-snug mt-0.5"
-          style={{ color: "var(--accent-ink)", opacity: 0.78 }}
-        >
-          Thiết lập nhắc nhở tự động cho hoá đơn quá hạn.
-        </div>
-      </div>
     </div>
   );
 }
