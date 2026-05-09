@@ -229,7 +229,7 @@ export function AggregatedInvoicesView({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} variant="dark" />
+        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} />
         <GradStat label="Đã thu" value={formatVND(totalPaid)} variant="sage" />
         <GradStat label="Còn lại" value={formatVND(totalDue - totalPaid)} variant="accent" />
         <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} variant="dark" />
