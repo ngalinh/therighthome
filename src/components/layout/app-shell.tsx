@@ -256,7 +256,7 @@ function BrandHeader() {
       className="flex items-center gap-3 px-5 pt-[22px] pb-[18px] group"
     >
       <div
-        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-serif text-2xl shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
+        className="h-10 w-10 rounded-full flex items-center justify-center text-white font-serif text-2xl shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
         style={{
           background: "linear-gradient(135deg, var(--accent-coral) 0%, #f59072 100%)",
           boxShadow: "0 6px 18px -6px rgba(238, 90, 54, .55), inset 0 1px 0 rgba(255,255,255,.3)",
