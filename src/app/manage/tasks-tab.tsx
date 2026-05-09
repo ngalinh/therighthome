@@ -151,7 +151,7 @@ function TaskCard({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => 
   return (
     <Card>
       <CardContent className="p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="font-medium text-sm truncate">{task.taskName}</div>
             <div className="text-xs text-slate-500 mt-0.5">
@@ -159,7 +159,9 @@ function TaskCard({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => 
               {task.room ? ` · Phòng ${task.room.number}` : ""}
             </div>
           </div>
-          <StatusBadge status={task.status} />
+          <div className="shrink-0">
+            <StatusBadge status={task.status} />
+          </div>
         </div>
         {task.party && <div className="text-xs text-slate-600">Đối tượng: {task.party.name}</div>}
         {task.notes && <div className="text-xs text-slate-500 line-clamp-2">{task.notes}</div>}
@@ -191,9 +193,9 @@ function TaskRow({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => v
 
 function StatusBadge({ status }: { status: "PENDING" | "DONE" }) {
   return status === "DONE" ? (
-    <Badge variant="success" className="text-[10px]">Hoàn thành</Badge>
+    <Badge variant="success" className="text-[10px] whitespace-nowrap">Hoàn thành</Badge>
   ) : (
-    <Badge variant="warning" className="text-[10px]">Chờ xử lý</Badge>
+    <Badge variant="warning" className="text-[10px] whitespace-nowrap">Chờ xử lý</Badge>
   );
 }
 

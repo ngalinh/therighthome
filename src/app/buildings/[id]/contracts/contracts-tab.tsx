@@ -100,8 +100,11 @@ export function ContractsTab({
               href={`/buildings/${buildingId}/contracts/${c.id}/edit`}
               className="flex overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow"
             >
-              {/* Gradient left bar */}
-              <div className={`w-1 shrink-0 ${isActive ? "bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500" : "bg-slate-200"}`} />
+              {/* Brand left bar */}
+              <div
+                className="w-1 shrink-0"
+                style={{ background: isActive ? "var(--accent-coral)" : "var(--line, #e5e7eb)" }}
+              />
               <div className="flex-1 min-w-0 p-4">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <span className="text-xs font-mono font-semibold text-slate-500 tracking-wide">{c.code}</span>

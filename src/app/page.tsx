@@ -8,7 +8,7 @@ import {
   Receipt, Briefcase, Clock, Check, Download,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND } from "@/lib/utils";
+import { formatVND, formatVNDCompact } from "@/lib/utils";
 
 const VI_MONTHS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
 
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
               <StatCard
                 icon={Wallet}
                 label={`Đã thu T${month}`}
-                value={formatVND(totalPaid).replace(" ₫", "")}
+                value={formatVNDCompact(totalPaid).replace(" ₫", "")}
                 valueSuffix="₫"
                 foot={`còn ${formatVND(remaining)}`}
                 spark={[0, 0, 0, 0, 1, 2, 3, 4]}
