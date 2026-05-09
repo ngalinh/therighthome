@@ -289,8 +289,10 @@ function GradStat({ label, value, variant }: {
   label: string; value: string; variant?: "accent" | "dark" | "sage" | "tan";
 }) {
   return (
-    <div className={`stat ${variant ?? ""}`}>
-      <div className="stat-label">{label}</div>
+    <div
+      className={`stat ${variant ?? ""} flex flex-col items-center justify-center text-center min-h-[110px]`}
+    >
+      <div className="stat-label justify-center">{label}</div>
       <div className="stat-value text-xl">{value}</div>
     </div>
   );
