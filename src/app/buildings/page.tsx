@@ -154,7 +154,7 @@ export default async function BuildingsPage() {
 
 function Item({ label, value }: { label: string; value: number }) {
   return (
-    <div>
+    <div className="flex flex-col justify-end">
       <div className="item-label">{label}</div>
       <div className="item-val">{value}</div>
     </div>

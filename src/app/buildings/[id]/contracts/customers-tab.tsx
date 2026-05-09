@@ -164,8 +164,8 @@ function CustomerCardMobile({ customer, canWrite }: { customer: Customer; canWri
               {name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <span className="font-medium">{name}</span>
+              <div className="font-medium mb-1 break-words">{name}</div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
                 <Badge variant="outline" className="text-[10px]">
                   {customer.type === "COMPANY" ? "Công ty" : "Cá nhân"}
                 </Badge>

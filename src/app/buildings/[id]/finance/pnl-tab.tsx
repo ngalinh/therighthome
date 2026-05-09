@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND } from "@/lib/utils";
+import { formatVND, formatVNDCompact } from "@/lib/utils";
 import { PnLFilter } from "./pnl-filter";
 
 /**
@@ -155,22 +155,29 @@ export async function PnLTab({
 
       <div className="grid grid-cols-3 gap-3">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 lg:p-4">
             <div className="text-xs text-slate-500">Tổng thu (BCKD)</div>
-            <div className="text-xl font-bold text-emerald-600 mt-1">{formatVND(grandIn)}</div>
+            <div className="text-base lg:text-xl font-bold text-emerald-600 mt-1 break-words">
+              <span className="lg:hidden">{formatVNDCompact(grandIn)}</span>
+              <span className="hidden lg:inline">{formatVND(grandIn)}</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 lg:p-4">
             <div className="text-xs text-slate-500">Tổng chi (BCKD)</div>
-            <div className="text-xl font-bold text-rose-600 mt-1">{formatVND(grandOut)}</div>
+            <div className="text-base lg:text-xl font-bold text-rose-600 mt-1 break-words">
+              <span className="lg:hidden">{formatVNDCompact(grandOut)}</span>
+              <span className="hidden lg:inline">{formatVND(grandOut)}</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 lg:p-4">
             <div className="text-xs text-slate-500">Lợi nhuận</div>
-            <div className={`text-xl font-bold mt-1 ${grandProfit >= 0n ? "text-emerald-600" : "text-rose-600"}`}>
-              {formatVND(grandProfit)}
+            <div className={`text-base lg:text-xl font-bold mt-1 break-words ${grandProfit >= 0n ? "text-emerald-600" : "text-rose-600"}`}>
+              <span className="lg:hidden">{formatVNDCompact(grandProfit)}</span>
+              <span className="hidden lg:inline">{formatVND(grandProfit)}</span>
             </div>
           </CardContent>
         </Card>

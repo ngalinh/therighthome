@@ -11,6 +11,15 @@ export function formatVND(amount: bigint | number | null | undefined): string {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(n);
 }
 
+// Compact VND for tight stat cards: 4.000.000 → "4.000k ₫", 1.234 → "1.234 ₫".
+export function formatVNDCompact(amount: bigint | number | null | undefined): string {
+  if (amount === null || amount === undefined) return "0 ₫";
+  const n = typeof amount === "bigint" ? Number(amount) : amount;
+  if (Math.abs(n) < 1000) return formatVND(n);
+  const k = Math.round(n / 1000);
+  return `${new Intl.NumberFormat("vi-VN").format(k)}k ₫`;
+}
+
 export function formatNumber(n: bigint | number | null | undefined): string {
   if (n === null || n === undefined) return "0";
   const v = typeof n === "bigint" ? Number(n) : n;
