@@ -5,7 +5,7 @@ import { can, getBuildingPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp, Wallet, Settings as SettingsIcon,
+  MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp, Wallet, Clock, Settings as SettingsIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, compareRooms } from "@/lib/utils";
@@ -46,8 +46,16 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const [activeContracts, monthInvoices, overdue, totalContracts, totalInvoices, totalTransactions] = await Promise.all([
-    prisma.contract.count({ where: { buildingId: id, status: "ACTIVE" } }),
+  const expiryCutoff = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  const [expiringContracts, monthInvoices, overdue, totalContracts, totalInvoices, totalTransactions] = await Promise.all([
+    prisma.contract.count({
+      where: {
+        buildingId: id,
+        status: "ACTIVE",
+        isOpenEnded: false,
+        endDate: { lte: expiryCutoff },
+      },
+    }),
     prisma.invoice.findMany({
       where: { buildingId: id, month, year },
       select: { totalAmount: true, paidAmount: true, status: true },
@@ -99,10 +107,11 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 lg:gap-5">
           <MiniStat icon={DoorOpen} label="Phòng" value={`${occupied}/${totalRooms}`} hint="Đang thuê" className="rise-1" />
           <MiniStat
-            icon={FileText}
-            label="HĐ hoạt động"
-            value={String(activeContracts)}
-            iconClass="bg-sage-soft text-sage-ink"
+            icon={Clock}
+            label="HĐ sắp hết hạn"
+            value={String(expiringContracts)}
+            hint="Trong 30 ngày"
+            variant="tan"
             className="rise-2"
           />
           <MiniStat
@@ -217,7 +226,7 @@ function MiniStat({
   value: string;
   valueSuffix?: string;
   hint?: string;
-  variant?: "accent" | "dark" | "sage";
+  variant?: "accent" | "dark" | "sage" | "tan";
   iconClass?: string;
   className?: string;
 }) {
