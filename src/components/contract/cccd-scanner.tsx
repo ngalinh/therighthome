@@ -4,6 +4,7 @@ import { Camera, Loader2, X, Check, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 export type CCCDData = {
@@ -76,7 +77,7 @@ export function CCCDScanner({
         <Field label="Họ và tên" value={data.fullName ?? ""} onChange={(v) => update("fullName", v)} />
         <Field label="Số CCCD" value={data.idNumber ?? ""} onChange={(v) => update("idNumber", v)} />
         <Field label="Ngày sinh" type="date" value={data.dateOfBirth ?? ""} onChange={(v) => update("dateOfBirth", v)} />
-        <Field label="Giới tính" value={data.gender ?? ""} onChange={(v) => update("gender", v)} />
+        <GenderField value={data.gender ?? ""} onChange={(v) => update("gender", v)} />
         <Field label="Ngày cấp" type="date" value={data.idIssuedDate ?? ""} onChange={(v) => update("idIssuedDate", v)} />
         <Field label="Quê quán" value={data.hometown ?? ""} onChange={(v) => update("hometown", v)} className="sm:col-span-2" />
         <Field label="Nơi thường trú" value={data.permanentAddress ?? ""} onChange={(v) => update("permanentAddress", v)} className="sm:col-span-2" />
@@ -152,6 +153,34 @@ function Field({
     <div className={`space-y-1 ${className ?? ""}`}>
       <Label className="text-xs">{label}</Label>
       <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function GenderField({
+  value, onChange, className,
+}: {
+  value: string; onChange: (v: string) => void; className?: string;
+}) {
+  // Treat OCR variants ('Nam', 'Nữ', 'Male', 'Female', 'M', 'F') as the two known options.
+  const normalised = (() => {
+    const v = value.trim().toLowerCase();
+    if (!v) return "";
+    if (v === "nữ" || v === "nu" || v === "female" || v === "f") return "Nữ";
+    return "Nam";
+  })();
+  return (
+    <div className={`space-y-1 ${className ?? ""}`}>
+      <Label className="text-xs">Giới tính</Label>
+      <Select value={normalised} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Chọn..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Nam">Nam</SelectItem>
+          <SelectItem value="Nữ">Nữ</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

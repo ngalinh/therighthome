@@ -13,10 +13,8 @@ import { cn } from "@/lib/utils";
 type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string; badge?: string };
 type NavGroup = { label: string; icon: typeof Home; basePath: string; children: NavItem[] };
 
-const TOP_NAV: NavItem[] = [
-  { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" },
-  { href: "/buildings", label: "Toà nhà", icon: Building2 },
-];
+const DASHBOARD_NAV: NavItem = { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" };
+const BUILDINGS_NAV: NavItem = { href: "/buildings", label: "Toà nhà", icon: Building2 };
 
 const MANAGE_GROUP: NavGroup = {
   label: "Quản lý",
@@ -71,16 +69,7 @@ export function AppShell({
         <BrandHeader />
         <NavSection>Chính</NavSection>
         <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto scrollbar-thin">
-          {TOP_NAV.map((it) => (
-            <NavItemRow key={it.href} {...it} active={isActive(it.href)} />
-          ))}
-          {insideBuilding && (
-            <BuildingSubNav
-              building={insideBuilding}
-              items={buildingItems}
-              isActive={isActive}
-            />
-          )}
+          <NavItemRow {...DASHBOARD_NAV} active={isActive(DASHBOARD_NAV.href)} />
           <NavGroupItem
             group={MANAGE_GROUP}
             active={isManageActive}
@@ -88,6 +77,14 @@ export function AppShell({
             onToggle={() => setManageExpanded((v) => !v)}
             isActive={isActive}
           />
+          <NavItemRow {...BUILDINGS_NAV} active={isActive(BUILDINGS_NAV.href)} />
+          {insideBuilding && (
+            <BuildingSubNav
+              building={insideBuilding}
+              items={buildingItems}
+              isActive={isActive}
+            />
+          )}
           <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
         </nav>
         <PromoCard />
@@ -138,17 +135,7 @@ export function AppShell({
             </div>
             <NavSection>Chính</NavSection>
             <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto">
-              {TOP_NAV.map((it) => (
-                <NavItemRow key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
-              ))}
-              {insideBuilding && (
-                <BuildingSubNav
-                  building={insideBuilding}
-                  items={buildingItems}
-                  isActive={isActive}
-                  onChildClick={() => setMobileOpen(false)}
-                />
-              )}
+              <NavItemRow {...DASHBOARD_NAV} active={isActive(DASHBOARD_NAV.href)} onClick={() => setMobileOpen(false)} />
               <NavGroupItem
                 group={MANAGE_GROUP}
                 active={isManageActive}
@@ -157,6 +144,15 @@ export function AppShell({
                 isActive={isActive}
                 onChildClick={() => setMobileOpen(false)}
               />
+              <NavItemRow {...BUILDINGS_NAV} active={isActive(BUILDINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
+              {insideBuilding && (
+                <BuildingSubNav
+                  building={insideBuilding}
+                  items={buildingItems}
+                  isActive={isActive}
+                  onChildClick={() => setMobileOpen(false)}
+                />
+              )}
               <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
             </nav>
             <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
@@ -213,8 +209,9 @@ export function AppShell({
         >
           <div className="grid grid-cols-4">
             {[
-              ...TOP_NAV,
+              DASHBOARD_NAV,
               { href: MANAGE_GROUP.children[0].href, label: MANAGE_GROUP.label, icon: MANAGE_GROUP.icon, activePrefix: MANAGE_GROUP.basePath },
+              BUILDINGS_NAV,
               SETTINGS_NAV,
             ].map((it) => {
               const Icon = it.icon;

@@ -5,7 +5,7 @@ import { listAccessibleBuildings } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   Building2, FileText, AlertCircle, Plus, Wallet, ArrowUp, ArrowRight,
-  Receipt, Briefcase, Send, Users, Clock, Check, Download, Sparkles,
+  Receipt, Briefcase, Clock, Check, Download,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND } from "@/lib/utils";
@@ -188,18 +188,18 @@ export default async function DashboardPage() {
                 className="rise-3"
               />
               <QuickAction
-                href={buildings[0] ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE` : "/buildings"}
-                icon={Send}
-                title="Gửi nhắc nhở"
-                sub="Email · SMS"
+                href="/manage/vp?tab=contracts"
+                icon={Clock}
+                title="HĐ sắp hết hạn VP"
+                sub="Trong 60 ngày"
                 iconClass="sun"
                 className="rise-4"
               />
               <QuickAction
-                href={buildings[0] ? `/buildings/${buildings[0].id}/contracts/new` : "/buildings"}
-                icon={Users}
-                title="Khách thuê mới"
-                sub="Tạo hợp đồng"
+                href="/manage/chdv?tab=contracts"
+                icon={Clock}
+                title="HĐ sắp hết hạn CHDV"
+                sub="Trong 30 ngày"
                 iconClass="plum"
                 className="rise-4"
               />
