@@ -13,7 +13,7 @@ const STORAGE_PATH = process.env.STORAGE_PATH || path.join(process.cwd(), "stora
  * Render a contract DOCX from an uploaded template.
  * Template uses {placeholders} like {ten_khach}, {gia_thue}, etc.
  */
-export async function renderContractDocx(templateRelUrl: string, data: Record<string, string | number>): Promise<string> {
+export async function renderContractDocx(templateRelUrl: string, data: Record<string, string | number | boolean>): Promise<string> {
   // templateRelUrl is like /api/files/templates/xxx.docx
   const m = templateRelUrl.match(/\/api\/files\/(templates)\/(.+)$/);
   if (!m) throw new Error("Invalid template URL");
