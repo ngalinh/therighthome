@@ -427,13 +427,13 @@
   .stat.dark .lbl-ico { background: rgba(255,255,255,.15); color: #ffd9b8; }
 
   .stat.tan {
-    background: linear-gradient(135deg, #f4e7d0 0%, #e8d4b3 100%);
-    border-color: #dcc59a;
+    background: linear-gradient(135deg, #fbf3e3 0%, #f4e7d0 100%);
+    border-color: #ecd9b5;
   }
   .stat.tan .stat-label,
   .stat.tan .stat-value { color: #4d2f1e; }
   .stat.tan .stat-foot { color: #6b4226; opacity: .82; }
-  .stat.tan .lbl-ico { background: rgba(255,255,255,.6); color: #6b4226; }
+  .stat.tan .lbl-ico { background: rgba(255,255,255,.7); color: #6b4226; }
 
   .stat.sage {
     background: linear-gradient(135deg, #e3efd9 0%, #c9deba 100%);
