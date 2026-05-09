@@ -3,12 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X, ChevronRight, ChevronDown, ClipboardList, KeyRound,
+  Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X,
+  ChevronRight, ChevronDown, ClipboardList, KeyRound, Search, Calendar,
+  Bell, Moon, Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string };
+type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string; badge?: string };
 type NavGroup = { label: string; icon: typeof Home; basePath: string; children: NavItem[] };
 
 const TOP_NAV: NavItem[] = [
@@ -27,6 +29,8 @@ const MANAGE_GROUP: NavGroup = {
 };
 
 const SETTINGS_NAV: NavItem = { href: "/settings", label: "Cài đặt chung", icon: Settings };
+
+const VI_MONTHS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
 
 export function AppShell({
   children,
@@ -49,7 +53,7 @@ export function AppShell({
   const insideBuilding = buildingNav;
   const buildingItems: NavItem[] = insideBuilding
     ? [
-        { href: `/buildings/${insideBuilding.buildingId}`, label: "Tổng quan toà", icon: Home },
+        { href: `/buildings/${insideBuilding.buildingId}`, label: "Sơ đồ phòng", icon: KeyRound },
         { href: `/buildings/${insideBuilding.buildingId}/contracts`, label: "Hợp đồng", icon: FileText },
         { href: `/buildings/${insideBuilding.buildingId}/invoices`, label: "Hoá đơn", icon: Receipt },
         { href: `/buildings/${insideBuilding.buildingId}/finance`, label: "Tài chính", icon: Wallet },
@@ -57,19 +61,26 @@ export function AppShell({
       ]
     : [];
 
-  const isChdv = insideBuilding?.type === "CHDV";
-  const buildingGradient = isChdv ? "bg-gradient-chdv" : "bg-gradient-vp";
-
   return (
     <div className="min-h-dvh">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-white border-r border-slate-100 z-30 shadow-[1px_0_0_0_rgba(0,0,0,0.04)]">
+      <aside
+        className="hidden lg:flex fixed inset-y-0 left-0 w-[248px] flex-col z-30"
+        style={{ background: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" }}
+      >
         <BrandHeader />
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <SectionLabel>Chính</SectionLabel>
+        <NavSection>Chính</NavSection>
+        <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto scrollbar-thin">
           {TOP_NAV.map((it) => (
-            <NavLink key={it.href} {...it} active={isActive(it.href)} />
+            <NavItemRow key={it.href} {...it} active={isActive(it.href)} />
           ))}
+          {insideBuilding && (
+            <BuildingSubNav
+              building={insideBuilding}
+              items={buildingItems}
+              isActive={isActive}
+            />
+          )}
           <NavGroupItem
             group={MANAGE_GROUP}
             active={isManageActive}
@@ -77,34 +88,29 @@ export function AppShell({
             onToggle={() => setManageExpanded((v) => !v)}
             isActive={isActive}
           />
-          <NavLink {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
-          {insideBuilding && (
-            <>
-              <div className={cn(
-                "mt-5 mb-1 rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm",
-                buildingGradient,
-              )}>
-                <Building2 className="h-4 w-4 text-white shrink-0" />
-                <span className="text-white text-sm font-semibold truncate flex-1">
-                  {insideBuilding.buildingName}
-                </span>
-              </div>
-              {buildingItems.map((it) => (
-                <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} />
-              ))}
-            </>
-          )}
+          <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
         </nav>
+        <PromoCard />
         <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
       </aside>
 
       {/* Mobile top bar */}
-      <header className="lg:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/60">
+      <header
+        className="lg:hidden sticky top-0 z-30 backdrop-blur-md"
+        style={{ background: "rgba(253,250,243,0.85)", borderBottom: "1px solid var(--line)" }}
+      >
         <div className="flex items-center justify-between px-4 h-14">
-          <button className="p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors" onClick={() => setMobileOpen(true)} aria-label="Menu">
-            <Menu className="h-5 w-5 text-slate-700" />
+          <button
+            className="p-2 -ml-2 rounded-xl transition-colors hover:bg-cream-2"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Menu"
+            style={{ color: "var(--text-2)" }}
+          >
+            <Menu className="h-5 w-5" />
           </button>
-          <Link href="/" className="font-bold gradient-text text-lg tracking-tight">The Right Home</Link>
+          <Link href="/" className="font-serif text-xl tracking-tight" style={{ color: "var(--text)" }}>
+            The Right Home
+          </Link>
           <div className="w-9" />
         </div>
       </header>
@@ -112,25 +118,37 @@ export function AppShell({
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <Link href="/" onClick={() => setMobileOpen(false)}>
-                <span className="font-bold gradient-text text-lg">The Right Home</span>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside
+            className="absolute inset-y-0 left-0 w-[280px] shadow-design-lg flex flex-col"
+            style={{ background: "var(--sidebar)" }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
+              <Link href="/" onClick={() => setMobileOpen(false)} className="font-serif text-xl">
+                The Right Home
               </Link>
               <button
                 onClick={() => setMobileOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg transition-colors hover:bg-sidebar-hover"
                 aria-label="Close"
+                style={{ color: "var(--text-on-sidebar-2)" }}
               >
-                <X className="h-5 w-5 text-slate-600" />
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-              <SectionLabel>Chính</SectionLabel>
+            <NavSection>Chính</NavSection>
+            <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto">
               {TOP_NAV.map((it) => (
-                <NavLink key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
+                <NavItemRow key={it.href} {...it} active={isActive(it.href)} onClick={() => setMobileOpen(false)} />
               ))}
+              {insideBuilding && (
+                <BuildingSubNav
+                  building={insideBuilding}
+                  items={buildingItems}
+                  isActive={isActive}
+                  onChildClick={() => setMobileOpen(false)}
+                />
+              )}
               <NavGroupItem
                 group={MANAGE_GROUP}
                 active={isManageActive}
@@ -139,23 +157,7 @@ export function AppShell({
                 isActive={isActive}
                 onChildClick={() => setMobileOpen(false)}
               />
-              <NavLink {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
-              {insideBuilding && (
-                <>
-                  <div className={cn(
-                    "mt-5 mb-1 rounded-xl px-3 py-2.5 flex items-center gap-2 shadow-sm",
-                    buildingGradient,
-                  )}>
-                    <Building2 className="h-4 w-4 text-white shrink-0" />
-                    <span className="text-white text-sm font-semibold truncate flex-1">
-                      {insideBuilding.buildingName}
-                    </span>
-                  </div>
-                  {buildingItems.map((it) => (
-                    <NavLink key={it.href} {...it} active={isActive(it.href)} buildingType={insideBuilding.type} onClick={() => setMobileOpen(false)} />
-                  ))}
-                </>
-              )}
+              <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
             </nav>
             <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
           </aside>
@@ -163,11 +165,18 @@ export function AppShell({
       )}
 
       {/* Content */}
-      <main className="lg:ml-64 pb-28 lg:pb-8">{children}</main>
+      <main className="lg:ml-[248px] pb-28 lg:pb-8">
+        {/* Desktop topbar */}
+        <DesktopTopbar />
+        <div className="page-anim">{children}</div>
+      </main>
 
       {/* Mobile bottom nav (when inside a building) */}
       {insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+        <nav
+          className="lg:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-md pb-[max(env(safe-area-inset-bottom),0.5rem)]"
+          style={{ background: "rgba(253,250,243,0.92)", borderTop: "1px solid var(--line)" }}
+        >
           <div className="grid grid-cols-5">
             {buildingItems.map((it) => {
               const Icon = it.icon;
@@ -176,18 +185,19 @@ export function AppShell({
                 <Link
                   key={it.href}
                   href={it.href}
-                  className={cn(
-                    "flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors",
-                    active ? "text-primary" : "text-slate-400",
-                  )}
+                  className="flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors"
+                  style={{ color: active ? "var(--accent-coral)" : "var(--text-3)" }}
                 >
-                  <div className={cn(
-                    "h-6 w-6 rounded-lg flex items-center justify-center mb-0.5 transition-all",
-                    active ? (isChdv ? "bg-gradient-chdv text-white shadow-sm" : "bg-gradient-vp text-white shadow-sm") : "",
-                  )}>
+                  <div
+                    className={cn(
+                      "h-7 w-7 rounded-xl flex items-center justify-center mb-0.5 transition-all",
+                      active && "shadow-design-pop",
+                    )}
+                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)", color: "#fff" } : {}}
+                  >
                     <Icon className="h-4 w-4" />
                   </div>
-                  <span className="leading-tight">{it.label.replace("Tổng quan toà", "Tổng quan")}</span>
+                  <span className="leading-tight">{it.label}</span>
                 </Link>
               );
             })}
@@ -197,7 +207,10 @@ export function AppShell({
 
       {/* Mobile bottom nav (top level) */}
       {!insideBuilding && (
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/60 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+        <nav
+          className="lg:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-md pb-[max(env(safe-area-inset-bottom),0.5rem)]"
+          style={{ background: "rgba(253,250,243,0.92)", borderTop: "1px solid var(--line)" }}
+        >
           <div className="grid grid-cols-4">
             {[
               ...TOP_NAV,
@@ -212,15 +225,16 @@ export function AppShell({
                 <Link
                   key={it.label}
                   href={it.href}
-                  className={cn(
-                    "flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors",
-                    active ? "text-primary" : "text-slate-400",
-                  )}
+                  className="flex flex-col items-center gap-0.5 py-3 text-[11px] font-medium transition-colors"
+                  style={{ color: active ? "var(--accent-coral)" : "var(--text-3)" }}
                 >
-                  <div className={cn(
-                    "h-6 w-6 rounded-lg flex items-center justify-center mb-0.5 transition-all",
-                    active ? "bg-gradient-brand text-white shadow-sm" : "",
-                  )}>
+                  <div
+                    className={cn(
+                      "h-7 w-7 rounded-xl flex items-center justify-center mb-0.5 transition-all",
+                      active && "shadow-design-pop",
+                    )}
+                    style={active ? { background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)", color: "#fff" } : {}}
+                  >
                     <Icon className="h-4 w-4" />
                   </div>
                   <span className="leading-tight">{it.label}</span>
@@ -234,27 +248,92 @@ export function AppShell({
   );
 }
 
+/* ── Brand header (sidebar top) ── */
 function BrandHeader() {
   return (
-    <div className="px-5 py-5 border-b border-slate-100">
-      <Link href="/" className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-md">
-          <KeyRound className="h-5 w-5 text-white" />
+    <Link
+      href="/"
+      className="flex items-center gap-3 px-5 pt-[22px] pb-[18px] group"
+    >
+      <div
+        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-serif text-2xl shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
+        style={{
+          background: "linear-gradient(135deg, var(--accent-coral) 0%, #f59072 100%)",
+          boxShadow: "0 6px 18px -6px rgba(238, 90, 54, .55), inset 0 1px 0 rgba(255,255,255,.3)",
+        }}
+      >
+        R
+      </div>
+      <div className="min-w-0 flex-1">
+        <div
+          className="font-serif text-[22px] leading-[1.05] tracking-tight truncate"
+          style={{ color: "var(--brand-text)" }}
+        >
+          The Right Home
         </div>
-        <div className="flex flex-col leading-tight">
-          <span className="font-bold gradient-text text-base">The Right Home</span>
-          <span className="text-[11px] text-slate-400">Quản lý CHDV & VP</span>
+        <div
+          className="text-[10px] font-medium uppercase tracking-[0.12em] mt-1 truncate"
+          style={{ color: "var(--text-on-sidebar-2)" }}
+        >
+          Quản lý CHDV & VP
         </div>
-      </Link>
+      </div>
+    </Link>
+  );
+}
+
+function NavSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="px-4 pt-[18px] pb-2 text-[10px] font-semibold uppercase tracking-[0.2em]"
+      style={{ color: "var(--text-on-sidebar-2)" }}
+    >
+      {children}
     </div>
   );
 }
 
-function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+function NavItemRow({
+  href, label, icon: Icon, active, onClick, badge,
+}: NavItem & { active: boolean; onClick?: () => void }) {
   return (
-    <div className={cn("text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-3 mt-2 mb-1", className)}>
-      {children}
-    </div>
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-medium transition-all whitespace-nowrap",
+        active && "shadow-design-pop",
+      )}
+      style={
+        active
+          ? {
+              background: "linear-gradient(135deg, var(--accent-coral) 0%, #f37b58 100%)",
+              color: "#fff",
+            }
+          : { color: "var(--text-on-sidebar)" }
+      }
+    >
+      {active && (
+        <span
+          className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-[22px] rounded-r"
+          style={{ background: "var(--accent-coral)" }}
+        />
+      )}
+      <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform", active && "scale-105")} />
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span
+          className="text-[11px] font-semibold px-2 py-px rounded-[10px] tabular-nums"
+          style={
+            active
+              ? { background: "rgba(255,255,255,0.25)", color: "#fff" }
+              : { background: "rgba(0,0,0,0.06)", color: "var(--text-on-sidebar)" }
+          }
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -276,23 +355,29 @@ function NavGroupItem({
         type="button"
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-          active ? "bg-gradient-brand/10 text-primary" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+          "w-full relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-medium transition-all",
         )}
+        style={
+          active
+            ? { background: "var(--sidebar-hover)", color: "var(--accent-ink)" }
+            : { color: "var(--text-on-sidebar)" }
+        }
       >
-        <Icon className={cn("h-4.5 w-4.5", active ? "text-primary" : "text-slate-400")} />
-        <span className="flex-1 text-left">{group.label}</span>
-        {open ? <ChevronDown className="h-3.5 w-3.5 opacity-60" /> : <ChevronRight className="h-3.5 w-3.5 opacity-50" />}
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 text-left truncate">{group.label}</span>
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+        )}
       </button>
       {open && (
-        <div className="mt-0.5 ml-3 pl-3 border-l border-slate-100 space-y-0.5">
+        <div
+          className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
+          style={{ borderLeft: "1px solid var(--sidebar-border)" }}
+        >
           {group.children.map((c) => (
-            <NavLink
-              key={c.href}
-              {...c}
-              active={isActive(c.href)}
-              onClick={onChildClick}
-            />
+            <NavItemRow key={c.href} {...c} active={isActive(c.href)} onClick={onChildClick} />
           ))}
         </div>
       )}
@@ -300,45 +385,191 @@ function NavGroupItem({
   );
 }
 
-function NavLink({
-  href, label, icon: Icon, active, buildingType, onClick,
-}: NavItem & { active: boolean; buildingType?: "CHDV" | "VP"; onClick?: () => void }) {
-  const activeGradient = buildingType === "VP"
-    ? "bg-gradient-vp/10 text-teal-700"
-    : "bg-gradient-brand/10 text-primary";
-  const activeIcon = buildingType === "VP" ? "text-teal-600" : "text-primary";
-
+function BuildingSubNav({
+  building, items, isActive, onChildClick,
+}: {
+  building: { buildingId: string; buildingName: string; type: "CHDV" | "VP" };
+  items: NavItem[];
+  isActive: (href: string) => boolean;
+  onChildClick?: () => void;
+}) {
   return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-        active ? activeGradient : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-      )}
+    <div className="mt-1">
+      <Link
+        href={`/buildings/${building.buildingId}`}
+        onClick={onChildClick}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-semibold transition-all"
+        style={{
+          background: "var(--sidebar-hover)",
+          color: "var(--brand-text)",
+        }}
+      >
+        <Home className="h-[18px] w-[18px] shrink-0" style={{ color: "var(--accent-coral)" }} />
+        <span className="flex-1 truncate">{building.buildingName}</span>
+      </Link>
+      <div
+        className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
+        style={{ borderLeft: "1px solid var(--sidebar-border)" }}
+      >
+        {items.map((it) => (
+          <Link
+            key={it.href}
+            href={it.href}
+            onClick={onChildClick}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-medium transition-all"
+            style={
+              isActive(it.href)
+                ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
+                : { color: "var(--text-on-sidebar)" }
+            }
+          >
+            <it.icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{it.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PromoCard() {
+  return (
+    <div
+      className="relative overflow-hidden mx-3.5 mt-3.5 mb-2 p-3.5 rounded-[14px] flex gap-2.5 items-start"
+      style={{
+        background: "linear-gradient(135deg, var(--accent-tint) 0%, var(--sun-soft) 100%)",
+        border: "1px solid var(--accent-soft)",
+      }}
     >
-      <Icon className={cn("h-4.5 w-4.5", active ? activeIcon : "text-slate-400")} />
-      <span className="flex-1">{label}</span>
-      {active && <ChevronRight className="h-3.5 w-3.5 opacity-50" />}
-    </Link>
+      <span
+        className="absolute -top-5 -right-5 w-14 h-14 rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(255,255,255,.6), transparent 70%)" }}
+        aria-hidden
+      />
+      <div
+        className="w-[30px] h-[30px] rounded-[9px] grid place-items-center text-white shrink-0 animate-float"
+        style={{
+          background: "linear-gradient(135deg, var(--accent-coral), #f37b58)",
+          boxShadow: "0 4px 12px -4px rgba(238, 90, 54, .55)",
+        }}
+      >
+        <Sparkles className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[12px] font-bold tracking-wide" style={{ color: "var(--accent-ink)" }}>
+          Mẹo hôm nay
+        </div>
+        <div
+          className="text-[11.5px] leading-snug mt-0.5"
+          style={{ color: "var(--accent-ink)", opacity: 0.78 }}
+        >
+          Thiết lập nhắc nhở tự động cho hoá đơn quá hạn.
+        </div>
+      </div>
+    </div>
   );
 }
 
 function UserCard({ user, onSignOut }: { user: { name: string; email: string; role: string }; onSignOut: () => void }) {
   return (
-    <div className="border-t border-slate-100 p-3">
-      <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors">
-        <div className="h-9 w-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-sm font-bold shadow-sm shrink-0">
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm text-slate-900 truncate">{user.name}</div>
-          <div className="text-xs text-slate-400 truncate">{user.role === "ADMIN" ? "Quản trị viên" : "Nhân viên"}</div>
-        </div>
-        <button onClick={onSignOut} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" aria-label="Đăng xuất">
-          <LogOut className="h-4 w-4 text-slate-500" />
-        </button>
+    <div className="px-4 py-3.5 flex items-center gap-3" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
+      <div
+        className="h-[38px] w-[38px] rounded-full grid place-items-center text-white font-serif text-lg shrink-0"
+        style={{
+          background: "linear-gradient(135deg, var(--sage) 0%, #6ba978 100%)",
+          boxShadow: "0 4px 10px -4px rgba(79, 138, 92, .5)",
+        }}
+      >
+        {user.name.charAt(0).toUpperCase()}
       </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13.5px] font-semibold truncate" style={{ color: "var(--brand-text)" }}>
+          {user.name}
+        </div>
+        <div className="text-[11.5px] truncate" style={{ color: "var(--text-on-sidebar-2)" }}>
+          {user.role === "ADMIN" ? "Quản trị viên" : "Nhân viên"}
+        </div>
+      </div>
+      <button
+        onClick={onSignOut}
+        className="w-7 h-7 rounded-lg grid place-items-center transition-all hover:bg-sidebar-hover"
+        aria-label="Đăng xuất"
+        style={{ border: "1px solid var(--sidebar-border)", color: "var(--text-on-sidebar-2)" }}
+      >
+        <LogOut className="h-3.5 w-3.5" />
+      </button>
     </div>
+  );
+}
+
+function DesktopTopbar() {
+  const now = new Date();
+  const monthLabel = `${VI_MONTHS[now.getMonth()]} · ${now.getFullYear()}`;
+  return (
+    <div
+      className="hidden lg:flex sticky top-0 z-20 items-center gap-3.5 px-8 py-3.5 backdrop-blur-md"
+      style={{
+        background: "rgba(253,250,243,0.78)",
+        borderBottom: "1px solid var(--line)",
+      }}
+    >
+      <div
+        className="flex items-center gap-2.5 flex-1 max-w-[460px] px-3.5 py-2 rounded-xl transition-all focus-within:shadow-design-md"
+        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+      >
+        <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-3)" }} />
+        <input
+          placeholder="Tìm kiếm hoá đơn, khách thuê, toà nhà..."
+          className="flex-1 border-none outline-none bg-transparent text-[13.5px] placeholder:opacity-70"
+          style={{ color: "var(--text)" }}
+        />
+        <span
+          className="text-[11px] px-2 py-px rounded font-mono"
+          style={{
+            color: "var(--text-3)",
+            border: "1px solid var(--line)",
+            background: "var(--bg-2)",
+          }}
+        >
+          ⌘K
+        </span>
+      </div>
+      <div className="flex-1" />
+      <div
+        className="hidden xl:inline-flex items-center gap-2 px-3 py-2 rounded-full text-[12.5px] font-semibold"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          color: "var(--text-2)",
+        }}
+      >
+        <Calendar className="h-3.5 w-3.5" style={{ color: "var(--accent-coral)" }} />
+        <span>{monthLabel}</span>
+      </div>
+      <IconBtn aria-label="Chế độ tối"><Moon className="h-[15px] w-[15px]" /></IconBtn>
+      <IconBtn aria-label="Thông báo">
+        <Bell className="h-[15px] w-[15px]" />
+        <span
+          className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
+          style={{ background: "var(--accent-coral)" }}
+        />
+      </IconBtn>
+    </div>
+  );
+}
+
+function IconBtn({ children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...rest}
+      className="relative w-[38px] h-[38px] rounded-[11px] grid place-items-center transition-all hover:shadow-design-md"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        color: "var(--text-2)",
+      }}
+    >
+      {children}
+    </button>
   );
 }
