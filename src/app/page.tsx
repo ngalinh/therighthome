@@ -5,7 +5,7 @@ import { listAccessibleBuildings } from "@/lib/permissions";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   Building2, FileText, AlertCircle, Plus, Wallet, ArrowUp, ArrowRight,
-  Receipt, Briefcase, Clock, Check, Download,
+  Receipt, Briefcase, Clock, Check,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, formatVNDCompact } from "@/lib/utils";
@@ -53,7 +53,10 @@ export default async function DashboardPage() {
   const paidPct = totalDue > 0 ? Math.round((totalPaid / totalDue) * 1000) / 10 : 0;
   const occupancyPct = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 
-  const firstName = session.user.name?.split(" ").pop() || "Admin";
+  const rawName = session.user.name || session.user.email || "Admin";
+  const firstName = rawName.includes("@")
+    ? rawName.split("@")[0]
+    : rawName.split(" ").pop() || "Admin";
   const monthLabel = `Tháng ${month} · ${year}`;
 
   // Building counts for stats
@@ -96,14 +99,6 @@ export default async function DashboardPage() {
                     <>Mọi thứ đang ổn. Tiếp tục theo dõi <strong>{activeContracts} hợp đồng</strong> đang hoạt động.</>
                   )}
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-2.5">
-                <Link href="/manage/chdv" className="btn btn-ghost">
-                  <Download className="h-3.5 w-3.5" /> Báo cáo
-                </Link>
-                <Link href="/manage/chdv?tab=invoices" className="btn btn-primary">
-                  <Plus className="h-3.5 w-3.5" /> Hoá đơn mới
-                </Link>
               </div>
             </header>
 
@@ -269,14 +264,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {overdueInvoices > 0 && (
-                    <Link
-                      href={
-                        buildings[0]
-                          ? `/buildings/${buildings[0].id}/invoices?status=OVERDUE`
-                          : "/buildings"
-                      }
-                      className="alert rise-4"
-                    >
+                    <div className="alert rise-4">
                       <div className="pulse">
                         <AlertCircle className="h-4 w-4" />
                       </div>
@@ -285,17 +273,10 @@ export default async function DashboardPage() {
                         <div className="alert-sub">cần xử lý ngay</div>
                       </div>
                       <div className="alert-count">{overdueInvoices}</div>
-                    </Link>
+                    </div>
                   )}
                   {expiring.length > 0 && (
-                    <Link
-                      href={
-                        buildings[0]
-                          ? `/buildings/${buildings[0].id}/contracts`
-                          : "/buildings"
-                      }
-                      className="alert warn rise-4"
-                    >
+                    <div className="alert warn rise-4">
                       <div className="pulse">
                         <Clock className="h-4 w-4" />
                       </div>
@@ -304,7 +285,7 @@ export default async function DashboardPage() {
                         <div className="alert-sub">trong 30 ngày tới</div>
                       </div>
                       <div className="alert-count">{expiring.length}</div>
-                    </Link>
+                    </div>
                   )}
                   <div className="alert good rise-5">
                     <div className="pulse">
