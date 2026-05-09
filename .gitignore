@@ -11,3 +11,7 @@ next-env.d.ts
 storage/
 postgres-data/
 *.tsbuildinfo
+
+# Design reference (not part of production code)
+design-reference/
+*.zip

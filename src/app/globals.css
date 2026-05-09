@@ -2,43 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   Design tokens — fresh modern admin v2 (coral on cream)
+   shadcn HSL vars are mapped to design palette so existing UI
+   primitives (Button, Card, etc.) auto-pick up the new theme.
+   Raw hex vars are exposed for design-specific custom classes.
+   ───────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* shadcn HSL — mapped to new palette */
+    --background: 42 71% 97%;            /* cream #fdfaf3 */
+    --foreground: 24 23% 8%;             /* ink #1a1410 */
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 24 23% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 24 23% 8%;
 
-    --primary: 250 84% 60%;        /* indigo-violet */
+    --primary: 13 84% 57%;               /* coral #ee5a36 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 38 60% 94%;             /* surface-2 cream */
+    --secondary-foreground: 24 23% 8%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 39 42% 92%;
+    --muted-foreground: 28 22% 35%;      /* text-2 */
 
-    --accent: 262 83% 58%;
+    --accent: 13 84% 57%;                /* coral */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 9 73% 57%;            /* bad #e25640 */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 158 64% 52%;
+    --success: 132 28% 42%;              /* sage */
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 36 78% 47%;               /* warn */
     --warning-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 250 84% 60%;
+    --border: 38 50% 87%;                /* line */
+    --input: 38 50% 87%;
+    --ring: 13 84% 57%;
 
-    --radius: 0.875rem;
+    --radius: 14px;
+
+    /* ── Design system raw variables (for custom CSS classes) ── */
+    --bg: #fdfaf3;
+    --bg-2: #f7f0e3;
+    --surface: #ffffff;
+    --surface-2: #faf3e6;
+    --surface-3: #f0e3cd;
+
+    --sidebar: #f5ecd9;
+    --sidebar-hover: #ebe0c8;
+    --sidebar-border: #e7d9bc;
+    --text-on-sidebar: #1a1410;
+    --text-on-sidebar-2: #6b5b3e;
+    --brand-text: #1a1410;
+
+    --text: #1a1410;
+    --text-2: #5a4a3a;
+    --text-3: #9a8870;
+    --text-inv: #fdfaf3;
+
+    --accent-coral: #ee5a36;
+    --accent-coral-hover: #d94924;
+    --accent-soft: #ffe2d3;
+    --accent-soft-2: #ffc6a8;
+    --accent-ink: #8a2e15;
+    --accent-tint: #fef0e8;
+
+    --sage: #4f8a5c;
+    --sage-soft: #e3efd9;
+    --sage-ink: #2d5736;
+
+    --sun: #e9b22e;
+    --sun-soft: #fbecbe;
+    --sun-ink: #7c5d10;
+
+    --plum: #7b4f9a;
+    --plum-soft: #ece0f5;
+    --plum-ink: #4a2868;
+
+    --good: #4f8a5c;
+    --good-soft: #e3efd9;
+    --warn: #d6921c;
+    --warn-soft: #fbecbe;
+    --bad: #e25640;
+    --bad-soft: #ffdfd5;
+    --info: #7b4f9a;
+    --info-soft: #ece0f5;
+
+    --line: #efe3cb;
+    --line-2: #e0cfae;
+
+    --shadow-sm: 0 1px 2px rgba(40, 22, 5, 0.04);
+    --shadow-md: 0 8px 24px -12px rgba(120, 60, 30, 0.18);
+    --shadow-lg: 0 24px 60px -28px rgba(120, 50, 22, 0.32);
+    --shadow-pop: 0 18px 40px -16px rgba(238, 90, 54, 0.35);
+
+    --ease: cubic-bezier(.22,.8,.18,1);
+    --ease-bounce: cubic-bezier(.34,1.56,.64,1);
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-xl: 26px;
   }
 
   .dark {
@@ -48,31 +117,36 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 250 84% 65%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 13 84% 62%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 18%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 18%;
     --muted-foreground: 215 20% 65%;
-    --accent: 262 83% 65%;
+    --accent: 13 84% 62%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 63% 50%;
+    --destructive: 9 73% 50%;
     --destructive-foreground: 210 40% 98%;
-    --success: 158 64% 52%;
+    --success: 132 28% 50%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 36 78% 55%;
     --warning-foreground: 0 0% 100%;
     --border: 217 33% 18%;
     --input: 217 33% 18%;
-    --ring: 250 84% 65%;
+    --ring: 13 84% 62%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-tint), transparent 70%),
+      radial-gradient(ellipse 50% 30% at 100% 100%, var(--sage-soft), transparent 70%);
+    background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
   }
   html { -webkit-text-size-adjust: 100%; }
@@ -100,26 +174,83 @@
   }
 }
 
+/* ── Animations (keyframes at top level for global access) ── */
+@keyframes rise {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes barFill {
+  0% { width: 0; }
+}
+@keyframes ringDraw {
+  0% { stroke-dashoffset: var(--ring-circumference); }
+}
+@keyframes shimmer {
+  0%, 100% { opacity: .5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes pop {
+  0% { transform: scale(.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); opacity: .5; }
+  50% { transform: scale(1.4); opacity: 1; }
+}
+@keyframes glint {
+  0% { background-position: -200% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 @layer components {
+  .rise { animation: rise .5s var(--ease) both; }
+  .rise-1 { animation: rise .5s var(--ease) .04s both; }
+  .rise-2 { animation: rise .5s var(--ease) .08s both; }
+  .rise-3 { animation: rise .5s var(--ease) .12s both; }
+  .rise-4 { animation: rise .5s var(--ease) .16s both; }
+  .rise-5 { animation: rise .5s var(--ease) .20s both; }
+  .rise-6 { animation: rise .5s var(--ease) .24s both; }
+  .page-anim { animation: fade .35s var(--ease) both; }
+
+  .font-serif-display {
+    font-family: var(--font-serif), "Iowan Old Style", Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--accent-coral) 0%, #f59072 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .glass-card {
-    @apply bg-white/80 backdrop-blur-xl border border-white/50 shadow-[0_4px_24px_-4px_rgba(99,102,241,0.15)];
+    @apply bg-white/80 backdrop-blur-xl border border-white/50;
+    box-shadow: var(--shadow-md);
   }
   .glass-strong {
     background: rgba(255, 255, 255, 0.92);
-    @apply backdrop-blur-2xl border border-white/60 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.25)];
-  }
-  .gradient-text {
-    @apply bg-gradient-brand bg-clip-text text-transparent;
+    @apply backdrop-blur-2xl border border-white/60;
+    box-shadow: var(--shadow-lg);
   }
   .card-soft {
-    @apply bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(99,102,241,0.12)];
-  }
-  .stat-tile {
-    @apply rounded-2xl p-5 text-white relative overflow-hidden;
+    @apply bg-white border;
+    border-color: var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm), var(--shadow-md);
   }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: rgb(203 213 225) transparent;
+    scrollbar-color: var(--line-2) transparent;
   }
   .gradient-border {
     position: relative;
@@ -130,7 +261,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    background: linear-gradient(135deg, var(--accent-coral), #f59072, var(--sun));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
