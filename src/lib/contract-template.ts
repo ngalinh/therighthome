@@ -46,6 +46,10 @@ function customerName(c: Customer | undefined): string {
 
 // Empty placeholders are returned as "" so docxtemplater's nullGetter doesn't
 // even need to fire — the resulting docx never has dangling braces.
+//
+// `co_khach_2` is a boolean flag for docxtemplater conditionals
+// ({#co_khach_2}...{/co_khach_2}) so the second-tenant section disappears
+// entirely when there's only one tenant.
 export function buildContractPlaceholders({
   contract, building, room, customers,
 }: {
@@ -53,13 +57,14 @@ export function buildContractPlaceholders({
   building: Building;
   room: Room;
   customers: Customer[];
-}): Record<string, string> {
+}): Record<string, string | boolean> {
   const primary = customers[0];
   const second = customers[1];
   const rent = asBigInt(contract.monthlyRent);
   const deposit = asBigInt(contract.depositAmount);
+  const hasSecond = customers.length >= 2;
 
-  const base: Record<string, string> = {
+  const base: Record<string, string | boolean> = {
     ma_hd: contract.code,
     toa_nha: building.name,
     dia_chi_toa: building.address,
@@ -78,7 +83,8 @@ export function buildContractPlaceholders({
     cong_ty: primary?.companyName ?? "",
     mst: primary?.taxNumber ?? "",
 
-    // Khách 2 (nếu có)
+    // Khách 2 (nếu có) — wrap section trong template bằng {#co_khach_2}...{/co_khach_2}
+    co_khach_2: hasSecond,
     ten_khach_2: customerName(second),
     cccd_2: second?.idNumber ?? "",
     ngay_cap_2: second?.idIssuedDate ? formatDateVN(second.idIssuedDate) : "",
@@ -158,6 +164,13 @@ export const PLACEHOLDER_HELP = `{ma_hd}                Mã hợp đồng
 {noi_thuong_tru_2}     Nơi thường trú khách 2
 {sdt_2}                Số điện thoại khách 2
 {email_2}              Email khách 2
+
+Để PHẦN THÔNG TIN KHÁCH 2 tự ẩn khi chỉ có 1 người thuê,
+bọc cả khối khách 2 trong file mẫu bằng cặp thẻ:
+  {#co_khach_2}
+    ... nội dung về khách 2 (Bên B – Khách thuê 2, các dòng {ten_khach_2}, {cccd_2}, ...) ...
+  {/co_khach_2}
+Khi hợp đồng chỉ có 1 khách, toàn bộ đoạn này sẽ biến mất.
 {ngay_bat_dau}         Ngày bắt đầu
 {ngay_ket_thuc}        Ngày kết thúc
 {thoi_han}             Thời hạn hợp đồng
