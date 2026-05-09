@@ -7,11 +7,12 @@ import {
   ChevronRight, ChevronDown, ClipboardList, KeyRound, Search, Calendar,
   Bell, Moon, Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string; badge?: string };
 type NavGroup = { label: string; icon: typeof Home; basePath: string; children: NavItem[] };
+type BuildingLite = { id: string; name: string; type: "CHDV" | "VP" };
 
 const DASHBOARD_NAV: NavItem = { href: "/", label: "Tổng quan", icon: Home, activePrefix: "/_root" };
 const BUILDINGS_NAV: NavItem = { href: "/buildings", label: "Toà nhà", icon: Building2 };
@@ -48,6 +49,16 @@ export function AppShell({
   const isManageActive = pathname.startsWith(MANAGE_GROUP.basePath);
   const [manageExpanded, setManageExpanded] = useState(isManageActive);
 
+  const isBuildingsActive = pathname === "/buildings" || pathname.startsWith("/buildings/");
+  const [buildingsExpanded, setBuildingsExpanded] = useState(isBuildingsActive);
+  const [buildings, setBuildings] = useState<BuildingLite[]>([]);
+  useEffect(() => {
+    fetch("/api/buildings", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: BuildingLite[]) => setBuildings(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
   const insideBuilding = buildingNav;
   const buildingItems: NavItem[] = insideBuilding
     ? [
@@ -77,14 +88,15 @@ export function AppShell({
             onToggle={() => setManageExpanded((v) => !v)}
             isActive={isActive}
           />
-          <NavItemRow {...BUILDINGS_NAV} active={isActive(BUILDINGS_NAV.href)} />
-          {insideBuilding && (
-            <BuildingSubNav
-              building={insideBuilding}
-              items={buildingItems}
-              isActive={isActive}
-            />
-          )}
+          <BuildingsNavGroup
+            buildings={buildings}
+            expanded={buildingsExpanded}
+            onToggle={() => setBuildingsExpanded((v) => !v)}
+            insideBuilding={insideBuilding}
+            buildingItems={buildingItems}
+            isActive={isActive}
+            isBuildingsActive={isBuildingsActive}
+          />
           <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
         </nav>
         <PromoCard />
@@ -144,15 +156,16 @@ export function AppShell({
                 isActive={isActive}
                 onChildClick={() => setMobileOpen(false)}
               />
-              <NavItemRow {...BUILDINGS_NAV} active={isActive(BUILDINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
-              {insideBuilding && (
-                <BuildingSubNav
-                  building={insideBuilding}
-                  items={buildingItems}
-                  isActive={isActive}
-                  onChildClick={() => setMobileOpen(false)}
-                />
-              )}
+              <BuildingsNavGroup
+                buildings={buildings}
+                expanded={buildingsExpanded}
+                onToggle={() => setBuildingsExpanded((v) => !v)}
+                insideBuilding={insideBuilding}
+                buildingItems={buildingItems}
+                isActive={isActive}
+                isBuildingsActive={isBuildingsActive}
+                onChildClick={() => setMobileOpen(false)}
+              />
               <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
             </nav>
             <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
@@ -382,49 +395,110 @@ function NavGroupItem({
   );
 }
 
-function BuildingSubNav({
-  building, items, isActive, onChildClick,
+function BuildingsNavGroup({
+  buildings, expanded, onToggle,
+  insideBuilding, buildingItems,
+  isActive, isBuildingsActive,
+  onChildClick,
 }: {
-  building: { buildingId: string; buildingName: string; type: "CHDV" | "VP" };
-  items: NavItem[];
+  buildings: BuildingLite[];
+  expanded: boolean;
+  onToggle: () => void;
+  insideBuilding?: { buildingId: string; buildingName: string; type: "CHDV" | "VP" };
+  buildingItems: NavItem[];
   isActive: (href: string) => boolean;
+  isBuildingsActive: boolean;
   onChildClick?: () => void;
 }) {
+  const open = expanded || isBuildingsActive;
+  const onAllList = isActive("/buildings") && !insideBuilding;
   return (
-    <div className="mt-1">
-      <Link
-        href={`/buildings/${building.buildingId}`}
-        onClick={onChildClick}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-semibold transition-all"
-        style={{
-          background: "var(--sidebar-hover)",
-          color: "var(--brand-text)",
-        }}
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full relative flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13.5px] font-medium transition-all"
+        style={
+          isBuildingsActive
+            ? { background: "var(--sidebar-hover)", color: "var(--brand-text)" }
+            : { color: "var(--text-on-sidebar)" }
+        }
       >
-        <Home className="h-[18px] w-[18px] shrink-0" style={{ color: "var(--accent-coral)" }} />
-        <span className="flex-1 truncate">{building.buildingName}</span>
-      </Link>
-      <div
-        className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
-        style={{ borderLeft: "1px solid var(--sidebar-border)" }}
-      >
-        {items.map((it) => (
+        <Building2 className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 text-left truncate">Toà nhà</span>
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+        )}
+      </button>
+      {open && (
+        <div
+          className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
+          style={{ borderLeft: "1px solid var(--sidebar-border)" }}
+        >
           <Link
-            key={it.href}
-            href={it.href}
+            href="/buildings"
             onClick={onChildClick}
             className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-medium transition-all"
             style={
-              isActive(it.href)
+              onAllList
                 ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
-                : { color: "var(--text-on-sidebar)" }
+                : { color: "var(--text-on-sidebar-2)" }
             }
           >
-            <it.icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{it.label}</span>
+            <span className="truncate">Tất cả toà nhà</span>
           </Link>
-        ))}
-      </div>
+          {buildings.map((b) => {
+            const isThis = insideBuilding?.buildingId === b.id;
+            return (
+              <div key={b.id}>
+                <Link
+                  href={`/buildings/${b.id}`}
+                  onClick={onChildClick}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-medium transition-all"
+                  style={
+                    isThis
+                      ? { background: "var(--sidebar-hover)", color: "var(--brand-text)" }
+                      : { color: "var(--text-on-sidebar)" }
+                  }
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full shrink-0"
+                    style={{
+                      background: b.type === "VP" ? "#6b4226" : "var(--accent-coral)",
+                    }}
+                  />
+                  <span className="flex-1 truncate">{b.name}</span>
+                </Link>
+                {isThis && (
+                  <div
+                    className="mt-0.5 ml-3 pl-3 flex flex-col gap-0.5"
+                    style={{ borderLeft: "1px solid var(--sidebar-border)" }}
+                  >
+                    {buildingItems.map((it) => (
+                      <Link
+                        key={it.href}
+                        href={it.href}
+                        onClick={onChildClick}
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                        style={
+                          isActive(it.href)
+                            ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
+                            : { color: "var(--text-on-sidebar-2)" }
+                        }
+                      >
+                        <it.icon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{it.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
