@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 
 type ContractCustomer = {
   id: string;
@@ -39,6 +40,7 @@ type Contract = {
   code: string;
   status: string;
   contractFileUrl: string | null;
+  generatedDocxUrl: string | null;
   startDate: string;
   endDate: string;
   termMonths: number;
@@ -333,6 +335,11 @@ export function EditContractForm({
             <Row label="Tiền cọc" value={formatVND(parseVNDInput(deposit))} />
           </CardContent>
         </Card>
+
+        <GeneratedContractCard
+          contractId={contract.id}
+          generatedDocxUrl={contract.generatedDocxUrl}
+        />
 
         <Card>
           <CardHeader>
@@ -1078,38 +1085,66 @@ function AddCustomerDialog({
   onAdded: () => void;
 }) {
   const [type, setType] = useState<"INDIVIDUAL" | "COMPANY">(defaultType);
-  const [fullName, setFullName] = useState("");
-  const [idNumber, setIdNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
+  // Company fields
   const [companyName, setCompanyName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
+  const [contactName, setContactName] = useState("");
   const [saving, setSaving] = useState(false);
 
   function reset() {
     setType(defaultType);
-    setFullName(""); setIdNumber(""); setPhone(""); setEmail(""); setLicensePlate("");
-    setCompanyName(""); setTaxNumber("");
+    setPhone(""); setEmail(""); setLicensePlate("");
+    setCompanyName(""); setTaxNumber(""); setContactName("");
   }
 
-  async function submit() {
-    if (type === "INDIVIDUAL" && !fullName.trim()) return toast.error("Nhập Họ và tên");
-    if (type === "COMPANY" && !companyName.trim()) return toast.error("Nhập Tên công ty");
+  async function submitIndividual(d: CCCDData) {
     setSaving(true);
     const res = await fetch(`/api/contracts/${contractId}/customers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type,
-        // For COMPANY: fullName is the contact person ("Người đại diện").
-        fullName: fullName.trim() || undefined,
-        idNumber: idNumber.trim() || undefined,
+        type: "INDIVIDUAL",
+        fullName: d.fullName?.trim() || undefined,
+        idNumber: d.idNumber?.trim() || undefined,
+        dateOfBirth: d.dateOfBirth || undefined,
+        idIssuedDate: d.idIssuedDate || undefined,
+        hometown: d.hometown?.trim() || undefined,
+        permanentAddress: d.permanentAddress?.trim() || undefined,
+        frontUrl: d.frontUrl || undefined,
+        backUrl: d.backUrl || undefined,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         licensePlate: licensePlate.trim() || undefined,
-        companyName: type === "COMPANY" ? companyName.trim() : undefined,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Lưu thất bại");
+    }
+    toast.success("Đã thêm khách");
+    reset();
+    onClose();
+    onAdded();
+  }
+
+  async function submitCompany() {
+    if (!companyName.trim()) return toast.error("Nhập Tên công ty");
+    setSaving(true);
+    const res = await fetch(`/api/contracts/${contractId}/customers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "COMPANY",
+        companyName: companyName.trim(),
         taxNumber: taxNumber.trim() || undefined,
+        // For COMPANY: fullName is the contact person ("Người đại diện").
+        fullName: contactName.trim() || undefined,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
       }),
     });
     setSaving(false);
@@ -1125,7 +1160,7 @@ function AddCustomerDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Thêm khách thuê</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -1138,31 +1173,25 @@ function AddCustomerDialog({
               </SelectContent>
             </Select>
           </div>
-          {type === "INDIVIDUAL" ? (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5 col-span-2">
-                  <Label className="text-xs">Họ và tên</Label>
-                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">CCCD</Label>
-                  <Input value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">SĐT</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Email</Label>
-                  <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Biển số xe</Label>
-                  <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">SĐT</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            {type === "INDIVIDUAL" && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs">Biển số xe</Label>
+                <Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} />
               </div>
-            </>
+            )}
+          </div>
+
+          {type === "INDIVIDUAL" ? (
+            <CCCDScanner onConfirm={submitIndividual} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
@@ -1171,32 +1200,151 @@ function AddCustomerDialog({
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Người đại diện</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">MST</Label>
-                <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">SĐT</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Tên người đại diện" />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Email</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Label className="text-xs">MST</Label>
+                <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
               </div>
             </div>
           )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => { reset(); onClose(); }}>Huỷ</Button>
-          <Button variant="gradient" onClick={submit} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Thêm khách
-          </Button>
+          {type === "COMPANY" && (
+            <Button variant="gradient" onClick={submitCompany} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Thêm khách
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function GeneratedContractCard({
+  contractId, generatedDocxUrl,
+}: {
+  contractId: string;
+  generatedDocxUrl: string | null;
+}) {
+  const router = useRouter();
+  const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // Lazily load the converted PDF the first time the card is shown with a
+  // generated DOCX. The endpoint caches the conversion on disk so subsequent
+  // visits are cheap.
+  const docxUrl = generatedDocxUrl;
+  useEffect(() => {
+    if (!docxUrl) return;
+    let cancelled = false;
+    setPdfLoading(true);
+    setPdfError(null);
+    fetch(`/api/contracts/${contractId}/pdf`)
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || `Lỗi ${r.status}`);
+        if (!cancelled) setPdfUrl(d.url);
+      })
+      .catch((e) => { if (!cancelled) setPdfError(e instanceof Error ? e.message : "Convert PDF thất bại"); })
+      .finally(() => { if (!cancelled) setPdfLoading(false); });
+    return () => { cancelled = true; };
+  }, [docxUrl, contractId]);
+
+  async function generate() {
+    setGenerating(true);
+    const res = await fetch(`/api/contracts/${contractId}/generate-docx`, { method: "POST" });
+    setGenerating(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(d.error || "Tạo HĐ thất bại", { duration: 8000 });
+    toast.success("Đã tạo hợp đồng");
+    router.refresh();
+  }
+
+  async function share() {
+    if (!pdfUrl && !docxUrl) return;
+    const url = new URL(pdfUrl || docxUrl!, window.location.origin).toString();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Hợp đồng", url });
+        return;
+      } catch {
+        // User cancelled — fall through to clipboard copy.
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    toast.success("Đã copy link hợp đồng");
+  }
+
+  function print() {
+    if (!pdfUrl) return;
+    // Open in new tab; modern browsers show print toolbar in their PDF viewer.
+    window.open(pdfUrl, "_blank", "noopener");
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4" /> Hợp đồng đã tạo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!docxUrl ? (
+          <>
+            <p className="text-xs text-slate-500">
+              Bấm để tạo hợp đồng từ mẫu của toà nhà (hoặc mẫu mặc định) với toàn bộ thông tin hiện có.
+            </p>
+            <Button variant="gradient" size="sm" onClick={generate} disabled={generating} className="w-full">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Tạo hợp đồng
+            </Button>
+          </>
+        ) : (
+          <>
+            {pdfLoading ? (
+              <div className="aspect-[3/4] rounded-lg border bg-slate-50 flex items-center justify-center">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tạo bản PDF preview...
+                </div>
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-72 rounded-lg border bg-white"
+                title="Hợp đồng PDF"
+              />
+            ) : pdfError ? (
+              <p className="text-xs text-rose-600 break-words">{pdfError}</p>
+            ) : null}
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant="outline" size="sm" onClick={print} disabled={!pdfUrl}>
+                <Printer className="h-3.5 w-3.5" /> Print
+              </Button>
+              <Button variant="outline" size="sm" onClick={share} disabled={!pdfUrl && !docxUrl}>
+                <Share2 className="h-3.5 w-3.5" /> Share
+              </Button>
+              <a
+                href={docxUrl}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                download
+              >
+                <Download className="h-3.5 w-3.5" /> .docx
+              </a>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Edit: tải về .docx để chỉnh sửa rồi upload lại bản đã ký ở khung &ldquo;File hợp đồng&rdquo;.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

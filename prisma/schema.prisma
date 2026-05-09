@@ -133,13 +133,15 @@ model Customer {
   notes String?
 
   // Individual
-  fullName        String?
-  idNumber        String? // CCCD
-  licensePlate    String?
-  idCardFrontUrl  String?
-  idCardBackUrl   String?
-  dateOfBirth     DateTime?
-  hometown        String?
+  fullName          String?
+  idNumber          String? // CCCD
+  idIssuedDate      DateTime?  // Ngày cấp CCCD (mặt sau)
+  licensePlate      String?
+  idCardFrontUrl    String?
+  idCardBackUrl     String?
+  dateOfBirth       DateTime?
+  hometown          String?
+  permanentAddress  String?   // Nơi thường trú (CCCD)
 
   // Company
   companyName          String?

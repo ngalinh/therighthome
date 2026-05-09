@@ -9,6 +9,7 @@ export type CCCDOCRResult = {
   gender?: string;
   hometown?: string;
   permanentAddress?: string;
+  idIssuedDate?: string; // ISO yyyy-mm-dd if possible (Ngày cấp from CCCD back)
   raw?: string;
 };
 
@@ -20,6 +21,7 @@ Trả về JSON với các khoá sau (giá trị là chuỗi, để rỗng nếu
 - gender: "Nam" hoặc "Nữ"
 - hometown: quê quán
 - permanentAddress: nơi thường trú
+- idIssuedDate: ngày cấp CCCD dạng YYYY-MM-DD (đọc từ MẶT SAU CCCD, dòng "Ngày, tháng, năm" hoặc "DATE, MONTH, YEAR")
 
 Chỉ trả về JSON thuần, không markdown, không giải thích.`;
 
