@@ -111,15 +111,15 @@ const config: Config = {
         xl: "var(--r-xl)",
       },
       backgroundImage: {
-        "gradient-chdv": "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6), transparent 50%), linear-gradient(135deg, #ffe2d3 0%, #f9b08d 50%, #ee5a36 100%)",
+        "gradient-chdv": "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6), transparent 50%), linear-gradient(135deg, #f2d8d0 0%, #d68d72 50%, #c96442 100%)",
         "gradient-vp": "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.45), transparent 50%), linear-gradient(135deg, #f4e7d0 0%, #b88a5c 50%, #4d2f1e 100%)",
-        "gradient-brand": "linear-gradient(135deg, #ee5a36 0%, #f37b58 50%, #f59072 100%)",
+        "gradient-brand": "linear-gradient(135deg, #c96442 0%, #d17b5e 50%, #d5866c 100%)",
         "gradient-success": "linear-gradient(135deg, #4f8a5c 0%, #6ba978 100%)",
         "gradient-warning": "linear-gradient(135deg, #e9b22e 0%, #d6921c 100%)",
-        "gradient-danger": "linear-gradient(135deg, #f37b58 0%, #e25640 100%)",
-        "gradient-warm": "linear-gradient(135deg, #fef0e8 0%, #ffe2d3 50%, #ffc6a8 100%)",
+        "gradient-danger": "linear-gradient(135deg, #d17b5e 0%, #e25640 100%)",
+        "gradient-warm": "linear-gradient(135deg, #f9ece8 0%, #f2d8d0 50%, #e7b9aa 100%)",
         "gradient-mint": "linear-gradient(135deg, #e3efd9 0%, #c8dfb6 100%)",
-        "gradient-jewel-1": "linear-gradient(135deg, #ee5a36 0%, #d94924 100%)",
+        "gradient-jewel-1": "linear-gradient(135deg, #c96442 0%, #b55a3b 100%)",
         "gradient-jewel-2": "linear-gradient(135deg, #4f8a5c 0%, #2d5736 100%)",
         "gradient-jewel-3": "linear-gradient(135deg, #e9b22e 0%, #7c5d10 100%)",
         "gradient-jewel-4": "linear-gradient(135deg, #7b4f9a 0%, #4a2868 100%)",
@@ -128,7 +128,7 @@ const config: Config = {
         "design-sm": "0 1px 2px rgba(40, 22, 5, 0.04)",
         "design-md": "0 8px 24px -12px rgba(120, 60, 30, 0.18)",
         "design-lg": "0 24px 60px -28px rgba(120, 50, 22, 0.32)",
-        "design-pop": "0 18px 40px -16px rgba(238, 90, 54, 0.35)",
+        "design-pop": "0 18px 40px -16px rgba(201, 100, 66, 0.35)",
       },
       keyframes: {
         "accordion-down": {
@@ -152,6 +152,10 @@ const config: Config = {
           "0%": { transform: "scale(.7)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
+        glint: {
+          "0%": { backgroundPosition: "-200% 50%" },
+          "100%": { backgroundPosition: "200% 50%" },
+        },
         float: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-3px)" },
@@ -170,6 +174,7 @@ const config: Config = {
         pop: "pop 0.45s cubic-bezier(.34,1.56,.64,1) both",
         float: "float 3s cubic-bezier(.22,.8,.18,1) infinite",
         shimmer: "shimmer 2s ease-in-out infinite",
+        glint: "glint 4s cubic-bezier(.22,.8,.18,1) infinite",
       },
     },
   },

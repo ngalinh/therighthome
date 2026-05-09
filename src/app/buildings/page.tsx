@@ -171,8 +171,8 @@ function Ring({
   const c = 2 * Math.PI * r;
   const offset = c - (pct / 100) * c;
   const stops = dark
-    ? [{ o: "0%", c: "#ffb78f" }, { o: "100%", c: "#f37b58" }]
-    : [{ o: "0%", c: "var(--accent-coral)" }, { o: "100%", c: "#f5b591" }];
+    ? [{ o: "0%", c: "#f9d4be" }, { o: "100%", c: "var(--accent-coral-2)" }]
+    : [{ o: "0%", c: "var(--accent-coral)" }, { o: "100%", c: "#de9f8a" }];
   return (
     <div className={"occupancy-ring " + (dark ? "ring-dark" : "")} style={{ width: size, height: size }}>
       <svg width={size} height={size}>
