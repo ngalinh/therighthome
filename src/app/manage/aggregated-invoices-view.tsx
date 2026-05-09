@@ -229,10 +229,10 @@ export function AggregatedInvoicesView({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} gradient="from-slate-500 to-slate-700" />
-        <GradStat label="Đã thu" value={formatVND(totalPaid)} gradient="from-emerald-500 to-teal-500" />
-        <GradStat label="Còn lại" value={formatVND(totalDue - totalPaid)} gradient="from-amber-400 to-orange-500" />
-        <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} gradient="from-rose-500 to-pink-500" />
+        <GradStat label="Tổng phải thu" value={formatVND(totalDue)} variant="dark" />
+        <GradStat label="Đã thu" value={formatVND(totalPaid)} variant="sage" />
+        <GradStat label="Còn lại" value={formatVND(totalDue - totalPaid)} variant="accent" />
+        <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} variant="dark" />
       </div>
 
       {invoices.length === 0 ? (
@@ -285,13 +285,13 @@ export function AggregatedInvoicesView({
   );
 }
 
-function GradStat({ label, value, gradient }: { label: string; value: string; gradient: string }) {
+function GradStat({ label, value, variant }: {
+  label: string; value: string; variant?: "accent" | "dark" | "sage";
+}) {
   return (
-    <div className={`stat-tile bg-gradient-to-br ${gradient}`}>
-      <div className="relative">
-        <div className="text-[11px] font-medium text-white/80 uppercase tracking-wide">{label}</div>
-        <div className="text-xl font-bold mt-1 leading-tight">{value}</div>
-      </div>
+    <div className={`stat ${variant ?? ""}`}>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value text-xl">{value}</div>
     </div>
   );
 }

@@ -174,7 +174,7 @@ function Ring({
     ? [{ o: "0%", c: "#ffb78f" }, { o: "100%", c: "#f37b58" }]
     : [{ o: "0%", c: "var(--accent-coral)" }, { o: "100%", c: "#f5b591" }];
   return (
-    <div className={"ring " + (dark ? "ring-dark" : "")} style={{ width: size, height: size }}>
+    <div className={"occupancy-ring " + (dark ? "ring-dark" : "")} style={{ width: size, height: size }}>
       <svg width={size} height={size}>
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
