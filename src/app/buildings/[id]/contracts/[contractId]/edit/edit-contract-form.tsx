@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2 } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
@@ -1236,6 +1236,9 @@ function GeneratedContractCard({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const inlineFrameRef = useRef<HTMLIFrameElement>(null);
+  const fullscreenFrameRef = useRef<HTMLIFrameElement>(null);
 
   // Lazily load the converted PDF the first time the card is shown with a
   // generated DOCX. The endpoint caches the conversion on disk so subsequent
@@ -1284,9 +1287,16 @@ function GeneratedContractCard({
   }
 
   function print() {
-    if (!pdfUrl) return;
-    // Open in new tab; modern browsers show print toolbar in their PDF viewer.
-    window.open(pdfUrl, "_blank", "noopener");
+    // Print via the visible iframe's contentWindow so we never navigate the
+    // PWA itself to a /api/files/*.pdf URL (which leaves users stranded
+    // without a back button in standalone PWA mode).
+    const frame = fullscreen ? fullscreenFrameRef.current : inlineFrameRef.current;
+    try {
+      frame?.contentWindow?.focus();
+      frame?.contentWindow?.print();
+    } catch {
+      toast.error("Không in được. Hãy mở rộng và thử lại.");
+    }
   }
 
   return (
@@ -1316,11 +1326,22 @@ function GeneratedContractCard({
                 </div>
               </div>
             ) : pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                className="w-full h-72 rounded-lg border bg-white"
-                title="Hợp đồng PDF"
-              />
+              <div className="relative">
+                <iframe
+                  ref={inlineFrameRef}
+                  src={pdfUrl}
+                  className="w-full h-72 rounded-lg border bg-white"
+                  title="Hợp đồng PDF"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFullscreen(true)}
+                  className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2 rounded-md bg-black/60 hover:bg-black/75 text-white text-[11px] font-medium"
+                  aria-label="Mở rộng"
+                >
+                  <Maximize2 className="h-3 w-3" /> Mở rộng
+                </button>
+              </div>
             ) : pdfError ? (
               <p className="text-xs text-rose-600 break-words">{pdfError}</p>
             ) : null}
@@ -1333,7 +1354,6 @@ function GeneratedContractCard({
               </Button>
               <a
                 href={docxUrl}
-                target="_blank"
                 rel="noopener"
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
                 download
@@ -1357,6 +1377,46 @@ function GeneratedContractCard({
           </>
         )}
       </CardContent>
+
+      <Dialog open={fullscreen} onOpenChange={(o) => !o && setFullscreen(false)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-white shrink-0">
+            <h3 className="text-sm font-semibold">Hợp đồng đã tạo</h3>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={print} disabled={!pdfUrl}>
+                <Printer className="h-3.5 w-3.5" /> In
+              </Button>
+              {docxUrl && (
+                <a
+                  href={docxUrl}
+                  rel="noopener"
+                  download
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Download className="h-3.5 w-3.5" /> .docx
+                </a>
+              )}
+              <button
+                onClick={() => setFullscreen(false)}
+                aria-label="Đóng"
+                className="text-slate-400 hover:text-slate-600 ml-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 bg-slate-100">
+            {pdfUrl && (
+              <iframe
+                ref={fullscreenFrameRef}
+                src={pdfUrl}
+                className="w-full h-full border-0 bg-white"
+                title="Hợp đồng PDF (toàn màn hình)"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

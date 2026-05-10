@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Printer, Download, X } from "lucide-react";
+import { toast } from "sonner";
 
 export function TemplatePreviewDialog({
   open, onClose, docxUrl,
@@ -14,6 +15,7 @@ export function TemplatePreviewDialog({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open || !docxUrl) {
@@ -38,7 +40,15 @@ export function TemplatePreviewDialog({
   }, [open, docxUrl]);
 
   function print() {
-    if (pdfUrl) window.open(pdfUrl, "_blank", "noopener");
+    // Print via the embedded iframe so the PWA itself never navigates away
+    // to /api/files/.../pdf, which would leave users stranded with no
+    // back button in standalone PWA mode.
+    try {
+      frameRef.current?.contentWindow?.focus();
+      frameRef.current?.contentWindow?.print();
+    } catch {
+      toast.error("Không in được");
+    }
   }
 
   return (
@@ -53,7 +63,6 @@ export function TemplatePreviewDialog({
             {docxUrl && (
               <a
                 href={docxUrl}
-                target="_blank"
                 rel="noopener"
                 download
                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
@@ -76,7 +85,7 @@ export function TemplatePreviewDialog({
               {error}
             </div>
           ) : pdfUrl ? (
-            <iframe src={pdfUrl} className="w-full h-full border-0 bg-white" title="Preview mẫu HĐ" />
+            <iframe ref={frameRef} src={pdfUrl} className="w-full h-full border-0 bg-white" title="Preview mẫu HĐ" />
           ) : null}
         </div>
       </DialogContent>
