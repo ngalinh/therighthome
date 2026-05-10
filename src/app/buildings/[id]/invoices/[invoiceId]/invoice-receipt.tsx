@@ -411,12 +411,12 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
               <KV label="Nội dung chuyển khoản" value={transferContent} mono />
             </div>
             {qrSrc && (
-              <div className="flex flex-col items-center shrink-0 self-center sm:self-start">
+              <div className="flex flex-col items-center shrink-0 self-center sm:self-start sm:-mt-7">
                 <img
                   src={qrSrc}
                   alt="QR chuyển khoản"
                   className="block"
-                  style={{ width: 220, height: dynamicQrUrl ? 270 : 220, objectFit: "contain" }}
+                  style={{ width: 176, height: dynamicQrUrl ? 216 : 176, objectFit: "contain" }}
                 />
                 <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
               </div>
