@@ -45,7 +45,16 @@ type Invoice = {
     room: { number: string };
     customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null; phone: string | null } }[];
   };
-  payments: { id: string; amount: string; paidAt: string; transaction: { code: string } }[];
+  payments: {
+    id: string;
+    amount: string;
+    paidAt: string;
+    transaction: {
+      code: string;
+      paymentMethodId: string | null;
+      paymentMethod: { id: string; name: string } | null;
+    };
+  }[];
 };
 
 type PaymentMethodInfo = {
@@ -57,6 +66,8 @@ type PaymentMethodInfo = {
   qrCodeUrl: string | null;
 } | null;
 
+type PMOption = { id: string; name: string; isCash: boolean };
+
 const STATUS: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "destructive" }> = {
   PENDING: { label: "Chờ thanh toán", variant: "warning" },
   PARTIAL: { label: "Thanh toán 1 phần", variant: "warning" },
@@ -66,7 +77,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 };
 
 export function InvoiceDetail({
-  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod,
+  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod, paymentMethods,
 }: {
   invoice: Invoice;
   buildingType: "CHDV" | "VP";
@@ -76,6 +87,7 @@ export function InvoiceDetail({
   canWrite: boolean;
   canSend: boolean;
   paymentMethod: PaymentMethodInfo;
+  paymentMethods: PMOption[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -401,7 +413,13 @@ export function InvoiceDetail({
             ) : (
               <div className="space-y-2">
                 {invoice.payments.map((p) => (
-                  <PaymentRow key={p.id} invoiceId={invoice.id} payment={p} canWrite={canWrite} />
+                  <PaymentRow
+                    key={p.id}
+                    invoiceId={invoice.id}
+                    payment={p}
+                    canWrite={canWrite}
+                    paymentMethods={paymentMethods}
+                  />
                 ))}
               </div>
             )}
@@ -419,29 +437,45 @@ export function InvoiceDetail({
 }
 
 function PaymentRow({
-  invoiceId, payment, canWrite,
+  invoiceId, payment, canWrite, paymentMethods,
 }: {
   invoiceId: string;
-  payment: { id: string; amount: string; paidAt: string; transaction: { code: string } };
+  payment: {
+    id: string;
+    amount: string;
+    paidAt: string;
+    transaction: {
+      code: string;
+      paymentMethodId: string | null;
+      paymentMethod: { id: string; name: string } | null;
+    };
+  };
   canWrite: boolean;
+  paymentMethods: PMOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(payment.amount);
+  const [draftAmount, setDraftAmount] = useState(payment.amount);
+  const [draftPm, setDraftPm] = useState<string>(payment.transaction.paymentMethodId ?? "");
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    const newAmount = parseVNDInput(draft);
+    const newAmount = parseVNDInput(draftAmount);
     if (newAmount <= 0n) return toast.error("Số tiền phải > 0");
-    if (newAmount.toString() === payment.amount) {
+    const amountChanged = newAmount.toString() !== payment.amount;
+    const pmChanged = draftPm !== (payment.transaction.paymentMethodId ?? "");
+    if (!amountChanged && !pmChanged) {
       setEditing(false);
       return;
     }
+    const body: { amount?: string; paymentMethodId?: string | null } = {};
+    if (amountChanged) body.amount = newAmount.toString();
+    if (pmChanged) body.paymentMethodId = draftPm || null;
     setSaving(true);
     const res = await fetch(`/api/invoices/${invoiceId}/payments/${payment.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: newAmount.toString() }),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (!res.ok) {
@@ -455,33 +489,58 @@ function PaymentRow({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <Input
-          inputMode="numeric"
-          value={formatNumber(parseVNDInput(draft))}
-          onChange={(e) => setDraft(e.target.value)}
-          className="h-8 text-sm"
-          autoFocus
-        />
-        <button
-          onClick={save}
-          disabled={saving}
-          className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50 p-1"
-          aria-label="Lưu"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={() => { setDraft(payment.amount); setEditing(false); }}
-          className="text-slate-400 hover:text-slate-600 p-1"
-          aria-label="Huỷ"
-        >
-          <XIcon className="h-4 w-4" />
-        </button>
+      <div className="space-y-2 text-sm">
+        <div className="space-y-1">
+          <Label className="text-[11px] text-slate-500">Số tiền</Label>
+          <Input
+            inputMode="numeric"
+            value={formatNumber(parseVNDInput(draftAmount))}
+            onChange={(e) => setDraftAmount(e.target.value)}
+            className="h-8 text-sm"
+            autoFocus
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-slate-500">Tài khoản TT</Label>
+          <select
+            value={draftPm}
+            onChange={(e) => setDraftPm(e.target.value)}
+            className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">— Chưa chọn —</option>
+            {paymentMethods.map((pm) => (
+              <option key={pm.id} value={pm.id}>
+                {pm.name}{pm.isCash ? " (Tiền mặt)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end gap-1">
+          <button
+            onClick={() => {
+              setDraftAmount(payment.amount);
+              setDraftPm(payment.transaction.paymentMethodId ?? "");
+              setEditing(false);
+            }}
+            className="text-slate-400 hover:text-slate-600 p-1"
+            aria-label="Huỷ"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50 p-1"
+            aria-label="Lưu"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
     );
   }
 
+  const pmName = payment.transaction.paymentMethod?.name;
   return (
     <div className="flex justify-between items-start text-sm gap-2">
       <div className="min-w-0 flex-1">
@@ -489,12 +548,15 @@ function PaymentRow({
         <div className="text-xs text-slate-500">
           {formatDateVN(payment.paidAt)} · <span className="font-mono">{payment.transaction.code}</span>
         </div>
+        {pmName && (
+          <div className="text-xs text-slate-500 mt-0.5">{pmName}</div>
+        )}
       </div>
       {canWrite && (
         <button
           onClick={() => setEditing(true)}
           className="text-slate-400 hover:text-primary p-1 shrink-0"
-          aria-label="Sửa số tiền"
+          aria-label="Sửa thanh toán"
         >
           <Edit2 className="h-3.5 w-3.5" />
         </button>
