@@ -353,6 +353,13 @@ export function InvoiceDetail({
                               </SelectContent>
                             </Select>
                           </div>
+                          <Input
+                            inputMode="numeric"
+                            placeholder="Số tiền"
+                            className="w-44 text-right tabular-nums"
+                            value={l.amount ? formatNumber(parseVNDInput(l.amount)) : ""}
+                            onChange={(e) => updateLine(idx, { amount: e.target.value })}
+                          />
                           <button
                             type="button"
                             onClick={() => removeLine(idx)}
@@ -363,20 +370,11 @@ export function InvoiceDetail({
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
-                          <Input
-                            placeholder="Nội dung"
-                            value={l.content}
-                            onChange={(e) => updateLine(idx, { content: e.target.value })}
-                          />
-                          <Input
-                            inputMode="numeric"
-                            placeholder="Số tiền"
-                            className="text-right tabular-nums"
-                            value={l.amount ? formatNumber(parseVNDInput(l.amount)) : ""}
-                            onChange={(e) => updateLine(idx, { amount: e.target.value })}
-                          />
-                        </div>
+                        <Input
+                          placeholder="Nội dung"
+                          value={l.content}
+                          onChange={(e) => updateLine(idx, { content: e.target.value })}
+                        />
                       </div>
                     ))}
                     <Button type="button" variant="outline" size="sm" onClick={addLine}>

@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   let invoiceId: string | null = null;
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = await nextInvoiceCode(buildingId, month, year);
+    const code = await nextInvoiceCode();
     try {
       const inv = await prisma.invoice.create({
         data: {
