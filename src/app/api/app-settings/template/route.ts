@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic";
 // Upload default contract template per kind. Admin only.
 // FormData: file (.docx), kind: "chdv" | "vpIndividual" | "vpCompany"
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const fd = await req.formData();
     const f = fd.get("file") as File | null;
     const kind = fd.get("kind") as string | null;
@@ -47,12 +47,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const kind = req.nextUrl.searchParams.get("kind");
     if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
       return NextResponse.json({ error: "Invalid kind" }, { status: 400 });

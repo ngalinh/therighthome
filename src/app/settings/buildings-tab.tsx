@@ -203,11 +203,26 @@ function DefaultTemplateSlot({
     const fd = new FormData();
     fd.append("file", f);
     fd.append("kind", kind);
-    const res = await fetch("/api/app-settings/template", { method: "POST", body: fd });
+    let res: Response;
+    try {
+      res = await fetch("/api/app-settings/template", { method: "POST", body: fd });
+    } catch (err) {
+      setUploading(false);
+      return toast.error(err instanceof Error ? `Lỗi mạng: ${err.message}` : "Lỗi mạng");
+    }
     setUploading(false);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return toast.error(err.error || "Upload thất bại");
+      // If the route returned JSON, show its error field. Non-JSON 4xx/5xx
+      // (nginx HTML, proxy timeout, runtime crash before NextResponse) used
+      // to swallow into "Upload thất bại"; surface status + a snippet so we
+      // can tell whether it's a payload-too-large vs server-side issue.
+      const ct = res.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
+        const errBody = await res.json().catch(() => null);
+        return toast.error(errBody?.error || `Upload thất bại (HTTP ${res.status})`);
+      }
+      const text = await res.text().catch(() => "");
+      return toast.error(`Upload thất bại (HTTP ${res.status})${text ? `: ${text.slice(0, 160)}` : ""}`);
     }
     const { url: newUrl } = await res.json();
     setUrl(newUrl);
