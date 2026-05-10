@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Download, Loader2, X } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ type CustomerLite = {
   fullName: string | null;
   companyName: string | null;
   email: string | null;
+  phone: string | null;
 };
 
 type ReceiptPM = {
@@ -62,15 +63,10 @@ export function InvoiceReceiptDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent
-        className="max-w-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col"
-        // Keep our own close button — hide the default
-      >
-        <div className="flex items-center justify-between px-4 py-2.5 border-b bg-white shrink-0">
+      <DialogContent className="max-w-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col">
+        <div className="flex items-center justify-between pl-4 pr-12 py-2.5 border-b bg-white shrink-0">
           <h3 className="text-sm font-semibold">Phiếu thanh toán</h3>
-          <button onClick={onClose} aria-label="Đóng" className="text-slate-400 hover:text-slate-600">
-            <X className="h-4 w-4" />
-          </button>
+          {/* The built-in DialogContent close X is positioned at top-right (right-4). */}
         </div>
         <div className="overflow-y-auto bg-slate-100 p-4 flex-1">
           <ReceiptBody data={data} />
@@ -88,16 +84,39 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
     if (!ref.current) return;
     setSaving(true);
     try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(ref.current, {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(ref.current, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
       });
+      if (!blob) throw new Error("Render thất bại");
+
+      const filename = `phieu-${data.invoiceCode}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+
+      // On mobile (iOS Safari especially), Web Share with files surfaces the
+      // native share sheet which includes "Save to Photos" — saving directly
+      // to the Photos library instead of a file download dialog.
+      const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
+      if (nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: "Phiếu thanh toán" });
+          return;
+        } catch (err) {
+          // User cancelled the share sheet — don't fall through to download.
+          if ((err as DOMException)?.name === "AbortError") return;
+          // For other errors (e.g. permission denied) fall through to download.
+        }
+      }
+
+      // Desktop / fallback: regular download.
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `phieu-${data.invoiceCode}.png`;
-      link.href = dataUrl;
+      link.download = filename;
+      link.href = url;
       link.click();
+      URL.revokeObjectURL(url);
       toast.success("Đã lưu ảnh phiếu");
     } catch (err) {
       console.error(err);
@@ -133,6 +152,14 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
   // Month labels: rent = current month, all other costs = previous month
   const prevMonth = data.month === 1 ? 12 : data.month - 1;
 
+  // Bank transfer reference: DT<digits-only-phone>. Customer might have stored
+  // the phone with spaces or dashes, so strip non-digits. Falls back to
+  // invoiceCode + room if no phone is on file.
+  const phoneDigits = (data.customer?.phone ?? "").replace(/\D/g, "");
+  const transferContent = phoneDigits
+    ? `DT${phoneDigits}`
+    : `${data.invoiceCode} P${data.roomNumber}`;
+
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden mx-auto" style={{ maxWidth: 720 }}>
       {/* Header: brand */}
@@ -142,14 +169,15 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
       >
         <div className="flex items-center gap-3">
           <div
-            className="h-12 w-12 rounded-xl flex items-center justify-center text-xl font-bold"
+            className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)" }}
+            aria-hidden
           >
-            TRH
+            <KeyRoundIcon />
           </div>
-          <div>
-            <div className="text-[10px] font-semibold tracking-[0.2em] opacity-90">THE RIGHT HOME</div>
-            <div className="text-lg font-bold leading-tight">{data.buildingName}</div>
+          <div className="min-w-0 leading-snug">
+            <div className="text-[10px] font-semibold tracking-[0.2em] opacity-90 mb-1">THE RIGHT HOME</div>
+            <div className="text-lg font-bold mb-1">{data.buildingName}</div>
             <div className="text-[11px] opacity-90">{data.buildingAddress}</div>
           </div>
         </div>
@@ -274,22 +302,16 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
               {data.paymentMethod.accountNumber && (
                 <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
               )}
-              <KV
-                label="Nội dung chuyển khoản"
-                value={`${data.invoiceCode} P${data.roomNumber}`}
-                mono
-              />
+              <KV label="Nội dung chuyển khoản" value={transferContent} mono />
             </div>
             {data.paymentMethod.qrCodeUrl && (
               <div className="shrink-0">
-                <div className="bg-white rounded-lg p-2 border border-slate-200">
-                  <img
-                    src={data.paymentMethod.qrCodeUrl}
-                    alt="QR chuyển khoản"
-                    className="block"
-                    style={{ width: 140, height: 140, objectFit: "contain" }}
-                  />
-                </div>
+                <img
+                  src={data.paymentMethod.qrCodeUrl}
+                  alt="QR chuyển khoản"
+                  className="block"
+                  style={{ width: 180, height: 180, objectFit: "contain" }}
+                />
                 <div className="text-[10px] text-center text-slate-500 mt-1">Quét để chuyển khoản</div>
               </div>
             )}
@@ -302,6 +324,27 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
         Cảm ơn quý khách đã sử dụng dịch vụ của {data.buildingName}
       </div>
     </div>
+  );
+}
+
+// Inline KeyRound (matches the PWA app icon at /icons/icon-192.svg) so the
+// receipt header logo is identical to the installed-app icon — and so the
+// html-to-image PNG export embeds it without an extra HTTP fetch.
+function KeyRoundIcon() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#fff7e8"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+      <circle cx="16.5" cy="7.5" r=".5" fill="#fff7e8" />
+    </svg>
   );
 }
 
