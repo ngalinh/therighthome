@@ -8,7 +8,7 @@ import {
   MapPin, FileText, Receipt, AlertCircle, DoorOpen, TrendingUp, Wallet, Clock, Settings as SettingsIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND, compareRooms } from "@/lib/utils";
+import { formatVND, formatVNDCompact, compareRooms } from "@/lib/utils";
 import { RoomsManager } from "./rooms-manager";
 import { DeleteBuildingButton } from "./delete-building-button";
 import { RevenueExpenseChart } from "./revenue-expense-chart";
@@ -118,7 +118,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
           <MiniStat
             icon={TrendingUp}
             label={`Đã thu T${month}`}
-            value={formatVND(totalPaid).replace(" ₫", "")}
+            value={formatVNDCompact(totalPaid).replace(" ₫", "")}
             valueSuffix="₫"
             hint={`/${formatVND(totalDue)}`}
             variant="accent"
