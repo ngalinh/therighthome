@@ -328,21 +328,21 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                 )}
                 {data.buildingType === "CHDV" && data.waterFee > 0n && (
                   <CostRow
-                    label={`Tiền nước T${prevMonth} (${data.waterOccupants} người × ${formatVND(data.waterPricePerPerson)})`}
+                    label={`Tiền nước (${data.waterOccupants} người × ${formatVND(data.waterPricePerPerson)})`}
                     value={formatVND(data.waterFee)}
                   />
                 )}
                 {data.parkingFee > 0n && (
                   <CostRow
-                    label={`Phí xe T${prevMonth} (${data.parkingCount} xe)`}
+                    label={`Phí xe (${data.parkingCount} xe)`}
                     value={formatVND(data.parkingFee)}
                   />
                 )}
                 {data.buildingType === "VP" && data.overtimeFee > 0n && (
-                  <CostRow label={`Làm ngoài giờ T${prevMonth}`} value={formatVND(data.overtimeFee)} />
+                  <CostRow label="Làm ngoài giờ" value={formatVND(data.overtimeFee)} />
                 )}
                 {data.buildingType === "CHDV" && data.serviceFee > 0n && (
-                  <CostRow label={`Phí dịch vụ T${prevMonth}`} value={formatVND(data.serviceFee)} />
+                  <CostRow label="Phí dịch vụ" value={formatVND(data.serviceFee)} />
                 )}
               </>
             )}
@@ -492,7 +492,7 @@ function MeterPhoto({ label, reading, src }: { label: string; reading: number | 
       <div className="flex items-baseline justify-between mb-1.5">
         <span className="text-xs uppercase tracking-wider text-slate-500">{label}</span>
         {reading !== null && (
-          <span className="text-base font-bold text-slate-800 tabular-nums">{reading}</span>
+          <span className="text-xs font-bold text-slate-800 tabular-nums">{reading}</span>
         )}
       </div>
       <div className="aspect-[3/2] rounded-lg overflow-hidden border border-slate-200 bg-slate-50">

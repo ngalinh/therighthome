@@ -411,14 +411,14 @@ export function InvoiceDetail({
                 />
                 <Row label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
                 {buildingType === "CHDV" && waterFee > 0n && (
-                  <Row label={`Tiền nước ${usageLabelMonth} (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+                  <Row label={`Tiền nước (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
                 )}
-                {parkingFee > 0n && <Row label={`Phí xe ${usageLabelMonth} (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
+                {parkingFee > 0n && <Row label={`Phí xe (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
                 {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
-                  <Row label={`Làm ngoài giờ ${usageLabelMonth}`} value={formatVND(parseVNDInput(overtime))} />
+                  <Row label="Làm ngoài giờ" value={formatVND(parseVNDInput(overtime))} />
                 )}
                 {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
-                  <Row label={`Phí dịch vụ ${usageLabelMonth}`} value={formatVND(parseVNDInput(serviceFee))} />
+                  <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
                 )}
                 <hr />
                 <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
