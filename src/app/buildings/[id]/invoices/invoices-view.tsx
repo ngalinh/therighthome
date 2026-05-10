@@ -100,6 +100,17 @@ export function InvoicesView({
     router.refresh();
   }
 
+  async function hardDelete(inv: Invoice) {
+    if (!confirm(`Xoá hoàn toàn hoá đơn ${inv.code}? Thao tác này không thể hoàn tác.`)) return;
+    const res = await fetch(`/api/invoices/${inv.id}?hard=1`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Xoá thất bại");
+    }
+    toast.success("Đã xoá");
+    router.refresh();
+  }
+
   // Stats
   const totalDue = invoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
@@ -192,6 +203,7 @@ export function InvoicesView({
                 buildingId={buildingId}
                 onSend={() => send(inv)}
                 onPay={() => setPayOpen(inv)}
+                onHardDelete={() => hardDelete(inv)}
               />
             ))}
           </div>
@@ -208,6 +220,7 @@ export function InvoicesView({
                 sending={sending}
                 onSend={send}
                 onPay={(inv) => setPayOpen(inv)}
+                onHardDelete={hardDelete}
               />
             </CardContent>
           </Card>
@@ -406,7 +419,7 @@ function GradStat({ label, mobileValue, desktopValue, variant }: {
 }
 
 function InvoiceTable({
-  invoices, buildingType, buildingId, canWrite, canSend, sending, onSend, onPay,
+  invoices, buildingType, buildingId, canWrite, canSend, sending, onSend, onPay, onHardDelete,
 }: {
   invoices: Invoice[];
   buildingType: "CHDV" | "VP";
@@ -416,6 +429,7 @@ function InvoiceTable({
   sending: string | null;
   onSend: (inv: Invoice) => void;
   onPay: (inv: Invoice) => void;
+  onHardDelete: (inv: Invoice) => void;
 }) {
   const isVP = buildingType === "VP";
   return (
@@ -486,6 +500,17 @@ function InvoiceTable({
                       {sending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                     </Button>
                   )}
+                  {canWrite && inv.status === "CANCELLED" && (
+                    <Button
+                      onClick={() => onHardDelete(inv)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                      aria-label="Xoá hoàn toàn"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -496,7 +521,7 @@ function InvoiceTable({
   );
 }
 
-function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay }: {
+function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay, onHardDelete }: {
   inv: Invoice;
   canWrite: boolean;
   canSend: boolean;
@@ -504,6 +529,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
   buildingId: string;
   onSend: () => void;
   onPay: () => void;
+  onHardDelete: () => void;
 }) {
   const primary = inv.contract.customers[0]?.customer;
   const name = customerDisplayName(primary);
@@ -550,6 +576,17 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
             {canSend && primary?.email && inv.status !== "CANCELLED" && (
               <Button onClick={onSend} variant="ghost" size="sm" disabled={sending}>
                 {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            )}
+            {canWrite && inv.status === "CANCELLED" && (
+              <Button
+                onClick={onHardDelete}
+                variant="ghost"
+                size="sm"
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                aria-label="Xoá hoàn toàn"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>

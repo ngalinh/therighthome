@@ -137,7 +137,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
@@ -146,6 +146,38 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   if (!(await can(session.user.id, session.user.role, inv.buildingId, "invoice.write"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  await prisma.invoice.update({ where: { id }, data: { status: "CANCELLED" } });
+
+  const hard = new URL(req.url).searchParams.get("hard") === "1";
+
+  if (hard) {
+    // Permanent removal — only allowed for already-cancelled invoices so the
+    // user can't accidentally wipe an active HĐ in one click.
+    if (inv.status !== "CANCELLED") {
+      return NextResponse.json({ error: "Chỉ có thể xoá HĐ đã huỷ" }, { status: 400 });
+    }
+    await prisma.$transaction(async (tx) => {
+      // Cancel should already have wiped the transactions, but we re-run for
+      // legacy CANCELLED rows that still have linked tx/payments.
+      await tx.transaction.deleteMany({ where: { invoiceId: id } });
+      await tx.overtimeRequest.updateMany({
+        where: { invoiceId: id },
+        data: { invoiceId: null },
+      });
+      await tx.invoice.delete({ where: { id } });
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Cancel: drop every Sổ thu / Sổ quỹ / KQKD entry tied to this invoice.
+  // Transaction → InvoicePayment cascades, so deleting the transactions also
+  // removes the payment-history rows. Reset paidAmount so the invoice goes
+  // back to a clean cancelled state.
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.deleteMany({ where: { invoiceId: id } });
+    await tx.invoice.update({
+      where: { id },
+      data: { status: "CANCELLED", paidAmount: 0n },
+    });
+  });
   return NextResponse.json({ ok: true });
 }
