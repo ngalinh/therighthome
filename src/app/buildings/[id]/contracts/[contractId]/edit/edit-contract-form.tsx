@@ -1380,7 +1380,10 @@ function GeneratedContractCard({
 
       <Dialog open={fullscreen} onOpenChange={(o) => !o && setFullscreen(false)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-white shrink-0">
+          {/* Header. The right side leaves room for the built-in DialogContent
+              close X (positioned absolute right-4 top-4) — pr-12 keeps the
+              .docx button from sitting under it. */}
+          <div className="flex items-center justify-between pl-4 pr-12 py-2.5 border-b bg-white shrink-0">
             <h3 className="text-sm font-semibold">Hợp đồng đã tạo</h3>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={print} disabled={!pdfUrl}>
@@ -1396,13 +1399,6 @@ function GeneratedContractCard({
                   <Download className="h-3.5 w-3.5" /> .docx
                 </a>
               )}
-              <button
-                onClick={() => setFullscreen(false)}
-                aria-label="Đóng"
-                className="text-slate-400 hover:text-slate-600 ml-1"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
           </div>
           <div className="flex-1 bg-slate-100">
