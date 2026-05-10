@@ -12,6 +12,27 @@ const paySchema = z.object({
   notes: z.string().optional(),
 });
 
+// Allocate N consecutive PT-YYMM-NNN codes for the current month — used when
+// settling a manual invoice in full so each line item gets its own phiếu thu.
+// We can't call nextTransactionCode in a loop inside $transaction because each
+// call uses the global prisma client, which doesn't see uncommitted rows from
+// the current tx → all calls return the same code → P2002 unique violation.
+async function allocateIncomeCodes(count: number): Promise<string[]> {
+  const now = new Date();
+  const ym = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prefix = `PT-${ym}-`;
+  const matches = await prisma.transaction.findMany({
+    where: { code: { startsWith: prefix } },
+    select: { code: true },
+  });
+  let maxN = 0;
+  for (const { code } of matches) {
+    const n = parseInt(code.slice(prefix.length), 10);
+    if (Number.isFinite(n) && n > maxN) maxN = n;
+  }
+  return Array.from({ length: count }, (_, i) => `${prefix}${String(maxN + 1 + i).padStart(3, "0")}`);
+}
+
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,13 +61,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const customer = inv.contract.customers[0]?.customer;
   const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date();
 
+  const fullSettlementOfManual =
+    inv.isManual && inv.lineItems.length > 0 && amount === inv.totalAmount - inv.paidAmount;
+  // Pre-allocate codes once (outside $transaction) so concurrent line inserts
+  // don't collide on the unique `code` index.
+  const codes = fullSettlementOfManual
+    ? await allocateIncomeCodes(inv.lineItems.length)
+    : [await nextTransactionCode(inv.buildingId, "INCOME")];
+
   await prisma.$transaction(async (tx) => {
-    if (inv.isManual && inv.lineItems.length > 0 && amount === inv.totalAmount - inv.paidAmount) {
+    if (fullSettlementOfManual) {
       // Pay-in-full of a manual invoice → create one transaction per line so
       // each can carry its own category + countInBR (deposits stay out of P&L).
       let totalAllocated = 0n;
-      for (const line of inv.lineItems) {
-        const code = await nextTransactionCode(inv.buildingId, "INCOME");
+      for (let i = 0; i < inv.lineItems.length; i++) {
+        const line = inv.lineItems[i];
+        const code = codes[i];
         const lineAmount = BigInt(line.amount);
         const txn = await tx.transaction.create({
           data: {
@@ -82,7 +112,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Default: single transaction for the whole payment.
       // For partial payments on a manual invoice, we still record one tx with
       // no category (the per-line breakdown only applies on full settlement).
-      const code = await nextTransactionCode(inv.buildingId, "INCOME");
+      const code = codes[0];
       // Manual invoice with a single line → use that line's category & countInBR.
       const onlyLine = inv.isManual && inv.lineItems.length === 1 ? inv.lineItems[0] : null;
       const txn = await tx.transaction.create({
