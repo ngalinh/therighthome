@@ -172,10 +172,10 @@ export function InvoicesView({
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <GradStat label="Tổng phải thu" value={formatVNDCompact(totalDue)} variant="tan" />
-        <GradStat label="Đã thu" value={formatVNDCompact(totalPaid)} variant="sage" />
-        <GradStat label="Còn lại" value={formatVNDCompact(totalDue - totalPaid)} variant="accent" />
-        <GradStat label="Quá hạn" value={`${overdueCount} HĐ`} variant="dark" />
+        <GradStat label="Tổng phải thu" mobileValue={formatVNDCompact(totalDue)} desktopValue={formatVND(totalDue)} variant="tan" />
+        <GradStat label="Đã thu" mobileValue={formatVNDCompact(totalPaid)} desktopValue={formatVND(totalPaid)} variant="sage" />
+        <GradStat label="Còn lại" mobileValue={formatVNDCompact(totalDue - totalPaid)} desktopValue={formatVND(totalDue - totalPaid)} variant="accent" />
+        <GradStat label="Quá hạn" mobileValue={`${overdueCount} HĐ`} desktopValue={`${overdueCount} HĐ`} variant="dark" />
       </div>
 
       {/* List */}
@@ -232,13 +232,19 @@ export function InvoicesView({
   );
 }
 
-function GradStat({ label, value, variant }: {
-  label: string; value: string; variant?: "accent" | "dark" | "sage" | "tan";
+function GradStat({ label, mobileValue, desktopValue, variant }: {
+  label: string;
+  mobileValue: string;
+  desktopValue: string;
+  variant?: "accent" | "dark" | "sage" | "tan";
 }) {
   return (
     <div className={`stat ${variant ?? ""} flex flex-col justify-center min-h-[110px]`}>
       <div className="stat-label">{label}</div>
-      <div className="stat-value text-xl">{value}</div>
+      <div className="stat-value text-xl">
+        <span className="lg:hidden">{mobileValue}</span>
+        <span className="hidden lg:inline">{desktopValue}</span>
+      </div>
     </div>
   );
 }
