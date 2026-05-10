@@ -414,7 +414,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
               <KV label="Số tiền chuyển khoản" value={formatVND(amountForQr)} mono />
             </div>
             {qrSrc && (
-              <div className="flex flex-col items-center shrink-0 self-center sm:self-start">
+              <div className="flex flex-col items-center shrink-0 self-center sm:self-start sm:ml-auto sm:-mt-8">
                 <img
                   src={qrSrc}
                   alt="QR chuyển khoản"
