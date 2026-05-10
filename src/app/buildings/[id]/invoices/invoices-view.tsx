@@ -11,10 +11,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty";
-import { Receipt, Send, Plus, Loader2, DollarSign } from "lucide-react";
+import { Receipt, Send, Plus, Loader2, DollarSign, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatVNDCompact, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
+
+type ContractOption = {
+  contractId: string;
+  roomId: string;
+  roomNumber: string;
+  customerName: string;
+};
+type IncomeCategory = { id: string; name: string };
 
 type Invoice = {
   id: string;
@@ -51,7 +59,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function InvoicesView({
-  buildingId, buildingType, month, year, status, invoices, paymentMethods, canWrite, canSend,
+  buildingId, buildingType, month, year, status, invoices, paymentMethods, contractOptions, incomeCategories, canWrite, canSend,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
@@ -60,11 +68,13 @@ export function InvoicesView({
   status: string;
   invoices: Invoice[];
   paymentMethods: { id: string; name: string }[];
+  contractOptions: ContractOption[];
+  incomeCategories: IncomeCategory[];
   canWrite: boolean;
   canSend: boolean;
 }) {
   const router = useRouter();
-  const [generating, setGenerating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [payOpen, setPayOpen] = useState<Invoice | null>(null);
   const [sending, setSending] = useState<string | null>(null);
 
@@ -74,23 +84,6 @@ export function InvoicesView({
     sp.set("year", String(y));
     if (s !== "ALL") sp.set("status", s);
     router.push(`/buildings/${buildingId}/invoices?${sp.toString()}`);
-  }
-
-  async function generate() {
-    setGenerating(true);
-    const res = await fetch(`/api/buildings/${buildingId}/invoices`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, year }),
-    });
-    setGenerating(false);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return toast.error(err.error || "Tạo hoá đơn thất bại");
-    }
-    const { created } = await res.json();
-    toast.success(created > 0 ? `Đã tạo ${created} hoá đơn` : "Tất cả HĐ đã tồn tại");
-    router.refresh();
   }
 
   async function send(inv: Invoice) {
@@ -162,9 +155,9 @@ export function InvoicesView({
             }]}
           />
           {canWrite && (
-            <Button onClick={generate} variant="gradient" disabled={generating}>
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Tạo HĐ tháng này
+            <Button onClick={() => setCreateOpen(true)} variant="gradient">
+              <Plus className="h-4 w-4" />
+              Tạo hoá đơn
             </Button>
           )}
         </div>
@@ -183,7 +176,7 @@ export function InvoicesView({
         <EmptyState
           icon={Receipt}
           title="Chưa có hoá đơn"
-          description={`Bấm "Tạo HĐ tháng này" để tự tạo cho tất cả HĐ đang hoạt động.`}
+          description={`HĐ thuê hàng tháng được tự tạo. Bấm "Tạo hoá đơn" để tạo HĐ thủ công.`}
         />
       ) : (
         <>
@@ -228,7 +221,173 @@ export function InvoicesView({
         onClose={() => setPayOpen(null)}
         onSuccess={() => { setPayOpen(null); router.refresh(); }}
       />
+
+      {/* Manual invoice create dialog */}
+      <CreateManualInvoiceDialog
+        open={createOpen}
+        buildingId={buildingId}
+        contractOptions={contractOptions}
+        incomeCategories={incomeCategories}
+        onClose={() => setCreateOpen(false)}
+      />
     </div>
+  );
+}
+
+function CreateManualInvoiceDialog({
+  open, buildingId, contractOptions, incomeCategories, onClose,
+}: {
+  open: boolean;
+  buildingId: string;
+  contractOptions: ContractOption[];
+  incomeCategories: IncomeCategory[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [contractId, setContractId] = useState<string>("");
+  const [lines, setLines] = useState<{ categoryId: string; content: string; amount: string }[]>([
+    { categoryId: "", content: "", amount: "" },
+  ]);
+  const [loading, setLoading] = useState(false);
+
+  const selected = contractOptions.find((c) => c.contractId === contractId);
+  const total = lines.reduce((s, l) => s + parseVNDInput(l.amount), 0n);
+
+  function reset() {
+    setContractId("");
+    setLines([{ categoryId: "", content: "", amount: "" }]);
+  }
+
+  function updateLine(idx: number, patch: Partial<{ categoryId: string; content: string; amount: string }>) {
+    setLines((arr) => arr.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+  function addLine() {
+    setLines((arr) => [...arr, { categoryId: "", content: "", amount: "" }]);
+  }
+  function removeLine(idx: number) {
+    setLines((arr) => (arr.length === 1 ? arr : arr.filter((_, i) => i !== idx)));
+  }
+
+  async function submit() {
+    if (!contractId) return toast.error("Chọn số phòng");
+    const cleanLines = lines
+      .map((l) => ({ ...l, amount: parseVNDInput(l.amount) }))
+      .filter((l) => l.amount > 0n);
+    if (cleanLines.length === 0) return toast.error("Nhập ít nhất 1 dòng chi phí");
+    for (const l of cleanLines) {
+      if (!l.content.trim()) return toast.error("Mỗi dòng phải có nội dung");
+    }
+    setLoading(true);
+    const res = await fetch(`/api/buildings/${buildingId}/invoices/manual`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contractId,
+        lineItems: cleanLines.map((l) => ({
+          categoryId: l.categoryId || null,
+          content: l.content.trim(),
+          amount: l.amount.toString(),
+        })),
+      }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Tạo hoá đơn thất bại");
+    }
+    const { id } = await res.json();
+    toast.success("Đã tạo hoá đơn");
+    reset();
+    onClose();
+    router.push(`/buildings/${buildingId}/invoices/${id}`);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Tạo hoá đơn</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Số phòng</Label>
+              <Select value={contractId} onValueChange={setContractId}>
+                <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                <SelectContent>
+                  {contractOptions.map((c) => (
+                    <SelectItem key={c.contractId} value={c.contractId}>
+                      Phòng {c.roomNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Khách thuê</Label>
+              <Input value={selected?.customerName ?? ""} disabled placeholder="—" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Chi tiết hoá đơn</Label>
+            {lines.map((l, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                <div className="col-span-12 sm:col-span-4">
+                  <Select value={l.categoryId} onValueChange={(v) => updateLine(idx, { categoryId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Loại chi phí" /></SelectTrigger>
+                    <SelectContent>
+                      {incomeCategories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-8 sm:col-span-5">
+                  <Input
+                    placeholder="Nội dung"
+                    value={l.content}
+                    onChange={(e) => updateLine(idx, { content: e.target.value })}
+                  />
+                </div>
+                <div className="col-span-3 sm:col-span-2">
+                  <Input
+                    inputMode="numeric"
+                    placeholder="Số tiền"
+                    value={l.amount ? formatNumber(parseVNDInput(l.amount)) : ""}
+                    onChange={(e) => updateLine(idx, { amount: e.target.value })}
+                  />
+                </div>
+                <div className="col-span-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeLine(idx)}
+                    disabled={lines.length === 1}
+                    className="text-slate-400 hover:text-rose-600 disabled:opacity-30 p-2"
+                    aria-label="Xoá dòng"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addLine}>
+              <Plus className="h-3.5 w-3.5" /> Thêm
+            </Button>
+          </div>
+          <div className="flex justify-between items-baseline pt-2 border-t">
+            <span className="text-sm text-slate-600">Tổng tiền</span>
+            <span className="text-lg font-bold">{formatVND(total)}</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => { reset(); onClose(); }}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Tạo hoá đơn
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

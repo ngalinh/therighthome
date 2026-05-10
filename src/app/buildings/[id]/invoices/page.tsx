@@ -75,6 +75,44 @@ export default async function InvoicesPage({
     orderBy: { name: "asc" },
   });
 
+  // Active contracts in this building, used by the manual invoice dialog so
+  // the user can pick a room and auto-fill the customer.
+  const activeContracts = await prisma.contract.findMany({
+    where: { buildingId: id, status: "ACTIVE" },
+    include: {
+      room: { select: { id: true, number: true } },
+      customers: {
+        where: { isPrimary: true },
+        include: { customer: { select: { type: true, fullName: true, companyName: true } } },
+      },
+    },
+  });
+  const contractOptions = activeContracts
+    .map((c) => {
+      const cust = c.customers[0]?.customer;
+      return {
+        contractId: c.id,
+        roomId: c.room.id,
+        roomNumber: c.room.number,
+        customerName: cust
+          ? cust.type === "COMPANY"
+            ? cust.companyName ?? ""
+            : cust.fullName ?? ""
+          : "",
+      };
+    })
+    .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, "vi", { numeric: true }));
+
+  // Income categories matching this building's type (for the Loại chi phí dropdown).
+  const incomeCategories = await prisma.transactionCategory.findMany({
+    where: {
+      type: "INCOME",
+      OR: [{ buildingType: building.type }, { buildingType: null }],
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   return (
     <AppShell
       user={{ name: session.user.name || "", email: session.user.email || "", role: session.user.role }}
@@ -90,6 +128,8 @@ export default async function InvoicesPage({
           status={sp.status ?? "ALL"}
           invoices={serializeBigInt(invoices)}
           paymentMethods={paymentMethods}
+          contractOptions={contractOptions}
+          incomeCategories={incomeCategories}
           canWrite={canWrite}
           canSend={canSend}
         />

@@ -33,6 +33,10 @@ export default async function InvoiceDetailPage({
         include: { transaction: { include: { paymentMethod: true } } },
         orderBy: { paidAt: "desc" },
       },
+      lineItems: {
+        include: { category: { select: { id: true, name: true } } },
+        orderBy: { sortOrder: "asc" },
+      },
     },
   });
   if (!inv || inv.buildingId !== id) notFound();

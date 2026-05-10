@@ -14,6 +14,15 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
 import { InvoiceReceiptDialog, type ReceiptData } from "./invoice-receipt";
 
+type LineItem = {
+  id: string;
+  content: string;
+  amount: string;
+  countInBR: boolean;
+  sortOrder: number;
+  category: { id: string; name: string } | null;
+};
+
 type Invoice = {
   id: string;
   code: string;
@@ -21,6 +30,7 @@ type Invoice = {
   year: number;
   dueDate: string;
   status: string;
+  isManual: boolean;
   rentAmount: string;
   vatAmount: string;
   electricityStart: number | null;
@@ -40,8 +50,10 @@ type Invoice = {
   totalAmount: string;
   paidAmount: string;
   notes: string | null;
+  lineItems: LineItem[];
   contract: {
     startDate: string;
+    paymentDay: number;
     room: { number: string };
     customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null; phone: string | null } }[];
   };
@@ -134,7 +146,7 @@ export function InvoiceDetail({
   // Month labels: rent = current month (anchored to contract start day),
   // other costs = previous month (consumption period).
   const prevMonth = invoice.month === 1 ? 12 : invoice.month - 1;
-  const rentPeriod = rentPeriodLabel(invoice.contract.startDate, invoice.month, invoice.year);
+  const rentPeriod = rentPeriodLabel(invoice.contract.paymentDay, invoice.month, invoice.year);
   const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {
@@ -205,6 +217,12 @@ export function InvoiceDetail({
     buildingType,
     roomNumber: invoice.contract.room.number,
     customer: primary,
+    isManual: invoice.isManual,
+    lineItems: invoice.lineItems.map((l) => ({
+      content: l.content,
+      categoryName: l.category?.name ?? null,
+      amount: BigInt(l.amount),
+    })),
     rentAmount: BigInt(invoice.rentAmount),
     vatAmount: BigInt(invoice.vatAmount),
     electricityStart: invoice.electricityStart,
@@ -257,58 +275,79 @@ export function InvoiceDetail({
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Row
-              label={
-                BigInt(invoice.vatAmount) > 0n
-                  ? `Tiền thuê (${rentPeriod}) · đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT`
-                  : `Tiền thuê (${rentPeriod})`
-              }
-              value={formatVND(BigInt(invoice.rentAmount))}
-            />
-            <Row label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
-            {buildingType === "CHDV" && waterFee > 0n && (
-              <Row label={`Tiền nước ${usageLabelMonth} (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+            {invoice.isManual ? (
+              <>
+                {invoice.lineItems.map((l) => (
+                  <Row
+                    key={l.id}
+                    label={l.category?.name ? `${l.category.name} — ${l.content}` : l.content}
+                    value={formatVND(BigInt(l.amount))}
+                  />
+                ))}
+                <hr />
+                <Row label="Tổng phải thu" value={formatVND(BigInt(invoice.totalAmount))} bold />
+                <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
+                {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
+              </>
+            ) : (
+              <>
+                <Row
+                  label={
+                    BigInt(invoice.vatAmount) > 0n
+                      ? `Tiền thuê (${rentPeriod}) · đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT`
+                      : `Tiền thuê (${rentPeriod})`
+                  }
+                  value={formatVND(BigInt(invoice.rentAmount))}
+                />
+                <Row label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
+                {buildingType === "CHDV" && waterFee > 0n && (
+                  <Row label={`Tiền nước ${usageLabelMonth} (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+                )}
+                {parkingFee > 0n && <Row label={`Phí xe ${usageLabelMonth} (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
+                {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
+                  <Row label={`Làm ngoài giờ ${usageLabelMonth}`} value={formatVND(parseVNDInput(overtime))} />
+                )}
+                {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
+                  <Row label={`Phí dịch vụ ${usageLabelMonth}`} value={formatVND(parseVNDInput(serviceFee))} />
+                )}
+                <hr />
+                <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
+                <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
+                {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
+              </>
             )}
-            {parkingFee > 0n && <Row label={`Phí xe ${usageLabelMonth} (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
-            {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
-              <Row label={`Làm ngoài giờ ${usageLabelMonth}`} value={formatVND(parseVNDInput(overtime))} />
-            )}
-            {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
-              <Row label={`Phí dịch vụ ${usageLabelMonth}`} value={formatVND(parseVNDInput(serviceFee))} />
-            )}
-            <hr />
-            <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
-            <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
-            {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Số điện</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <PhotoUploadField
-                invoiceId={invoice.id}
-                which="start"
-                label="Số điện đầu kỳ"
-                photoUrl={invoice.electricityStartPhoto}
-                value={elecStart}
-                onChange={setElecStart}
-                disabled={!canWrite}
-              />
-              <PhotoUploadField
-                invoiceId={invoice.id}
-                which="end"
-                label="Số điện cuối kỳ"
-                photoUrl={invoice.electricityEndPhoto}
-                value={elecEnd}
-                onChange={setElecEnd}
-                disabled={!canWrite}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {!invoice.isManual && (
+          <Card>
+            <CardHeader><CardTitle>Số điện</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <PhotoUploadField
+                  invoiceId={invoice.id}
+                  which="start"
+                  label="Số điện đầu kỳ"
+                  photoUrl={invoice.electricityStartPhoto}
+                  value={elecStart}
+                  onChange={setElecStart}
+                  disabled={!canWrite}
+                />
+                <PhotoUploadField
+                  invoiceId={invoice.id}
+                  which="end"
+                  label="Số điện cuối kỳ"
+                  photoUrl={invoice.electricityEndPhoto}
+                  value={elecEnd}
+                  onChange={setElecEnd}
+                  disabled={!canWrite}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
+        {!invoice.isManual && (
         <Card>
           <CardHeader><CardTitle>Khác</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -371,6 +410,25 @@ export function InvoiceDetail({
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {invoice.isManual && (
+          <Card>
+            <CardHeader><CardTitle>Khác</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Hạn thanh toán</Label>
+                  <DateInput value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={!canWrite} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Ghi chú</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!canWrite} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {canWrite && (
           <div className="flex justify-end gap-2">

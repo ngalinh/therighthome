@@ -21,6 +21,8 @@ export type InvoiceEmailData = {
   totalAmount: bigint;
   paidAmount: bigint;
   notes?: string | null;
+  isManual?: boolean;
+  lineItems?: { content: string; categoryName: string | null; amount: bigint }[];
 };
 
 const row = (label: string, value: string, bold = false) =>
@@ -52,16 +54,24 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       </div>
 
       <table width="100%" style="border-collapse:collapse;font-size:14px;margin:8px 0">
-        ${row(
-          d.vatAmount > 0n
-            ? `Tiền thuê (đã VAT, gồm ${formatVND(d.vatAmount)} VAT)`
-            : "Tiền thuê",
-          formatVND(d.rentAmount),
-        )}
+        ${
+          d.isManual && d.lineItems && d.lineItems.length > 0
+            ? d.lineItems
+                .map((l) =>
+                  row(l.categoryName ? `${l.categoryName} — ${l.content}` : l.content, formatVND(l.amount)),
+                )
+                .join("")
+            : `${row(
+                d.vatAmount > 0n
+                  ? `Tiền thuê (đã VAT, gồm ${formatVND(d.vatAmount)} VAT)`
+                  : "Tiền thuê",
+                formatVND(d.rentAmount),
+              )}
         ${row(`Tiền điện (${elec})`, formatVND(d.electricityFee))}
         ${d.parkingFee > 0n ? row(`Phí gửi xe (${d.parkingCount} xe)`, formatVND(d.parkingFee)) : ""}
         ${d.overtimeFee > 0n ? row("Phí làm ngoài giờ", formatVND(d.overtimeFee)) : ""}
-        ${d.serviceFee > 0n ? row("Phí dịch vụ", formatVND(d.serviceFee)) : ""}
+        ${d.serviceFee > 0n ? row("Phí dịch vụ", formatVND(d.serviceFee)) : ""}`
+        }
         <tr><td colspan="2"><hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0"></td></tr>
         ${row("Tổng phải thu", formatVND(d.totalAmount), true)}
         ${d.paidAmount > 0n ? row("Đã thu", formatVND(d.paidAmount)) : ""}

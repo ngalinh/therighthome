@@ -29,8 +29,8 @@ export async function generateMonthlyInvoices(month: number, year: number, build
   for (const c of contracts) {
     if (!c.isOpenEnded && c.endDate < new Date(year, month - 1, 1)) continue;
 
-    const existing = await prisma.invoice.findUnique({
-      where: { contractId_month_year: { contractId: c.id, month, year } },
+    const existing = await prisma.invoice.findFirst({
+      where: { contractId: c.id, month, year, isManual: false },
     });
     if (existing) continue;
 
@@ -62,8 +62,8 @@ export async function generateMonthlyInvoices(month: number, year: number, build
     // invoice's "số điện đầu kỳ" is pre-filled with last month's "cuối kỳ".
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
-    const prev = await prisma.invoice.findUnique({
-      where: { contractId_month_year: { contractId: c.id, month: prevMonth, year: prevYear } },
+    const prev = await prisma.invoice.findFirst({
+      where: { contractId: c.id, month: prevMonth, year: prevYear, isManual: false },
       select: { electricityEnd: true, electricityEndPhoto: true },
     });
     const electricityStart = prev?.electricityEnd ?? null;

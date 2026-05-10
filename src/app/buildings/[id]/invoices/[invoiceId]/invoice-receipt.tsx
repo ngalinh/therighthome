@@ -22,6 +22,12 @@ type ReceiptPM = {
   qrCodeUrl: string | null;
 } | null;
 
+export type ReceiptLine = {
+  content: string;
+  categoryName: string | null;
+  amount: bigint;
+};
+
 export type ReceiptData = {
   invoiceCode: string;
   month: number;
@@ -33,6 +39,8 @@ export type ReceiptData = {
   buildingType: "CHDV" | "VP";
   roomNumber: string;
   customer: CustomerLite | undefined;
+  isManual: boolean;
+  lineItems: ReceiptLine[];
   rentAmount: bigint;
   vatAmount: bigint;
   electricityStart: number | null;
@@ -274,37 +282,49 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
         <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Chi tiết chi phí</h4>
         <table className="w-full text-sm">
           <tbody>
-            <CostRow
-              label={
-                data.vatAmount > 0n
-                  ? `Tiền thuê (${data.rentPeriod}) · đã VAT, gồm ${formatVND(data.vatAmount)}`
-                  : `Tiền thuê (${data.rentPeriod})`
-              }
-              value={formatVND(data.rentAmount)}
-            />
-            {data.electricityFee > 0n && (
-              <CostRow
-                label={`Tiền điện T${prevMonth}${kwh > 0 ? ` (${kwh} kWh × ${formatVND(data.electricityPricePerKwh)})` : ""}`}
-                value={formatVND(data.electricityFee)}
-              />
-            )}
-            {data.buildingType === "CHDV" && data.waterFee > 0n && (
-              <CostRow
-                label={`Tiền nước T${prevMonth} (${data.waterOccupants} người × ${formatVND(data.waterPricePerPerson)})`}
-                value={formatVND(data.waterFee)}
-              />
-            )}
-            {data.parkingFee > 0n && (
-              <CostRow
-                label={`Phí xe T${prevMonth} (${data.parkingCount} xe)`}
-                value={formatVND(data.parkingFee)}
-              />
-            )}
-            {data.buildingType === "VP" && data.overtimeFee > 0n && (
-              <CostRow label={`Làm ngoài giờ T${prevMonth}`} value={formatVND(data.overtimeFee)} />
-            )}
-            {data.buildingType === "CHDV" && data.serviceFee > 0n && (
-              <CostRow label={`Phí dịch vụ T${prevMonth}`} value={formatVND(data.serviceFee)} />
+            {data.isManual ? (
+              data.lineItems.map((l, idx) => (
+                <CostRow
+                  key={idx}
+                  label={l.categoryName ? `${l.categoryName} — ${l.content}` : l.content}
+                  value={formatVND(l.amount)}
+                />
+              ))
+            ) : (
+              <>
+                <CostRow
+                  label={
+                    data.vatAmount > 0n
+                      ? `Tiền thuê (${data.rentPeriod}) · đã VAT, gồm ${formatVND(data.vatAmount)}`
+                      : `Tiền thuê (${data.rentPeriod})`
+                  }
+                  value={formatVND(data.rentAmount)}
+                />
+                {data.electricityFee > 0n && (
+                  <CostRow
+                    label={`Tiền điện T${prevMonth}${kwh > 0 ? ` (${kwh} kWh × ${formatVND(data.electricityPricePerKwh)})` : ""}`}
+                    value={formatVND(data.electricityFee)}
+                  />
+                )}
+                {data.buildingType === "CHDV" && data.waterFee > 0n && (
+                  <CostRow
+                    label={`Tiền nước T${prevMonth} (${data.waterOccupants} người × ${formatVND(data.waterPricePerPerson)})`}
+                    value={formatVND(data.waterFee)}
+                  />
+                )}
+                {data.parkingFee > 0n && (
+                  <CostRow
+                    label={`Phí xe T${prevMonth} (${data.parkingCount} xe)`}
+                    value={formatVND(data.parkingFee)}
+                  />
+                )}
+                {data.buildingType === "VP" && data.overtimeFee > 0n && (
+                  <CostRow label={`Làm ngoài giờ T${prevMonth}`} value={formatVND(data.overtimeFee)} />
+                )}
+                {data.buildingType === "CHDV" && data.serviceFee > 0n && (
+                  <CostRow label={`Phí dịch vụ T${prevMonth}`} value={formatVND(data.serviceFee)} />
+                )}
+              </>
             )}
           </tbody>
           <tfoot>

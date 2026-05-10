@@ -99,17 +99,16 @@ export function formatDateVN(d: Date | string | null | undefined): string {
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-// Rent period for an invoice, anchored to the contract start day. For a
-// contract starting on day D, the May invoice covers D/05 → (D-1)/06, etc.
+// Rent period for an invoice, anchored to the contract paymentDay. For a
+// contract with paymentDay D, the May invoice covers D/05 → (D-1)/06, etc.
 // Returned format: "DD/MM/YY-DD/MM/YY".
 export function rentPeriodLabel(
-  contractStart: Date | string,
+  paymentDay: number,
   invoiceMonth: number,
   invoiceYear: number,
 ): string {
-  const start = typeof contractStart === "string" ? new Date(contractStart) : contractStart;
-  const day = start.getUTCDate();
-  // Period start: day-of-contract-start in invoice month/year
+  const day = Math.max(1, Math.min(28, paymentDay || 1));
+  // Period start: paymentDay in invoice month/year
   const fromY = invoiceYear;
   const fromM = invoiceMonth;
   // Period end: (day - 1) of the following month. If day === 1, end is the
