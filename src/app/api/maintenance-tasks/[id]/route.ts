@@ -64,13 +64,18 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   if (!(await can(session.user.id, session.user.role, existing.buildingId, "finance.write"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  // Detach from any expense transaction (don't delete the transaction).
-  if (existing.expenseTransactionId) {
-    await prisma.maintenanceTask.update({
-      where: { id },
-      data: { expenseTransactionId: null },
-    });
-  }
-  await prisma.maintenanceTask.delete({ where: { id } });
+  // Also remove the linked expense transaction so it disappears from Sổ chi.
+  await prisma.$transaction(async (tx) => {
+    if (existing.expenseTransactionId) {
+      await tx.maintenanceTask.update({
+        where: { id },
+        data: { expenseTransactionId: null },
+      });
+    }
+    await tx.maintenanceTask.delete({ where: { id } });
+    if (existing.expenseTransactionId) {
+      await tx.transaction.delete({ where: { id: existing.expenseTransactionId } });
+    }
+  });
   return NextResponse.json({ ok: true });
 }

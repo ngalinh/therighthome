@@ -151,6 +151,19 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
       });
       await tx.invoice.deleteMany({ where: { contractId: id } });
     }
+    // Remove EXPENSE transactions tied to this contract by content prefix
+    // (broker fee on creation, deposit refund on termination) so they
+    // disappear from Sổ chi together with the contract.
+    await tx.transaction.deleteMany({
+      where: {
+        buildingId: c.buildingId,
+        type: "EXPENSE",
+        OR: [
+          { content: { startsWith: `Phí môi giới HĐ ${c.code}` } },
+          { content: { startsWith: `Hoàn tiền cọc - HĐ ${c.code}` } },
+        ],
+      },
+    });
     // Free room if this was the only ACTIVE contract for it.
     if (c.status === "ACTIVE") {
       const stillActive = await tx.contract.count({
