@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 
 const STORAGE_PATH = process.env.STORAGE_PATH || path.join(process.cwd(), "storage");
 
-export type StorageBucket = "id-cards" | "contracts" | "electricity" | "templates" | "imports";
+export type StorageBucket = "id-cards" | "contracts" | "electricity" | "templates" | "imports" | "qr-codes";
 
 export async function saveFile(bucket: StorageBucket, file: File, ext?: string): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -32,5 +32,5 @@ export async function readStoredFile(bucket: StorageBucket, filename: string): P
 }
 
 export function isValidBucket(b: string): b is StorageBucket {
-  return ["id-cards", "contracts", "electricity", "templates", "imports"].includes(b);
+  return ["id-cards", "contracts", "electricity", "templates", "imports", "qr-codes"].includes(b);
 }

@@ -8,10 +8,11 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Camera, Send, X as XIcon, Save, Trash2 } from "lucide-react";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { InvoiceReceiptDialog, type ReceiptData } from "./invoice-receipt";
 
 type Invoice = {
   id: string;
@@ -46,6 +47,15 @@ type Invoice = {
   payments: { id: string; amount: string; paidAt: string; transaction: { code: string } }[];
 };
 
+type PaymentMethodInfo = {
+  id: string;
+  name: string;
+  bankName: string | null;
+  accountHolder: string | null;
+  accountNumber: string | null;
+  qrCodeUrl: string | null;
+} | null;
+
 const STATUS: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "destructive" }> = {
   PENDING: { label: "Chờ thanh toán", variant: "warning" },
   PARTIAL: { label: "Thanh toán 1 phần", variant: "warning" },
@@ -55,17 +65,21 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 };
 
 export function InvoiceDetail({
-  invoice, buildingType, settingFallback, canWrite, canSend,
+  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod,
 }: {
   invoice: Invoice;
   buildingType: "CHDV" | "VP";
+  buildingName: string;
+  buildingAddress: string;
   settingFallback: { parkingFeePerVehicle: string; electricityPricePerKwh: string };
   canWrite: boolean;
   canSend: boolean;
+  paymentMethod: PaymentMethodInfo;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const [elecStart, setElecStart] = useState<string>(invoice.electricityStart?.toString() ?? "");
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
@@ -163,6 +177,40 @@ export function InvoiceDetail({
     invoice.status === "PARTIAL" ? "from-amber-400 to-orange-500" :
     "from-slate-500 to-slate-700";
 
+  // Build receipt data from current invoice values (use saved snapshots, not
+  // unsaved edits, so the receipt always reflects what the customer is being
+  // billed).
+  const receiptData: ReceiptData = {
+    invoiceCode: invoice.code,
+    month: invoice.month,
+    year: invoice.year,
+    dueDate: invoice.dueDate,
+    buildingName,
+    buildingAddress,
+    buildingType,
+    roomNumber: invoice.contract.room.number,
+    customer: primary,
+    rentAmount: BigInt(invoice.rentAmount),
+    vatAmount: BigInt(invoice.vatAmount),
+    electricityStart: invoice.electricityStart,
+    electricityEnd: invoice.electricityEnd,
+    electricityFee: BigInt(invoice.electricityFee),
+    electricityPricePerKwh: BigInt(invoice.electricityPricePerKwh),
+    electricityStartPhoto: invoice.electricityStartPhoto,
+    electricityEndPhoto: invoice.electricityEndPhoto,
+    parkingCount: invoice.parkingCount,
+    parkingFee: BigInt(invoice.parkingFee),
+    overtimeFee: BigInt(invoice.overtimeFee),
+    serviceFee: BigInt(invoice.serviceFee),
+    waterOccupants: invoice.waterOccupants,
+    waterPricePerPerson: BigInt(invoice.waterPricePerPerson),
+    waterFee: BigInt(invoice.waterFee),
+    totalAmount: BigInt(invoice.totalAmount),
+    paidAmount: BigInt(invoice.paidAmount),
+    notes: invoice.notes,
+    paymentMethod,
+  };
+
   return (
     <div className="grid lg:grid-cols-3 gap-4 lg:gap-6">
       <div className="lg:col-span-2 space-y-4">
@@ -189,6 +237,9 @@ export function InvoiceDetail({
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-4">
             <CardTitle className="text-base">Chi tiết</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setReceiptOpen(true)}>
+              <FileText className="h-4 w-4" /> Xem hoá đơn
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             <Row
@@ -347,18 +398,104 @@ export function InvoiceDetail({
             ) : (
               <div className="space-y-2">
                 {invoice.payments.map((p) => (
-                  <div key={p.id} className="flex justify-between items-start text-sm">
-                    <div>
-                      <div className="font-medium">{formatVND(BigInt(p.amount))}</div>
-                      <div className="text-xs text-slate-500">{formatDateVN(p.paidAt)} · <span className="font-mono">{p.transaction.code}</span></div>
-                    </div>
-                  </div>
+                  <PaymentRow key={p.id} invoiceId={invoice.id} payment={p} canWrite={canWrite} />
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <InvoiceReceiptDialog
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        data={receiptData}
+      />
+    </div>
+  );
+}
+
+function PaymentRow({
+  invoiceId, payment, canWrite,
+}: {
+  invoiceId: string;
+  payment: { id: string; amount: string; paidAt: string; transaction: { code: string } };
+  canWrite: boolean;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(payment.amount);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const newAmount = parseVNDInput(draft);
+    if (newAmount <= 0n) return toast.error("Số tiền phải > 0");
+    if (newAmount.toString() === payment.amount) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(`/api/invoices/${invoiceId}/payments/${payment.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: newAmount.toString() }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Lưu thất bại");
+    }
+    toast.success("Đã cập nhật");
+    setEditing(false);
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <Input
+          inputMode="numeric"
+          value={formatNumber(parseVNDInput(draft))}
+          onChange={(e) => setDraft(e.target.value)}
+          className="h-8 text-sm"
+          autoFocus
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50 p-1"
+          aria-label="Lưu"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => { setDraft(payment.amount); setEditing(false); }}
+          className="text-slate-400 hover:text-slate-600 p-1"
+          aria-label="Huỷ"
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-between items-start text-sm gap-2">
+      <div className="min-w-0 flex-1">
+        <div className="font-medium">{formatVND(BigInt(payment.amount))}</div>
+        <div className="text-xs text-slate-500">
+          {formatDateVN(payment.paidAt)} · <span className="font-mono">{payment.transaction.code}</span>
+        </div>
+      </div>
+      {canWrite && (
+        <button
+          onClick={() => setEditing(true)}
+          className="text-slate-400 hover:text-primary p-1 shrink-0"
+          aria-label="Sửa số tiền"
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }

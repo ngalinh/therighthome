@@ -29,7 +29,10 @@ export default async function GlobalSettingsPage({
     }) : [],
     isAdmin ? prisma.building.findMany({ orderBy: { name: "asc" } }) : [],
     isAdmin ? prisma.transactionCategory.findMany({ orderBy: [{ buildingType: "asc" }, { type: "asc" }, { name: "asc" }] }) : [],
-    isAdmin ? prisma.paymentMethod.findMany({ orderBy: [{ buildingType: "asc" }, { name: "asc" }] }) : [],
+    isAdmin ? prisma.paymentMethod.findMany({
+      include: { buildings: { select: { id: true, name: true, type: true } } },
+      orderBy: [{ buildingType: "asc" }, { name: "asc" }],
+    }) : [],
     isAdmin ? prisma.partyKindConfig.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }) : [],
     isAdmin ? prisma.auditLog.findMany({
       include: { user: { select: { email: true, name: true } } },
@@ -129,7 +132,11 @@ export default async function GlobalSettingsPage({
                 <CategoriesTab categories={categories} />
               </TabsContent>
               <TabsContent value="pttt">
-                <PaymentMethodsTab paymentMethods={paymentMethods} partyKindConfigs={partyKindConfigs} />
+                <PaymentMethodsTab
+                  paymentMethods={paymentMethods}
+                  partyKindConfigs={partyKindConfigs}
+                  buildings={buildings.map((b) => ({ id: b.id, name: b.name, type: b.type }))}
+                />
               </TabsContent>
               <TabsContent value="audit">
                 <AuditLogTab logs={auditLogs} />

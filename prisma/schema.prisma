@@ -91,6 +91,7 @@ model Building {
   openingBalances  OpeningBalance[]
   maintenanceTasks MaintenanceTask[]
   overtimeRequests OvertimeRequest[]
+  paymentMethods   PaymentMethod[] @relation("BuildingPaymentMethods")
 }
 
 model Room {
@@ -459,6 +460,13 @@ model PaymentMethod {
   name         String
   isCash       Boolean       @default(false)
 
+  // Bank details shown to tenants on the invoice receipt
+  qrCodeUrl     String?
+  bankName      String?
+  accountHolder String?
+  accountNumber String?
+
+  buildings        Building[]        @relation("BuildingPaymentMethods")
   transactions     Transaction[]
   maintenanceTasks MaintenanceTask[]
 
