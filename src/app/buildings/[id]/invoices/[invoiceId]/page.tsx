@@ -44,6 +44,31 @@ export default async function InvoiceDetailPage({
     electricityPricePerKwh: building.setting?.electricityPricePerKwh.toString() ?? "0",
   };
 
+  // Pick a non-cash payment method to display on the receipt. Prefer one that
+  // is explicitly attached to this building; otherwise fall back to one of
+  // the same building type that has no specific building bindings.
+  const specific = await prisma.paymentMethod.findFirst({
+    where: { isCash: false, buildings: { some: { id } } },
+    orderBy: { name: "asc" },
+  });
+  const fallback = specific
+    ? null
+    : await prisma.paymentMethod.findFirst({
+        where: { isCash: false, buildingType: building.type, buildings: { none: {} } },
+        orderBy: { name: "asc" },
+      });
+  const pm = specific ?? fallback;
+  const paymentMethod = pm
+    ? {
+        id: pm.id,
+        name: pm.name,
+        bankName: pm.bankName,
+        accountHolder: pm.accountHolder,
+        accountNumber: pm.accountNumber,
+        qrCodeUrl: pm.qrCodeUrl,
+      }
+    : null;
+
   return (
     <AppShell
       user={{ name: session.user.name || "", email: session.user.email || "", role: session.user.role }}
@@ -58,9 +83,12 @@ export default async function InvoiceDetailPage({
         <InvoiceDetail
           invoice={serializeBigInt(inv)}
           buildingType={building.type}
+          buildingName={building.name}
+          buildingAddress={building.address}
           settingFallback={settingFallback}
           canWrite={canWrite}
           canSend={canSend}
+          paymentMethod={paymentMethod}
         />
       </PageBody>
     </AppShell>
