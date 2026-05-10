@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Loader2, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { vietQrUrl } from "@/lib/vn-banks";
 
 type CustomerLite = {
   type: string;
@@ -17,6 +18,7 @@ type CustomerLite = {
 type ReceiptPM = {
   name: string;
   bankName: string | null;
+  bankBin: string | null;
   accountHolder: string | null;
   accountNumber: string | null;
   qrCodeUrl: string | null;
@@ -234,6 +236,22 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
     ? `DT${phoneDigits}`
     : `${data.invoiceCode} ${data.roomNumber}`;
 
+  // VietQR auto-render: if the payment method has a bank BIN selected, build
+  // a vietqr.io image URL with this invoice's outstanding amount + the
+  // transfer memo so the customer scans and gets a pre-filled transfer.
+  // Falls back to the user-uploaded static QR when no BIN is set.
+  const remainingForQr = data.totalAmount - data.paidAmount;
+  const amountForQr = remainingForQr > 0n ? remainingForQr.toString() : data.totalAmount.toString();
+  const dynamicQrUrl = vietQrUrl({
+    bankBin: data.paymentMethod?.bankBin,
+    accountNumber: data.paymentMethod?.accountNumber,
+    accountHolder: data.paymentMethod?.accountHolder,
+    amount: amountForQr,
+    memo: transferContent,
+    template: "compact2",
+  });
+  const qrSrc = dynamicQrUrl ?? data.paymentMethod?.qrCodeUrl ?? null;
+
   return (
     <div ref={cardRef} className="bg-white rounded-2xl shadow-sm overflow-hidden">
       {/* Header: brand */}
@@ -392,13 +410,13 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
               )}
               <KV label="Nội dung chuyển khoản" value={transferContent} mono />
             </div>
-            {data.paymentMethod.qrCodeUrl && (
+            {qrSrc && (
               <div className="flex flex-col items-center shrink-0 self-center sm:self-start">
                 <img
-                  src={data.paymentMethod.qrCodeUrl}
+                  src={qrSrc}
                   alt="QR chuyển khoản"
                   className="block"
-                  style={{ width: 200, height: 200, objectFit: "contain" }}
+                  style={{ width: 220, height: dynamicQrUrl ? 270 : 220, objectFit: "contain" }}
                 />
                 <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
               </div>
@@ -493,16 +511,27 @@ function KV({ label, value, mono }: { label: string; value: string; mono?: boole
   );
 }
 
-// Replace every <img>'s src in a subtree with a data URL fetched same-origin.
-// Returns once all replacements have settled, so html-to-image sees a tree
-// where images don't need any network access.
+// Replace every <img>'s src in a subtree with a data URL.
+// - same-origin URLs (auth-protected /api/files/*): fetch with credentials
+// - cross-origin URLs (e.g. img.vietqr.io): fetch without credentials and rely
+//   on the remote's CORS policy. VietQR.io serves images CORS-open.
+// Returns once all replacements have settled, so html2canvas sees a tree where
+// images don't need any network access.
 async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
   const imgs = Array.from(root.querySelectorAll("img"));
   await Promise.all(imgs.map(async (img) => {
     const src = img.getAttribute("src") ?? "";
     if (!src || src.startsWith("data:")) return;
     try {
-      const res = await fetch(src, { credentials: "same-origin", cache: "no-cache" });
+      const isSameOrigin = (() => {
+        try {
+          return new URL(src, window.location.href).origin === window.location.origin;
+        } catch { return false; }
+      })();
+      const res = await fetch(src, {
+        credentials: isSameOrigin ? "same-origin" : "omit",
+        cache: "no-cache",
+      });
       if (!res.ok) return;
       const blob = await res.blob();
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -522,7 +551,7 @@ async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
         img.src = dataUrl;
       });
     } catch {
-      // Best-effort — if pre-loading fails, html-to-image still gets a chance.
+      // Best-effort — if pre-loading fails, html2canvas still gets a chance.
     }
   }));
 }

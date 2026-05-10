@@ -9,6 +9,7 @@ const schema = z.object({
   isCash: z.boolean().default(false),
   qrCodeUrl: z.string().nullable().optional(),
   bankName: z.string().nullable().optional(),
+  bankBin: z.string().nullable().optional(),
   accountHolder: z.string().nullable().optional(),
   accountNumber: z.string().nullable().optional(),
   buildingIds: z.array(z.string()).optional(),
