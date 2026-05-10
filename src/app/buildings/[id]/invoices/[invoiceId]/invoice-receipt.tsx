@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Download, Loader2 } from "lucide-react";
+import { Loader2, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
 
@@ -78,64 +78,88 @@ export function InvoiceReceiptDialog({
 
 function ReceiptBody({ data }: { data: ReceiptData }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
-  async function saveImage() {
+  async function sharePdf() {
     if (!cardRef.current) return;
-    setSaving(true);
+    setSharing(true);
     try {
-      const { toBlob } = await import("html-to-image");
-      const blob = await toBlob(cardRef.current, {
+      const [{ toPng }, { default: jsPDF }] = await Promise.all([
+        import("html-to-image"),
+        import("jspdf"),
+      ]);
+
+      const node = cardRef.current;
+      // Render the card to a high-DPI PNG, then drop it into a single-page
+      // A4 PDF (portrait), scaled to fit width while preserving aspect.
+      const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
       });
-      if (!blob) throw new Error("Render thất bại");
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Không tải được ảnh để render PDF"));
+      });
 
-      const filename = `phieu-${data.invoiceCode}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
+      const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 24;
+      const usableW = pageW - margin * 2;
+      const usableH = pageH - margin * 2;
+      const imgRatio = img.width / img.height;
+      let drawW = usableW;
+      let drawH = drawW / imgRatio;
+      if (drawH > usableH) {
+        drawH = usableH;
+        drawW = drawH * imgRatio;
+      }
+      const x = (pageW - drawW) / 2;
+      const y = margin;
+      pdf.addImage(dataUrl, "PNG", x, y, drawW, drawH);
 
-      // On mobile (iOS Safari especially), Web Share with files surfaces the
-      // native share sheet which includes "Save to Photos" — saving directly
-      // to the Photos library instead of a file download dialog.
+      const filename = `phieu-${data.invoiceCode}.pdf`;
+      const blob = pdf.output("blob");
+      const file = new File([blob], filename, { type: "application/pdf" });
+
       const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
       if (nav.canShare?.({ files: [file] })) {
         try {
-          await nav.share({ files: [file], title: "Phiếu thanh toán" });
+          await nav.share({ files: [file], title: "Phiếu thanh toán", text: `Phiếu thanh toán ${data.invoiceCode}` });
           return;
         } catch (err) {
-          // User cancelled the share sheet — don't fall through to download.
           if ((err as DOMException)?.name === "AbortError") return;
-          // For other errors (e.g. permission denied) fall through to download.
+          // Other errors → fall through to download
         }
       }
 
-      // Desktop / fallback: regular download.
+      // Desktop / fallback: download the PDF
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = filename;
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Đã lưu ảnh phiếu");
+      toast.success("Đã tải PDF");
     } catch (err) {
       console.error(err);
-      toast.error("Không lưu được ảnh. Hãy thử lại.");
+      toast.error("Không share được. Hãy thử lại.");
     } finally {
-      setSaving(false);
+      setSharing(false);
     }
   }
 
   return (
     <div className="space-y-3">
       <div className="flex justify-end max-w-[720px] mx-auto w-full">
-        <Button variant="gradient" onClick={saveImage} disabled={saving} size="sm">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Lưu ảnh
+        <Button variant="gradient" onClick={sharePdf} disabled={sharing} size="sm">
+          {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+          Share
         </Button>
       </div>
-      {/* Centering wrapper is outside the captured ref so the saved PNG is
-          exactly the receipt card — no white gutters on the sides. */}
       <div className="max-w-[720px] mx-auto w-full">
         <ReceiptCard data={data} cardRef={cardRef} />
       </div>
@@ -273,13 +297,15 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
           <div className="grid grid-cols-2 gap-3">
             {data.electricityStartPhoto && (
               <MeterPhoto
-                label={`Đầu kỳ${data.electricityStart !== null ? ` · ${data.electricityStart}` : ""}`}
+                label="Đầu kỳ"
+                reading={data.electricityStart}
                 src={data.electricityStartPhoto}
               />
             )}
             {data.electricityEndPhoto && (
               <MeterPhoto
-                label={`Cuối kỳ${data.electricityEnd !== null ? ` · ${data.electricityEnd}` : ""}`}
+                label="Cuối kỳ"
+                reading={data.electricityEnd}
                 src={data.electricityEndPhoto}
               />
             )}
@@ -287,35 +313,37 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
         </div>
       )}
 
-      {/* Payment account */}
+      {/* Payment account: stacked on mobile, side-by-side on desktop. */}
       {data.paymentMethod && (
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
             Thông tin chuyển khoản
           </h4>
-          <div className="space-y-1.5 text-sm">
-            {data.paymentMethod.bankName && (
-              <KV label="Ngân hàng" value={data.paymentMethod.bankName} />
-            )}
-            {data.paymentMethod.accountHolder && (
-              <KV label="Chủ tài khoản" value={data.paymentMethod.accountHolder} />
-            )}
-            {data.paymentMethod.accountNumber && (
-              <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
-            )}
-            <KV label="Nội dung chuyển khoản" value={transferContent} mono />
-          </div>
-          {data.paymentMethod.qrCodeUrl && (
-            <div className="mt-4 flex flex-col items-center">
-              <img
-                src={data.paymentMethod.qrCodeUrl}
-                alt="QR chuyển khoản"
-                className="block"
-                style={{ width: 220, height: 220, objectFit: "contain" }}
-              />
-              <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex-1 min-w-0 space-y-1.5 text-sm">
+              {data.paymentMethod.bankName && (
+                <KV label="Ngân hàng" value={data.paymentMethod.bankName} />
+              )}
+              {data.paymentMethod.accountHolder && (
+                <KV label="Chủ tài khoản" value={data.paymentMethod.accountHolder} />
+              )}
+              {data.paymentMethod.accountNumber && (
+                <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
+              )}
+              <KV label="Nội dung chuyển khoản" value={transferContent} mono />
             </div>
-          )}
+            {data.paymentMethod.qrCodeUrl && (
+              <div className="flex flex-col items-center shrink-0 self-center sm:self-start">
+                <img
+                  src={data.paymentMethod.qrCodeUrl}
+                  alt="QR chuyển khoản"
+                  className="block"
+                  style={{ width: 200, height: 200, objectFit: "contain" }}
+                />
+                <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -377,11 +405,16 @@ function CostRow({
   );
 }
 
-function MeterPhoto({ label, src }: { label: string; src: string }) {
+function MeterPhoto({ label, reading, src }: { label: string; reading: number | null; src: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{label}</div>
-      <div className="aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-xs uppercase tracking-wider text-slate-500">{label}</span>
+        {reading !== null && (
+          <span className="text-base font-bold text-slate-800 tabular-nums">{reading}</span>
+        )}
+      </div>
+      <div className="aspect-[3/2] rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
         <img src={src} alt={label} className="w-full h-full object-cover" crossOrigin="anonymous" />
       </div>
     </div>

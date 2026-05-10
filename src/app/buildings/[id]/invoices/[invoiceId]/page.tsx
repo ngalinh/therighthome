@@ -29,10 +29,21 @@ export default async function InvoiceDetailPage({
           customers: { include: { customer: true } },
         },
       },
-      payments: { include: { transaction: true }, orderBy: { paidAt: "desc" } },
+      payments: {
+        include: { transaction: { include: { paymentMethod: true } } },
+        orderBy: { paidAt: "desc" },
+      },
     },
   });
   if (!inv || inv.buildingId !== id) notFound();
+
+  // Payment methods available for this building type — used in the
+  // payment-history edit dropdown.
+  const paymentMethodsForEdit = await prisma.paymentMethod.findMany({
+    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, isCash: true },
+  });
 
   const canWrite = await can(session.user.id, session.user.role, id, "invoice.write");
   const canSend = await can(session.user.id, session.user.role, id, "invoice.send");
@@ -89,6 +100,7 @@ export default async function InvoiceDetailPage({
           canWrite={canWrite}
           canSend={canSend}
           paymentMethod={paymentMethod}
+          paymentMethods={paymentMethodsForEdit}
         />
       </PageBody>
     </AppShell>

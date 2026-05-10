@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 
 const patchSchema = z.object({
-  amount: z.string(),
+  amount: z.string().optional(),
+  paymentMethodId: z.string().nullable().optional(),
 });
 
 export async function PATCH(
@@ -24,27 +25,35 @@ export async function PATCH(
 
   const parsed = patchSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const newAmount = BigInt(parsed.data.amount);
-  if (newAmount <= 0n) return NextResponse.json({ error: "Số tiền phải > 0" }, { status: 400 });
 
   const payment = await prisma.invoicePayment.findUnique({ where: { id: paymentId } });
   if (!payment || payment.invoiceId !== id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const newAmount = parsed.data.amount !== undefined ? BigInt(parsed.data.amount) : payment.amount;
+  if (newAmount <= 0n) return NextResponse.json({ error: "Số tiền phải > 0" }, { status: 400 });
+
   await prisma.$transaction(async (tx) => {
     const delta = newAmount - payment.amount;
-    await tx.invoicePayment.update({ where: { id: paymentId }, data: { amount: newAmount } });
+    if (parsed.data.amount !== undefined) {
+      await tx.invoicePayment.update({ where: { id: paymentId }, data: { amount: newAmount } });
+    }
     await tx.transaction.update({
       where: { id: payment.transactionId },
-      data: { amount: newAmount },
+      data: {
+        ...(parsed.data.amount !== undefined && { amount: newAmount }),
+        ...(parsed.data.paymentMethodId !== undefined && { paymentMethodId: parsed.data.paymentMethodId }),
+      },
     });
-    const updatedPaid = inv.paidAmount + delta;
-    const status = updatedPaid >= inv.totalAmount ? "PAID" : updatedPaid > 0n ? "PARTIAL" : "PENDING";
-    await tx.invoice.update({
-      where: { id },
-      data: { paidAmount: updatedPaid, status },
-    });
+    if (delta !== 0n) {
+      const updatedPaid = inv.paidAmount + delta;
+      const status = updatedPaid >= inv.totalAmount ? "PAID" : updatedPaid > 0n ? "PARTIAL" : "PENDING";
+      await tx.invoice.update({
+        where: { id },
+        data: { paidAmount: updatedPaid, status },
+      });
+    }
   });
 
   return NextResponse.json({ ok: true });
