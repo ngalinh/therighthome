@@ -10,6 +10,7 @@ import type { InvoiceStatus } from "@prisma/client";
 import { ManageTasksTab } from "./tasks-tab";
 import { ManageOvertimeTab } from "./overtime-tab";
 import { AggregatedInvoicesView } from "./aggregated-invoices-view";
+import { AggregatedCashbookTab } from "./aggregated-cashbook-tab";
 import { ExpiringContractsTab } from "./expiring-contracts-tab";
 import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
@@ -54,8 +55,8 @@ export async function ManageTypePage({
   const canInvoice = writeChecks.some((c) => c.invoice);
   const canSend = writeChecks.some((c) => c.send);
 
-  // Common: rooms + parties.
-  const [roomsRaw, parties] = await Promise.all([
+  // Common: rooms + parties + partyKindConfigs (for cashbook party-kind labels).
+  const [roomsRaw, parties, partyKindConfigs] = await Promise.all([
     prisma.room.findMany({
       where: { buildingId: { in: buildingIds } },
       orderBy: [{ buildingId: "asc" }, { number: "asc" }],
@@ -80,6 +81,10 @@ export async function ManageTypePage({
     prisma.party.findMany({
       orderBy: [{ kind: "asc" }, { name: "asc" }],
       select: { id: true, name: true, kind: true },
+    }),
+    prisma.partyKindConfig.findMany({
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      select: { code: true, label: true },
     }),
   ]);
   const rooms = roomsRaw.map((r) => ({
@@ -221,6 +226,7 @@ export async function ManageTypePage({
               <TabsTrigger value="invoices">Hoá đơn</TabsTrigger>
               <TabsTrigger value="tasks">Công việc</TabsTrigger>
               <TabsTrigger value="contracts">HĐ sắp hết hạn</TabsTrigger>
+              <TabsTrigger value="cashbook">Sổ quỹ tổng</TabsTrigger>
               {kind === "VP" && <TabsTrigger value="overtime">Làm ngoài giờ</TabsTrigger>}
             </TabsList>
           </div>
@@ -256,6 +262,16 @@ export async function ManageTypePage({
               paymentMethods={paymentMethods}
               canWrite={canInvoice}
               canSend={canSend}
+            />
+          </TabsContent>
+          <TabsContent value="cashbook">
+            <AggregatedCashbookTab
+              kind={kind}
+              buildings={buildingsLite}
+              month={month}
+              year={year}
+              buildingFilter={buildingFilter}
+              partyKindConfigs={partyKindConfigs}
             />
           </TabsContent>
           {kind === "VP" && (
