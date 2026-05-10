@@ -84,38 +84,36 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
     if (!cardRef.current) return;
     setSharing(true);
     try {
-      const [{ toPng }, { default: jsPDF }] = await Promise.all([
-        import("html-to-image"),
-        import("jspdf"),
-      ]);
-
       const node = cardRef.current;
 
       // Pre-fetch every <img> as a data URL and substitute its src in place.
-      // We hit auth-protected /api/files/* endpoints; html-to-image's own
-      // image-inlining sometimes fails silently for these (browser quirks
-      // around credentials/CORS in fetch), and the result is blank boxes in
-      // the PDF. Doing the fetch ourselves with credentials: "same-origin"
-      // makes embedding deterministic.
+      // /api/files/* is auth-protected; doing the fetch ourselves with
+      // credentials: "same-origin" avoids the silent fetch failures we
+      // hit with html-to-image's internal pipeline on mobile Safari.
       await preloadImagesAsDataUrls(node);
 
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        pixelRatio: 2,
+      // html2canvas (canvas-drawing approach) is more reliable than
+      // html-to-image's SVG/foreignObject route on iOS Safari, which is
+      // where embedded <img> elements were rendering as blank boxes.
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas-pro"),
+        import("jspdf"),
+      ]);
+
+      const canvas = await html2canvas(node, {
         backgroundColor: "#ffffff",
-        fetchRequestInit: { credentials: "same-origin" },
+        scale: 2,
+        useCORS: false,
+        allowTaint: false,
+        logging: false,
+        imageTimeout: 15000,
       });
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Không tải được ảnh để render PDF"));
-      });
+      const dataUrl = canvas.toDataURL("image/png");
 
       // Custom page size matches the rendered image's aspect ratio so the PDF
       // fills mobile viewers edge-to-edge without letterboxing/whitespace.
       const pageW = 600; // pt
-      const pageH = (pageW * img.height) / img.width;
+      const pageH = (pageW * canvas.height) / canvas.width;
       const pdf = new jsPDF({
         unit: "pt",
         format: [pageW, pageH],
