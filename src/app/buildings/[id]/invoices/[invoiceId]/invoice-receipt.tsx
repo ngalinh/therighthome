@@ -90,10 +90,20 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       ]);
 
       const node = cardRef.current;
+
+      // Pre-fetch every <img> as a data URL and substitute its src in place.
+      // We hit auth-protected /api/files/* endpoints; html-to-image's own
+      // image-inlining sometimes fails silently for these (browser quirks
+      // around credentials/CORS in fetch), and the result is blank boxes in
+      // the PDF. Doing the fetch ourselves with credentials: "same-origin"
+      // makes embedding deterministic.
+      await preloadImagesAsDataUrls(node);
+
       const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
+        fetchRequestInit: { credentials: "same-origin" },
       });
       const img = new Image();
       img.src = dataUrl;
@@ -120,7 +130,7 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       const customerName = customerDisplayName(data.customer);
       const caption = [
         `Phiếu thanh toán ${data.invoiceCode}`,
-        `P${data.roomNumber}${customerName && customerName !== "—" ? ` - ${customerName}` : ""}`,
+        `${data.roomNumber}${customerName && customerName !== "—" ? ` - ${customerName}` : ""}`,
         "Quý khách vui lòng kiểm tra và thanh toán đúng hạn. Xin cảm ơn!",
       ].join("\n");
 
@@ -183,11 +193,12 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
 
   // Bank transfer reference: DT<digits-only-phone>. Customer might have stored
   // the phone with spaces or dashes, so strip non-digits. Falls back to
-  // invoiceCode + room if no phone is on file.
+  // invoiceCode + room number (room.number already includes any P prefix the
+  // user wants) if no phone is on file.
   const phoneDigits = (data.customer?.phone ?? "").replace(/\D/g, "");
   const transferContent = phoneDigits
     ? `DT${phoneDigits}`
-    : `${data.invoiceCode} P${data.roomNumber}`;
+    : `${data.invoiceCode} ${data.roomNumber}`;
 
   return (
     <div ref={cardRef} className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -434,4 +445,38 @@ function KV({ label, value, mono }: { label: string; value: string; mono?: boole
       <span className={`font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
+}
+
+// Replace every <img>'s src in a subtree with a data URL fetched same-origin.
+// Returns once all replacements have settled, so html-to-image sees a tree
+// where images don't need any network access.
+async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  await Promise.all(imgs.map(async (img) => {
+    const src = img.getAttribute("src") ?? "";
+    if (!src || src.startsWith("data:")) return;
+    try {
+      const res = await fetch(src, { credentials: "same-origin", cache: "no-cache" });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      await new Promise<void>((resolve) => {
+        const settle = () => {
+          img.removeEventListener("load", settle);
+          img.removeEventListener("error", settle);
+          resolve();
+        };
+        img.addEventListener("load", settle);
+        img.addEventListener("error", settle);
+        img.src = dataUrl;
+      });
+    } catch {
+      // Best-effort — if pre-loading fails, html-to-image still gets a chance.
+    }
+  }));
 }
