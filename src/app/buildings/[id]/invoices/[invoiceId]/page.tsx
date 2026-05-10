@@ -49,6 +49,16 @@ export default async function InvoiceDetailPage({
     select: { id: true, name: true, isCash: true },
   });
 
+  // Income categories — used for editing manual invoice line items.
+  const incomeCategories = await prisma.transactionCategory.findMany({
+    where: {
+      type: "INCOME",
+      OR: [{ buildingType: building.type }, { buildingType: null }],
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   const canWrite = await can(session.user.id, session.user.role, id, "invoice.write");
   const canSend = await can(session.user.id, session.user.role, id, "invoice.send");
 
@@ -106,6 +116,7 @@ export default async function InvoiceDetailPage({
           canSend={canSend}
           paymentMethod={paymentMethod}
           paymentMethods={paymentMethodsForEdit}
+          incomeCategories={incomeCategories}
         />
       </PageBody>
     </AppShell>

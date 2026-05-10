@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { recomputeInvoice } from "@/lib/invoice-service";
 
+const lineItemSchema = z.object({
+  categoryId: z.string().nullable().optional(),
+  content: z.string().min(1),
+  amount: z.string(),
+});
+
 const updateSchema = z.object({
   electricityStart: z.number().int().nullable().optional(),
   electricityEnd: z.number().int().nullable().optional(),
@@ -18,6 +24,9 @@ const updateSchema = z.object({
   waterOccupants: z.number().int().min(0).optional(),
   notes: z.string().nullable().optional(),
   dueDate: z.string().optional(),
+  // Manual invoice line items — when present on a manual invoice with no
+  // payments, replaces the entire breakdown and recomputes totalAmount.
+  lineItems: z.array(lineItemSchema).optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -33,9 +42,63 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
 
-  // Manual invoices have no fee structure to recompute — only notes/dueDate
-  // are user-editable. Skip the recompute path entirely.
-  if (!inv.isManual) {
+  // Manual invoices: line items replace the full breakdown and recompute
+  // totalAmount. Skip the rent/electricity recompute path entirely. Only
+  // allow line-item edits before any payment has been recorded.
+  if (inv.isManual) {
+    if (d.lineItems !== undefined) {
+      if (inv.paidAmount !== 0n) {
+        return NextResponse.json(
+          { error: "Không thể sửa chi tiết khi đã có thanh toán" },
+          { status: 400 },
+        );
+      }
+      if (d.lineItems.length === 0) {
+        return NextResponse.json({ error: "Phải có ít nhất 1 dòng chi phí" }, { status: 400 });
+      }
+
+      // Detect "Tiền cọc" categories so countInBR is correctly set on the new
+      // line items — same logic as the create endpoint.
+      const categoryIds = d.lineItems
+        .map((l) => l.categoryId)
+        .filter((x): x is string => !!x);
+      const categories = categoryIds.length
+        ? await prisma.transactionCategory.findMany({
+            where: { id: { in: categoryIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+      const catById = new Map(categories.map((c) => [c.id, c.name]));
+      const isDeposit = (name: string | undefined) => !!name && /^\s*tiền\s+cọc\s*$/i.test(name);
+
+      let total = 0n;
+      for (const l of d.lineItems) {
+        const a = BigInt(l.amount);
+        if (a <= 0n) {
+          return NextResponse.json({ error: "Số tiền mỗi dòng phải > 0" }, { status: 400 });
+        }
+        total += a;
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id } });
+        await tx.invoiceLineItem.createMany({
+          data: d.lineItems!.map((l, idx) => ({
+            invoiceId: id,
+            categoryId: l.categoryId || null,
+            content: l.content,
+            amount: BigInt(l.amount),
+            countInBR: !isDeposit(l.categoryId ? catById.get(l.categoryId) : undefined),
+            sortOrder: idx,
+          })),
+        });
+        await tx.invoice.update({
+          where: { id },
+          data: { totalAmount: total },
+        });
+      });
+    }
+  } else {
     // Bring fee snapshots up-to-date BEFORE recompute so the new total uses
     // the user-visible rates (older invoices may have parkingFeePerVehicle=0
     // even though the building setting has a value now).

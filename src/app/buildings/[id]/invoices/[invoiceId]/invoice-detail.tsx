@@ -8,7 +8,8 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
@@ -90,7 +91,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 };
 
 export function InvoiceDetail({
-  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod, paymentMethods,
+  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod, paymentMethods, incomeCategories,
 }: {
   invoice: Invoice;
   buildingType: "CHDV" | "VP";
@@ -101,6 +102,7 @@ export function InvoiceDetail({
   canSend: boolean;
   paymentMethod: PaymentMethodInfo;
   paymentMethods: PMOption[];
+  incomeCategories: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -116,6 +118,17 @@ export function InvoiceDetail({
   const [waterOccupants, setWaterOccupants] = useState<number>(invoice.waterOccupants);
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [dueDate, setDueDate] = useState(invoice.dueDate.slice(0, 10));
+
+  // Manual invoice line items — editable as long as nothing has been paid yet.
+  const [lineItems, setLineItems] = useState(
+    invoice.lineItems.map((l) => ({
+      categoryId: l.category?.id ?? "",
+      content: l.content,
+      amount: l.amount, // stringified BigInt
+    })),
+  );
+  const lineItemsTotal = lineItems.reduce((s, l) => s + parseVNDInput(l.amount), 0n);
+  const canEditLines = invoice.isManual && BigInt(invoice.paidAmount) === 0n && invoice.status !== "CANCELLED" && canWrite;
 
   const primary = invoice.contract.customers.find((c) => c.isPrimary)?.customer;
   const st = STATUS[invoice.status] ?? { label: invoice.status, variant: "secondary" as const };
@@ -151,6 +164,43 @@ export function InvoiceDetail({
   const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {
+    if (invoice.isManual) {
+      const cleaned = lineItems
+        .map((l) => ({ ...l, amount: parseVNDInput(l.amount) }))
+        .filter((l) => l.amount > 0n);
+      if (canEditLines && cleaned.length === 0) {
+        return toast.error("Phải có ít nhất 1 dòng chi phí");
+      }
+      for (const l of cleaned) {
+        if (!l.content.trim()) return toast.error("Mỗi dòng phải có nội dung");
+      }
+      setSaving(true);
+      const res = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes,
+          dueDate,
+          ...(canEditLines
+            ? {
+                lineItems: cleaned.map((l) => ({
+                  categoryId: l.categoryId || null,
+                  content: l.content.trim(),
+                  amount: l.amount.toString(),
+                })),
+              }
+            : {}),
+        }),
+      });
+      setSaving(false);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return toast.error(err.error || "Lưu thất bại");
+      }
+      toast.success("Đã lưu");
+      router.refresh();
+      return;
+    }
     setSaving(true);
     const res = await fetch(`/api/invoices/${invoice.id}`, {
       method: "PATCH",
@@ -175,6 +225,16 @@ export function InvoiceDetail({
     if (!res.ok) return toast.error("Lưu thất bại");
     toast.success("Đã lưu");
     router.refresh();
+  }
+
+  function updateLine(idx: number, patch: Partial<{ categoryId: string; content: string; amount: string }>) {
+    setLineItems((arr) => arr.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+  function addLine() {
+    setLineItems((arr) => [...arr, { categoryId: "", content: "", amount: "" }]);
+  }
+  function removeLine(idx: number) {
+    setLineItems((arr) => (arr.length === 1 ? arr : arr.filter((_, i) => i !== idx)));
   }
 
   async function send() {
@@ -278,15 +338,66 @@ export function InvoiceDetail({
           <CardContent className="space-y-3">
             {invoice.isManual ? (
               <>
-                {invoice.lineItems.map((l) => (
-                  <Row
-                    key={l.id}
-                    label={l.category?.name ? `${l.category.name} — ${l.content}` : l.content}
-                    value={formatVND(BigInt(l.amount))}
-                  />
-                ))}
+                {canEditLines ? (
+                  <div className="space-y-3">
+                    {lineItems.map((l, idx) => (
+                      <div key={idx} className="rounded-lg border bg-slate-50/40 p-2.5 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1">
+                            <Select value={l.categoryId} onValueChange={(v) => updateLine(idx, { categoryId: v })}>
+                              <SelectTrigger><SelectValue placeholder="Loại chi phí" /></SelectTrigger>
+                              <SelectContent>
+                                {incomeCategories.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(idx)}
+                            disabled={lineItems.length === 1}
+                            className="text-slate-400 hover:text-rose-600 disabled:opacity-30 p-2 shrink-0"
+                            aria-label="Xoá dòng"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
+                          <Input
+                            placeholder="Nội dung"
+                            value={l.content}
+                            onChange={(e) => updateLine(idx, { content: e.target.value })}
+                          />
+                          <Input
+                            inputMode="numeric"
+                            placeholder="Số tiền"
+                            className="text-right tabular-nums"
+                            value={l.amount ? formatNumber(parseVNDInput(l.amount)) : ""}
+                            onChange={(e) => updateLine(idx, { amount: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                      <Plus className="h-3.5 w-3.5" /> Thêm
+                    </Button>
+                  </div>
+                ) : (
+                  invoice.lineItems.map((l) => (
+                    <Row
+                      key={l.id}
+                      label={l.category?.name ? `${l.category.name} — ${l.content}` : l.content}
+                      value={formatVND(BigInt(l.amount))}
+                    />
+                  ))
+                )}
                 <hr />
-                <Row label="Tổng phải thu" value={formatVND(BigInt(invoice.totalAmount))} bold />
+                <Row
+                  label="Tổng phải thu"
+                  value={formatVND(canEditLines ? lineItemsTotal : BigInt(invoice.totalAmount))}
+                  bold
+                />
                 <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
                 {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
               </>

@@ -328,45 +328,44 @@ function CreateManualInvoiceDialog({
               <Input value={selected?.customerName ?? ""} disabled placeholder="—" />
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="text-xs">Chi tiết hoá đơn</Label>
             {lines.map((l, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-12 sm:col-span-4">
-                  <Select value={l.categoryId} onValueChange={(v) => updateLine(idx, { categoryId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Loại chi phí" /></SelectTrigger>
-                    <SelectContent>
-                      {incomeCategories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div key={idx} className="rounded-lg border bg-slate-50/40 p-2.5 space-y-2">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <Select value={l.categoryId} onValueChange={(v) => updateLine(idx, { categoryId: v })}>
+                      <SelectTrigger><SelectValue placeholder="Loại chi phí" /></SelectTrigger>
+                      <SelectContent>
+                        {incomeCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeLine(idx)}
+                    disabled={lines.length === 1}
+                    className="text-slate-400 hover:text-rose-600 disabled:opacity-30 p-2 shrink-0"
+                    aria-label="Xoá dòng"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="col-span-8 sm:col-span-5">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
                   <Input
                     placeholder="Nội dung"
                     value={l.content}
                     onChange={(e) => updateLine(idx, { content: e.target.value })}
                   />
-                </div>
-                <div className="col-span-3 sm:col-span-2">
                   <Input
                     inputMode="numeric"
                     placeholder="Số tiền"
+                    className="text-right tabular-nums"
                     value={l.amount ? formatNumber(parseVNDInput(l.amount)) : ""}
                     onChange={(e) => updateLine(idx, { amount: e.target.value })}
                   />
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => removeLine(idx)}
-                    disabled={lines.length === 1}
-                    className="text-slate-400 hover:text-rose-600 disabled:opacity-30 p-2"
-                    aria-label="Xoá dòng"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
             ))}
