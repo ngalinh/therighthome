@@ -400,7 +400,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
             Thông tin chuyển khoản
           </h4>
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="flex-1 min-w-0 space-y-1.5 text-sm">
+            <div className="min-w-0 space-y-1.5 text-sm">
               {data.paymentMethod.bankName && (
                 <KV label="Ngân hàng" value={data.paymentMethod.bankName} />
               )}
@@ -419,7 +419,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                   src={qrSrc}
                   alt="QR chuyển khoản"
                   className="block"
-                  style={{ width: 220, height: 220, objectFit: "contain" }}
+                  style={{ width: 140, height: 140, objectFit: "contain" }}
                 />
                 <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
               </div>
