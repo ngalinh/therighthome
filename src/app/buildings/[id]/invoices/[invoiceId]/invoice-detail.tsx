@@ -43,7 +43,7 @@ type Invoice = {
   contract: {
     startDate: string;
     room: { number: string };
-    customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null } }[];
+    customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null; phone: string | null } }[];
   };
   payments: { id: string; amount: string; paidAt: string; transaction: { code: string } }[];
 };
