@@ -90,8 +90,6 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       ]);
 
       const node = cardRef.current;
-      // Render the card to a high-DPI PNG, then drop it into a single-page
-      // A4 PDF (portrait), scaled to fit width while preserving aspect.
       const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: 2,
@@ -104,31 +102,36 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
         img.onerror = () => reject(new Error("Không tải được ảnh để render PDF"));
       });
 
-      const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 24;
-      const usableW = pageW - margin * 2;
-      const usableH = pageH - margin * 2;
-      const imgRatio = img.width / img.height;
-      let drawW = usableW;
-      let drawH = drawW / imgRatio;
-      if (drawH > usableH) {
-        drawH = usableH;
-        drawW = drawH * imgRatio;
-      }
-      const x = (pageW - drawW) / 2;
-      const y = margin;
-      pdf.addImage(dataUrl, "PNG", x, y, drawW, drawH);
+      // Custom page size matches the rendered image's aspect ratio so the PDF
+      // fills mobile viewers edge-to-edge without letterboxing/whitespace.
+      const pageW = 600; // pt
+      const pageH = (pageW * img.height) / img.width;
+      const pdf = new jsPDF({
+        unit: "pt",
+        format: [pageW, pageH],
+        orientation: pageH >= pageW ? "portrait" : "landscape",
+      });
+      pdf.addImage(dataUrl, "PNG", 0, 0, pageW, pageH);
 
       const filename = `phieu-${data.invoiceCode}.pdf`;
       const blob = pdf.output("blob");
       const file = new File([blob], filename, { type: "application/pdf" });
 
+      const customerName = customerDisplayName(data.customer);
+      const caption = [
+        `Phiếu thanh toán ${data.invoiceCode}`,
+        `P${data.roomNumber}${customerName && customerName !== "—" ? ` - ${customerName}` : ""}`,
+        "Quý khách vui lòng kiểm tra và thanh toán đúng hạn. Xin cảm ơn!",
+      ].join("\n");
+
       const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
       if (nav.canShare?.({ files: [file] })) {
         try {
-          await nav.share({ files: [file], title: "Phiếu thanh toán", text: `Phiếu thanh toán ${data.invoiceCode}` });
+          await nav.share({
+            files: [file],
+            title: `Phiếu thanh toán ${data.invoiceCode}`,
+            text: caption,
+          });
           return;
         } catch (err) {
           if ((err as DOMException)?.name === "AbortError") return;
@@ -415,7 +418,10 @@ function MeterPhoto({ label, reading, src }: { label: string; reading: number | 
         )}
       </div>
       <div className="aspect-[3/2] rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-        <img src={src} alt={label} className="w-full h-full object-cover" crossOrigin="anonymous" />
+        {/* No crossOrigin: the file route doesn't set CORS headers, so adding
+            crossOrigin="anonymous" makes same-origin auth-protected images
+            fail to load — they'd show up as empty boxes in the PDF capture. */}
+        <img src={src} alt={label} className="w-full h-full object-cover" />
       </div>
     </div>
   );
