@@ -241,14 +241,16 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
   // transfer memo so the customer scans and gets a pre-filled transfer.
   // Falls back to the user-uploaded static QR when no BIN is set.
   const remainingForQr = data.totalAmount - data.paidAmount;
-  const amountForQr = remainingForQr > 0n ? remainingForQr.toString() : data.totalAmount.toString();
+  const amountForQr = remainingForQr > 0n ? remainingForQr : data.totalAmount;
   const dynamicQrUrl = vietQrUrl({
     bankBin: data.paymentMethod?.bankBin,
     accountNumber: data.paymentMethod?.accountNumber,
     accountHolder: data.paymentMethod?.accountHolder,
-    amount: amountForQr,
+    amount: amountForQr.toString(),
     memo: transferContent,
-    template: "compact2",
+    // qr_only: just the QR code with no VietQR/Napas/bank branding around it.
+    // The bank info + amount + memo are already shown as text on the receipt.
+    template: "qr_only",
   });
   const qrSrc = dynamicQrUrl ?? data.paymentMethod?.qrCodeUrl ?? null;
 
@@ -409,14 +411,15 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                 <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
               )}
               <KV label="Nội dung chuyển khoản" value={transferContent} mono />
+              <KV label="Số tiền chuyển khoản" value={formatVND(amountForQr)} mono />
             </div>
             {qrSrc && (
-              <div className="flex flex-col items-center shrink-0 self-center sm:self-start sm:-mt-7">
+              <div className="flex flex-col items-center shrink-0 self-center sm:self-start">
                 <img
                   src={qrSrc}
                   alt="QR chuyển khoản"
                   className="block"
-                  style={{ width: 176, height: dynamicQrUrl ? 216 : 176, objectFit: "contain" }}
+                  style={{ width: 220, height: 220, objectFit: "contain" }}
                 />
                 <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
               </div>
