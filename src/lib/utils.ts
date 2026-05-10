@@ -126,11 +126,11 @@ export function rentPeriodLabel(
   return `${fmt(day, fromM, fromY)}-${fmt(day - 1, toM, toY)}`;
 }
 
-// Display a room number with leading "P" prefix, but only if the stored
-// number doesn't already start with one (case-insensitive). Avoids "PP201".
+// Display a room number as-is. The user enters room numbers including any
+// "P" prefix they want (e.g. "P201"), so we never auto-prepend one — that
+// led to double-prefixed values like "PP201".
 export function formatRoomNumber(n: string | null | undefined): string {
-  if (!n) return "";
-  return /^p/i.test(n) ? n : `P${n}`;
+  return n ?? "";
 }
 
 export function monthsBetween(start: Date, end: Date): number {
