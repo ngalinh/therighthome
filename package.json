@@ -37,6 +37,7 @@
     "docxtemplater": "^3.55.0",
     "googleapis": "^144.0.0",
     "html-to-image": "^1.11.13",
+    "html2canvas-pro": "^2.0.2",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
