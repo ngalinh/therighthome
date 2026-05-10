@@ -14,27 +14,36 @@ export async function POST(req: NextRequest) {
   if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const fd = await req.formData();
-  const f = fd.get("file") as File | null;
-  const kind = fd.get("kind") as string | null;
-  if (!f) return NextResponse.json({ error: "Missing file" }, { status: 400 });
-  if (!f.name.toLowerCase().endsWith(".docx")) {
-    return NextResponse.json({ error: "Only .docx allowed" }, { status: 400 });
+  try {
+    const fd = await req.formData();
+    const f = fd.get("file") as File | null;
+    const kind = fd.get("kind") as string | null;
+    if (!f) return NextResponse.json({ error: "Missing file" }, { status: 400 });
+    if (!f.name.toLowerCase().endsWith(".docx")) {
+      return NextResponse.json({ error: "Only .docx allowed" }, { status: 400 });
+    }
+    if (f.size === 0) {
+      return NextResponse.json({ error: "File rỗng" }, { status: 400 });
+    }
+    if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
+      return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+    }
+    const url = await saveFile("templates", f, ".docx");
+    const data =
+      kind === "chdv" ? { defaultContractTemplateChdv: url } :
+      kind === "vpIndividual" ? { defaultContractTemplateVpIndividual: url } :
+      { defaultContractTemplateVpCompany: url };
+    await prisma.appSetting.upsert({
+      where: { id: 1 },
+      create: { id: 1, ...data },
+      update: data,
+    });
+    return NextResponse.json({ url });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[app-settings/template POST] failed:", msg, e);
+    return NextResponse.json({ error: `Upload thất bại: ${msg}` }, { status: 500 });
   }
-  if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
-    return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
-  }
-  const url = await saveFile("templates", f, ".docx");
-  const field =
-    kind === "chdv" ? "defaultContractTemplateChdv" :
-    kind === "vpIndividual" ? "defaultContractTemplateVpIndividual" :
-    "defaultContractTemplateVpCompany";
-  await prisma.appSetting.upsert({
-    where: { id: 1 },
-    create: { id: 1, [field]: url },
-    update: { [field]: url },
-  });
-  return NextResponse.json({ url });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -43,18 +52,24 @@ export async function DELETE(req: NextRequest) {
   if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const kind = req.nextUrl.searchParams.get("kind");
-  if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
-    return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+  try {
+    const kind = req.nextUrl.searchParams.get("kind");
+    if (!kind || !["chdv", "vpIndividual", "vpCompany"].includes(kind)) {
+      return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+    }
+    const data =
+      kind === "chdv" ? { defaultContractTemplateChdv: null } :
+      kind === "vpIndividual" ? { defaultContractTemplateVpIndividual: null } :
+      { defaultContractTemplateVpCompany: null };
+    await prisma.appSetting.upsert({
+      where: { id: 1 },
+      create: { id: 1, ...data },
+      update: data,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[app-settings/template DELETE] failed:", msg, e);
+    return NextResponse.json({ error: `Xoá thất bại: ${msg}` }, { status: 500 });
   }
-  const field =
-    kind === "chdv" ? "defaultContractTemplateChdv" :
-    kind === "vpIndividual" ? "defaultContractTemplateVpIndividual" :
-    "defaultContractTemplateVpCompany";
-  await prisma.appSetting.upsert({
-    where: { id: 1 },
-    create: { id: 1, [field]: null },
-    update: { [field]: null },
-  });
-  return NextResponse.json({ ok: true });
 }
