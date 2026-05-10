@@ -74,6 +74,7 @@ export async function PnLTab({
       category: { select: { name: true, type: true } },
       invoice: {
         select: {
+          isManual: true,
           totalAmount: true,
           rentAmount: true,
           electricityFee: true,
@@ -82,6 +83,13 @@ export async function PnLTab({
           serviceFee: true,
           overtimeFee: true,
           vatAmount: true,
+          lineItems: {
+            select: {
+              amount: true,
+              countInBR: true,
+              category: { select: { name: true } },
+            },
+          },
         },
       },
     },
@@ -109,27 +117,47 @@ export async function PnLTab({
     const map = t.type === "INCOME" ? agg.incomeByCat : agg.expenseByCat;
 
     if (t.type === "INCOME" && t.invoice && t.invoice.totalAmount > 0n) {
-      // Allocate the payment proportionally across invoice fee components.
       const inv = t.invoice;
-      const breakdown: [string, bigint][] = [
-        ["Tiền phòng", inv.rentAmount],
-        ["Tiền điện", inv.electricityFee],
-        ["Tiền nước", inv.waterFee],
-        ["Phí gửi xe", inv.parkingFee],
-        ["Phí dịch vụ", inv.serviceFee],
-        ["Phí ngoài giờ", inv.overtimeFee],
-        ["VAT", inv.vatAmount],
-      ].filter(([, v]) => (v as bigint) > 0n) as [string, bigint][];
-      let allocated = 0n;
-      for (let i = 0; i < breakdown.length; i++) {
-        const [name, fee] = breakdown[i];
-        const amt = i === breakdown.length - 1
-          ? t.amount - allocated
-          : (fee * t.amount) / inv.totalAmount;
-        if (amt > 0n) {
-          map.set(name, (map.get(name) ?? 0n) + amt);
-          allocated += amt;
+      // Manual invoice: split the payment proportionally across non-deposit
+      // (countInBR=true) line items, grouped by their category. Deposit lines
+      // are explicitly excluded from BCKD by their countInBR=false flag, which
+      // also keeps the deposit per-line transaction out of `transactions`.
+      const breakdown: [string, bigint][] = inv.isManual
+        ? inv.lineItems
+            .filter((l) => l.countInBR && l.amount > 0n)
+            .map<[string, bigint]>((l) => [l.category?.name ?? "Khác", l.amount])
+        : ([
+            ["Tiền phòng", inv.rentAmount],
+            ["Tiền điện", inv.electricityFee],
+            ["Tiền nước", inv.waterFee],
+            ["Phí gửi xe", inv.parkingFee],
+            ["Phí dịch vụ", inv.serviceFee],
+            ["Phí ngoài giờ", inv.overtimeFee],
+            ["VAT", inv.vatAmount],
+          ].filter(([, v]) => (v as bigint) > 0n) as [string, bigint][]);
+      // Sum used for proportional allocation. For manual invoices this is the
+      // BCKD-eligible portion only — for auto invoices it's the full
+      // totalAmount (matches the existing behavior).
+      const breakdownTotal = inv.isManual
+        ? breakdown.reduce((s, [, v]) => s + v, 0n)
+        : inv.totalAmount;
+      if (breakdown.length > 0 && breakdownTotal > 0n) {
+        let allocated = 0n;
+        for (let i = 0; i < breakdown.length; i++) {
+          const [name, fee] = breakdown[i];
+          const amt = i === breakdown.length - 1
+            ? t.amount - allocated
+            : (fee * t.amount) / breakdownTotal;
+          if (amt > 0n) {
+            map.set(name, (map.get(name) ?? 0n) + amt);
+            allocated += amt;
+          }
         }
+      } else {
+        // Manual invoice with no eligible lines (e.g. deposit-only). Bucket
+        // under the transaction's own category so it doesn't silently vanish.
+        const key = t.category?.name ?? "Khác";
+        map.set(key, (map.get(key) ?? 0n) + t.amount);
       }
     } else {
       const key = t.category?.name ?? "Khác";
