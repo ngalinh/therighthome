@@ -22,7 +22,7 @@ export default async function GlobalSettingsPage({
   const tab = sp.tab ?? "notifications";
   const isAdmin = session.user.role === "ADMIN";
 
-  const [users, buildings, categories, paymentMethods, auditLogs, appSetting] = await Promise.all([
+  const [users, buildings, categories, paymentMethods, partyKindConfigs, auditLogs, appSetting] = await Promise.all([
     isAdmin ? prisma.user.findMany({
       include: { permissions: { include: { building: true } } },
       orderBy: [{ active: "desc" }, { createdAt: "desc" }],
@@ -30,6 +30,7 @@ export default async function GlobalSettingsPage({
     isAdmin ? prisma.building.findMany({ orderBy: { name: "asc" } }) : [],
     isAdmin ? prisma.transactionCategory.findMany({ orderBy: [{ buildingType: "asc" }, { type: "asc" }, { name: "asc" }] }) : [],
     isAdmin ? prisma.paymentMethod.findMany({ orderBy: [{ buildingType: "asc" }, { name: "asc" }] }) : [],
+    isAdmin ? prisma.partyKindConfig.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }) : [],
     isAdmin ? prisma.auditLog.findMany({
       include: { user: { select: { email: true, name: true } } },
       orderBy: { createdAt: "desc" },
@@ -128,7 +129,7 @@ export default async function GlobalSettingsPage({
                 <CategoriesTab categories={categories} />
               </TabsContent>
               <TabsContent value="pttt">
-                <PaymentMethodsTab paymentMethods={paymentMethods} />
+                <PaymentMethodsTab paymentMethods={paymentMethods} partyKindConfigs={partyKindConfigs} />
               </TabsContent>
               <TabsContent value="audit">
                 <AuditLogTab logs={auditLogs} />

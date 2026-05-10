@@ -19,13 +19,14 @@ import { DebtClient } from "./debt-client";
  * toán; opening = 0, payable = paid = amount → closing = 0.
  */
 export async function DebtTab({
-  buildingId, month, year, categories, paymentMethods, canWrite,
+  buildingId, month, year, categories, paymentMethods, partyKindConfigs, canWrite,
 }: {
   buildingId: string;
   month: number;
   year: number;
   categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
+  partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
 }) {
   const monthStart = new Date(year, month - 1, 1);
@@ -229,6 +230,7 @@ export async function DebtTab({
       rooms={flatRooms}
       categories={categories}
       paymentMethods={paymentMethods}
+      partyKindConfigs={partyKindConfigs}
       canWrite={canWrite}
       contractCodes={contractCodes}
       invoiceCodes={invoiceCodes}

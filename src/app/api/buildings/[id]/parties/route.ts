@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 
 const createSchema = z.object({
-  kind: z.enum(["THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "NCC_KHAC", "OTHER"]),
+  kind: z.string().min(1).max(40),
   name: z.string().min(1),
   phone: z.string().optional(),
   notes: z.string().optional(),

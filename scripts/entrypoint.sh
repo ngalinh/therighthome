@@ -14,6 +14,8 @@ if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations 2>/dev/null)" ]; t
   echo "Running migrations..."
   su-exec nextjs:nodejs $PRISMA_BIN migrate deploy
 else
+  echo "Running pre-migrate hook (idempotent column-shape fixes)..."
+  su-exec nextjs:nodejs node prisma/pre-migrate.js || true
   echo "No migrations folder — syncing schema with db push..."
   su-exec nextjs:nodejs $PRISMA_BIN db push --accept-data-loss --skip-generate
 fi

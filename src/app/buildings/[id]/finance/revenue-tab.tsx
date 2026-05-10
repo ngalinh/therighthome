@@ -14,13 +14,14 @@ import { RevenueClient } from "./revenue-client";
  * (không rollover).
  */
 export async function RevenueTab({
-  buildingId, month, year, categories, paymentMethods, canWrite,
+  buildingId, month, year, categories, paymentMethods, partyKindConfigs, canWrite,
 }: {
   buildingId: string;
   month: number;
   year: number;
   categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
+  partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
 }) {
   const [allInvoices, manualIncomes, rooms, contracts] = await Promise.all([
@@ -239,6 +240,7 @@ export async function RevenueTab({
       rooms={flatRooms}
       categories={categories}
       paymentMethods={paymentMethods}
+      partyKindConfigs={partyKindConfigs}
       canWrite={canWrite}
       contractCodes={contractCodes}
       invoiceCodes={invoiceCodes}

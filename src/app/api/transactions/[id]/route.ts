@@ -10,7 +10,7 @@ const updateSchema = z.object({
   content: z.string().optional(),
   categoryId: z.string().nullable().optional(),
   paymentMethodId: z.string().nullable().optional(),
-  partyKind: z.enum(["CUSTOMER", "THO_SUA_CHUA", "THO_XAY", "DON_VE_SINH", "BAO_VE", "NHA_NUOC", "MOI_GIOI", "TOA_NHA", "NCC_KHAC", "OTHER"]).nullable().optional(),
+  partyKind: z.string().min(1).max(40).nullable().optional(),
   customerId: z.string().nullable().optional(),
   partyId: z.string().nullable().optional(),
   roomId: z.string().nullable().optional(),

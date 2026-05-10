@@ -12,18 +12,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseVNDInput } from "@/lib/utils";
 
-const PARTY_KINDS = [
-  { value: "CUSTOMER", label: "Khách hàng" },
-  { value: "THO_SUA_CHUA", label: "Thợ sửa chữa" },
-  { value: "THO_XAY", label: "Thợ xây" },
-  { value: "DON_VE_SINH", label: "Dọn vệ sinh" },
-  { value: "BAO_VE", label: "Bảo vệ" },
-  { value: "NHA_NUOC", label: "Nhà nước" },
-  { value: "MOI_GIOI", label: "Môi giới" },
-  { value: "TOA_NHA", label: "Toà nhà" },
-  { value: "NCC_KHAC", label: "NCC khác" },
-  { value: "OTHER", label: "Khác" },
-];
+type PartyKindConfig = { code: string; label: string; forRevenue: boolean; forExpense: boolean };
 
 export type EditableTransaction = {
   id: string;
@@ -41,11 +30,12 @@ export type EditableTransaction = {
 };
 
 export function EditTransactionDialog({
-  tx, categories, paymentMethods, rooms, onClose,
+  tx, categories, paymentMethods, partyKindConfigs, rooms, onClose,
 }: {
   tx: EditableTransaction | null;
   categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
+  partyKindConfigs: PartyKindConfig[];
   rooms: { id: string; number: string; primaryCustomerId: string | null }[];
   onClose: () => void;
 }) {
@@ -74,6 +64,7 @@ export function EditTransactionDialog({
 
   if (!tx) return null;
   const filteredCategories = categories.filter((c) => c.type === tx.type);
+  const visibleParties = partyKindConfigs.filter((p) => tx.type === "INCOME" ? p.forRevenue : p.forExpense);
 
   async function submit() {
     if (!tx) return;
@@ -147,7 +138,7 @@ export function EditTransactionDialog({
               <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); if (v !== "CUSTOMER") setRoomId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
                 <SelectContent>
-                  {PARTY_KINDS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  {visibleParties.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
