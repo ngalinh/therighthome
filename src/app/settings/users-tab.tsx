@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -147,6 +147,16 @@ function UserDialog({ open, onClose, buildings, mode, user }: {
     return Object.fromEntries(user.permissions.map((p) => [p.buildingId, p.permission]));
   });
   const [loading, setLoading] = useState(false);
+
+  // Sync form state when the dialog opens with a different user (edit mode).
+  useEffect(() => {
+    if (!open) return;
+    setEmail(user?.email ?? "");
+    setName(user?.name ?? "");
+    setRole(user?.role ?? "STAFF");
+    setPerms(user ? Object.fromEntries(user.permissions.map((p) => [p.buildingId, p.permission])) : {});
+    setPassword("");
+  }, [open, user]);
 
   function togglePerm(bId: string, value: string) {
     setPerms((p) => {
