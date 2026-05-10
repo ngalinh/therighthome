@@ -57,23 +57,25 @@ export async function nextContractCode(buildingId: string, startDate: Date): Pro
   return `${base}-${pad(maxN + 1, 2)}`;
 }
 
-// NB: invoice.code has @unique GLOBALLY (not per-building), so we must scan
-// the whole table for the prefix — not just this building — to avoid two
-// buildings minting the same HD-YYMM-001 code in parallel.
-export async function nextInvoiceCode(buildingId: string, month: number, year: number): Promise<string> {
-  void buildingId;
-  const ym = `${String(year).slice(-2)}${pad(month, 2)}`;
-  const prefix = `HD-${ym}-`;
+// Invoice code: HD-DDMMYY-NN where NN is the daily sequence of invoices
+// created on that calendar date across all buildings. invoice.code has
+// @unique GLOBALLY, so we scan every invoice (not per-building) to avoid
+// two buildings minting the same code in parallel.
+export async function nextInvoiceCode(date: Date = new Date()): Promise<string> {
+  const dd = pad(date.getDate(), 2);
+  const mm = pad(date.getMonth() + 1, 2);
+  const yy = String(date.getFullYear()).slice(-2);
+  const prefix = `HD-${dd}${mm}${yy}-`;
   const matches = await prisma.invoice.findMany({
     where: { code: { startsWith: prefix } },
     select: { code: true },
   });
   let maxN = 0;
   for (const { code } of matches) {
-    const n = Number(code.slice(prefix.length));
+    const n = parseInt(code.slice(prefix.length), 10);
     if (Number.isFinite(n) && n > maxN) maxN = n;
   }
-  return `${prefix}${pad(maxN + 1)}`;
+  return `${prefix}${pad(maxN + 1, 2)}`;
 }
 
 // NB: transaction.code has @unique GLOBALLY (not per-building), so we must

@@ -61,8 +61,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const customer = inv.contract.customers[0]?.customer;
   const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date();
 
+  // Per-line settlement only runs on a single, full one-shot payment of a
+  // manual invoice. Once the user has paid anything (paidAmount > 0), any
+  // subsequent payment goes through the single-tx branch — otherwise the
+  // remaining-amount form would create transactions for each line's FULL
+  // amount and double-bill the customer.
   const fullSettlementOfManual =
-    inv.isManual && inv.lineItems.length > 0 && amount === inv.totalAmount - inv.paidAmount;
+    inv.isManual
+    && inv.lineItems.length > 0
+    && inv.paidAmount === 0n
+    && amount === inv.totalAmount;
   // Pre-allocate codes once (outside $transaction) so concurrent line inserts
   // don't collide on the unique `code` index.
   const codes = fullSettlementOfManual

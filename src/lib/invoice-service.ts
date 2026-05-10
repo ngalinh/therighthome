@@ -83,7 +83,7 @@ export async function generateMonthlyInvoices(month: number, year: number, build
       waterOccupants,
     });
 
-    const code = await nextInvoiceCode(c.buildingId, month, year);
+    const code = await nextInvoiceCode();
     await prisma.invoice.create({
       data: {
         contractId: c.id,
