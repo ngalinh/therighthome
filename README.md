@@ -112,8 +112,9 @@ docker compose up -d app worker
 | `SMTP_USER`                   | Gmail dùng để gửi hoá đơn                                               |
 | `SMTP_PASSWORD`               | App Password (16 ký tự) — https://myaccount.google.com/apppasswords    |
 | `VAPID_PUBLIC_KEY`/`PRIVATE`  | `npx web-push generate-vapid-keys`                                      |
-| `GOOGLE_DRIVE_BACKUP_FOLDER_ID` | Tạo folder Drive, share với email service account, copy ID từ URL     |
-| `secrets/google-service-account.json` | Tải file JSON từ Google Cloud Console                          |
+| `GOOGLE_DRIVE_BACKUP_FOLDER_ID` | Tạo folder trong My Drive, copy ID từ URL                              |
+| `GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` | OAuth 2.0 Client (Web app) ở Google Cloud Console                 |
+| `GOOGLE_OAUTH_REFRESH_TOKEN`  | Lấy qua https://developers.google.com/oauthplayground (scope `drive.file`) |
 
 ### Backup tự động
 

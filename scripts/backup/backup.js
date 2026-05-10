@@ -10,7 +10,9 @@ const {
   POSTGRES_PASSWORD,
   POSTGRES_DB,
   GOOGLE_DRIVE_BACKUP_FOLDER_ID,
-  GOOGLE_SERVICE_ACCOUNT_JSON = "/app/secrets/google-service-account.json",
+  GOOGLE_OAUTH_CLIENT_ID,
+  GOOGLE_OAUTH_CLIENT_SECRET,
+  GOOGLE_OAUTH_REFRESH_TOKEN,
 } = process.env;
 
 const BACKUP_DIR = "/app/backups";
@@ -30,14 +32,17 @@ function pgDump(file) {
 }
 
 async function uploadToDrive(filePath) {
-  if (!GOOGLE_DRIVE_BACKUP_FOLDER_ID || !fs.existsSync(GOOGLE_SERVICE_ACCOUNT_JSON)) {
+  if (
+    !GOOGLE_DRIVE_BACKUP_FOLDER_ID ||
+    !GOOGLE_OAUTH_CLIENT_ID ||
+    !GOOGLE_OAUTH_CLIENT_SECRET ||
+    !GOOGLE_OAUTH_REFRESH_TOKEN
+  ) {
     console.log("[backup] Drive not configured, skipping upload (file kept locally)");
     return;
   }
-  const auth = new google.auth.GoogleAuth({
-    keyFile: GOOGLE_SERVICE_ACCOUNT_JSON,
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
-  });
+  const auth = new google.auth.OAuth2(GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET);
+  auth.setCredentials({ refresh_token: GOOGLE_OAUTH_REFRESH_TOKEN });
   const drive = google.drive({ version: "v3", auth });
   const res = await drive.files.create({
     requestBody: {
