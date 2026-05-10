@@ -16,6 +16,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     include: {
       contract: { include: { customers: { include: { customer: true } } } },
       building: true,
+      lineItems: {
+        include: { category: { select: { name: true } } },
+        orderBy: { sortOrder: "asc" },
+      },
     },
   });
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -55,6 +59,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     totalAmount: inv.totalAmount,
     paidAmount: inv.paidAmount,
     notes: inv.notes,
+    isManual: inv.isManual,
+    lineItems: inv.lineItems.map((l) => ({
+      content: l.content,
+      categoryName: l.category?.name ?? null,
+      amount: l.amount,
+    })),
   });
 
   await sendEmail({

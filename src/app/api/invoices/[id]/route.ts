@@ -33,29 +33,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
 
-  // Bring fee snapshots up-to-date BEFORE recompute so the new total uses
-  // the user-visible rates (older invoices may have parkingFeePerVehicle=0
-  // even though the building setting has a value now).
-  if (d.parkingFeePerVehicle !== undefined || d.electricityPricePerKwh !== undefined) {
-    await prisma.invoice.update({
-      where: { id },
-      data: {
-        ...(d.parkingFeePerVehicle !== undefined ? { parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle) } : {}),
-        ...(d.electricityPricePerKwh !== undefined ? { electricityPricePerKwh: BigInt(d.electricityPricePerKwh) } : {}),
-      },
+  // Manual invoices have no fee structure to recompute — only notes/dueDate
+  // are user-editable. Skip the recompute path entirely.
+  if (!inv.isManual) {
+    // Bring fee snapshots up-to-date BEFORE recompute so the new total uses
+    // the user-visible rates (older invoices may have parkingFeePerVehicle=0
+    // even though the building setting has a value now).
+    if (d.parkingFeePerVehicle !== undefined || d.electricityPricePerKwh !== undefined) {
+      await prisma.invoice.update({
+        where: { id },
+        data: {
+          ...(d.parkingFeePerVehicle !== undefined ? { parkingFeePerVehicle: BigInt(d.parkingFeePerVehicle) } : {}),
+          ...(d.electricityPricePerKwh !== undefined ? { electricityPricePerKwh: BigInt(d.electricityPricePerKwh) } : {}),
+        },
+      });
+    }
+
+    await recomputeInvoice(id, {
+      electricityStart: d.electricityStart,
+      electricityEnd: d.electricityEnd,
+      parkingCount: d.parkingCount,
+      overtimeFee: d.overtimeFee !== undefined ? BigInt(d.overtimeFee) : undefined,
+      serviceFee: d.serviceFee !== undefined ? BigInt(d.serviceFee) : undefined,
+      rentAmount: d.rentAmount !== undefined ? BigInt(d.rentAmount) : undefined,
+      waterPricePerPerson: d.waterPricePerPerson !== undefined ? BigInt(d.waterPricePerPerson) : undefined,
+      waterOccupants: d.waterOccupants,
     });
   }
-
-  await recomputeInvoice(id, {
-    electricityStart: d.electricityStart,
-    electricityEnd: d.electricityEnd,
-    parkingCount: d.parkingCount,
-    overtimeFee: d.overtimeFee !== undefined ? BigInt(d.overtimeFee) : undefined,
-    serviceFee: d.serviceFee !== undefined ? BigInt(d.serviceFee) : undefined,
-    rentAmount: d.rentAmount !== undefined ? BigInt(d.rentAmount) : undefined,
-    waterPricePerPerson: d.waterPricePerPerson !== undefined ? BigInt(d.waterPricePerPerson) : undefined,
-    waterOccupants: d.waterOccupants,
-  });
 
   if (d.notes !== undefined || d.dueDate) {
     await prisma.invoice.update({

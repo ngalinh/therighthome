@@ -319,6 +319,10 @@ model Invoice {
   sentAt DateTime?
   notes  String?
 
+  // Manual ad-hoc invoice (created from "Tạo hoá đơn" form). When true, the
+  // fixed-fee fields above are unused; the breakdown lives in `lineItems`.
+  isManual Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -327,10 +331,27 @@ model Invoice {
   payments         InvoicePayment[]
   transactions     Transaction[]
   overtimeRequests OvertimeRequest[]
+  lineItems        InvoiceLineItem[]
 
-  @@unique([contractId, month, year])
+  @@index([contractId, month, year])
   @@index([buildingId, year, month])
   @@index([status])
+}
+
+model InvoiceLineItem {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  categoryId String?
+  content    String
+  amount     BigInt
+  // false = excluded from BCKD (e.g. Tiền cọc — collected but not revenue)
+  countInBR  Boolean  @default(true)
+  sortOrder  Int      @default(0)
+
+  invoice  Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  category TransactionCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([invoiceId])
 }
 
 model InvoicePayment {
@@ -449,7 +470,8 @@ model TransactionCategory {
   name         String
   type         TransactionType
 
-  transactions Transaction[]
+  transactions     Transaction[]
+  invoiceLineItems InvoiceLineItem[]
 
   @@unique([buildingType, name, type])
 }
