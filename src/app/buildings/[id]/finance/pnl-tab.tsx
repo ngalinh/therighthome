@@ -1,8 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatVND, formatVNDCompact } from "@/lib/utils";
+import { formatVND, formatVNDCompact, customerDisplayName, serializeBigInt } from "@/lib/utils";
 import { PnLFilter } from "./pnl-filter";
+import { PnLBreakdownTable, type DetailRow } from "./pnl-breakdown-table";
 
 /**
  * KQKD = chỉ tính giao dịch tick countInBR.
@@ -72,8 +73,13 @@ export async function PnLTab({
     where,
     include: {
       category: { select: { name: true, type: true } },
+      customer: { select: { type: true, fullName: true, companyName: true } },
+      party: { select: { name: true } },
+      room: { select: { number: true } },
       invoice: {
         select: {
+          id: true,
+          code: true,
           isManual: true,
           totalAmount: true,
           rentAmount: true,
@@ -95,9 +101,10 @@ export async function PnLTab({
     },
   });
 
+  type CatBucket = { total: bigint; details: DetailRow[] };
   type MonthlyAgg = {
-    incomeByCat: Map<string, bigint>;
-    expenseByCat: Map<string, bigint>;
+    incomeByCat: Map<string, CatBucket>;
+    expenseByCat: Map<string, CatBucket>;
   };
   const byMonth = new Map<string, MonthlyAgg>();
   function bucket(y: number, m: number) {
@@ -109,12 +116,21 @@ export async function PnLTab({
     }
     return agg;
   }
+  function add(map: Map<string, CatBucket>, name: string, amount: bigint, detail: DetailRow) {
+    const cur = map.get(name) ?? { total: 0n, details: [] };
+    cur.total += amount;
+    cur.details.push(detail);
+    map.set(name, cur);
+  }
 
   for (const t of transactions) {
     const y = t.accountingYear ?? new Date(t.date).getFullYear();
     const m = t.accountingMonth ?? new Date(t.date).getMonth() + 1;
     const agg = bucket(y, m);
     const map = t.type === "INCOME" ? agg.incomeByCat : agg.expenseByCat;
+    const partyLabel = t.customer
+      ? customerDisplayName(t.customer)
+      : t.party?.name ?? "";
 
     if (t.type === "INCOME" && t.invoice && t.invoice.totalAmount > 0n) {
       const inv = t.invoice;
@@ -149,7 +165,16 @@ export async function PnLTab({
             ? t.amount - allocated
             : (fee * t.amount) / breakdownTotal;
           if (amt > 0n) {
-            map.set(name, (map.get(name) ?? 0n) + amt);
+            add(map, name, amt, {
+              txId: t.id,
+              date: t.date.toISOString(),
+              amount: amt.toString(),
+              content: t.content,
+              partyLabel,
+              roomNumber: t.room?.number ?? null,
+              invoiceId: inv.id,
+              invoiceCode: inv.code,
+            });
             allocated += amt;
           }
         }
@@ -157,11 +182,29 @@ export async function PnLTab({
         // Manual invoice with no eligible lines (e.g. deposit-only). Bucket
         // under the transaction's own category so it doesn't silently vanish.
         const key = t.category?.name ?? "Khác";
-        map.set(key, (map.get(key) ?? 0n) + t.amount);
+        add(map, key, t.amount, {
+          txId: t.id,
+          date: t.date.toISOString(),
+          amount: t.amount.toString(),
+          content: t.content,
+          partyLabel,
+          roomNumber: t.room?.number ?? null,
+          invoiceId: inv.id,
+          invoiceCode: inv.code,
+        });
       }
     } else {
       const key = t.category?.name ?? "Khác";
-      map.set(key, (map.get(key) ?? 0n) + t.amount);
+      add(map, key, t.amount, {
+        txId: t.id,
+        date: t.date.toISOString(),
+        amount: t.amount.toString(),
+        content: t.content,
+        partyLabel,
+        roomNumber: t.room?.number ?? null,
+        invoiceId: t.invoice?.id ?? null,
+        invoiceCode: t.invoice?.code ?? null,
+      });
     }
   }
 
@@ -172,8 +215,8 @@ export async function PnLTab({
   let grandOut = 0n;
   for (const k of monthKeys) {
     const agg = byMonth.get(k)!;
-    for (const v of agg.incomeByCat.values()) grandIn += v;
-    for (const v of agg.expenseByCat.values()) grandOut += v;
+    for (const v of agg.incomeByCat.values()) grandIn += v.total;
+    for (const v of agg.expenseByCat.values()) grandOut += v.total;
   }
   const grandProfit = grandIn - grandOut;
 
@@ -224,10 +267,14 @@ export async function PnLTab({
         const y = Number(yStr);
         const m = Number(mStr);
         const agg = byMonth.get(k)!;
-        const incomeRows = Array.from(agg.incomeByCat.entries()).sort((a, b) => Number(b[1] - a[1]));
-        const expenseRows = Array.from(agg.expenseByCat.entries()).sort((a, b) => Number(b[1] - a[1]));
-        const totalIn = incomeRows.reduce((s, [, v]) => s + v, 0n);
-        const totalOut = expenseRows.reduce((s, [, v]) => s + v, 0n);
+        const incomeRows = Array.from(agg.incomeByCat.entries())
+          .sort((a, b) => Number(b[1].total - a[1].total))
+          .map(([name, v]) => ({ name, total: v.total, details: v.details }));
+        const expenseRows = Array.from(agg.expenseByCat.entries())
+          .sort((a, b) => Number(b[1].total - a[1].total))
+          .map(([name, v]) => ({ name, total: v.total, details: v.details }));
+        const totalIn = incomeRows.reduce((s, r) => s + r.total, 0n);
+        const totalOut = expenseRows.reduce((s, r) => s + r.total, 0n);
         const profit = totalIn - totalOut;
 
         return (
@@ -246,11 +293,21 @@ export async function PnLTab({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border-t">
                 <div className="border-b lg:border-b-0 lg:border-r">
                   <div className="px-4 py-2 text-xs uppercase tracking-wider text-slate-500 bg-slate-50">Doanh thu theo loại</div>
-                  <BreakdownTable rows={incomeRows} total={totalIn} accent="emerald" />
+                  <PnLBreakdownTable
+                    buildingId={buildingId}
+                    rows={serializeBigInt(incomeRows)}
+                    total={totalIn.toString()}
+                    accent="emerald"
+                  />
                 </div>
                 <div>
                   <div className="px-4 py-2 text-xs uppercase tracking-wider text-slate-500 bg-slate-50">Chi phí theo loại</div>
-                  <BreakdownTable rows={expenseRows} total={totalOut} accent="rose" />
+                  <PnLBreakdownTable
+                    buildingId={buildingId}
+                    rows={serializeBigInt(expenseRows)}
+                    total={totalOut.toString()}
+                    accent="rose"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -262,37 +319,5 @@ export async function PnLTab({
         Chỉ những giao dịch có tick &quot;Hạch toán vào BCKD&quot; mới được tính.
       </p>
     </div>
-  );
-}
-
-function BreakdownTable({ rows, total, accent }: { rows: [string, bigint][]; total: bigint; accent: "emerald" | "rose" }) {
-  if (rows.length === 0) {
-    return <p className="px-4 py-6 text-center text-sm text-slate-500">Không có dữ liệu</p>;
-  }
-  return (
-    <table className="w-full text-sm">
-      <tbody>
-        {rows.map(([name, amt]) => {
-          const pct = total > 0n ? Number(amt * 1000n / total) / 10 : 0;
-          return (
-            <tr key={name} className="border-b last:border-0">
-              <td className="px-4 py-2.5">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="font-medium">{name}</span>
-                  <span className="font-semibold">{formatVND(amt)}</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className={`h-full ${accent === "emerald" ? "bg-emerald-500" : "bg-rose-500"}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{pct.toFixed(1)}%</div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
   );
 }
