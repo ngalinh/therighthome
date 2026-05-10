@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { saveFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -32,4 +33,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     update: { [field]: url },
   });
   return NextResponse.json({ url, kind });
+}
+
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await ctx.params;
+  if (!(await can(session.user.id, session.user.role, id, "settings.write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const kind = req.nextUrl.searchParams.get("kind") ?? "individual";
+  if (!["individual", "company"].includes(kind)) {
+    return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
+  }
+  const field = kind === "company" ? "contractTemplateUrlCompany" : "contractTemplateUrl";
+  await prisma.buildingSetting.update({
+    where: { buildingId: id },
+    data: { [field]: null },
+  });
+  return NextResponse.json({ ok: true });
 }

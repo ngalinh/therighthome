@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Edit, Loader2, MapPin, FileSpreadsheet, FileText, Upload } from "lucide-react";
+import { Building2, Edit, Loader2, MapPin, FileSpreadsheet, FileText, Upload, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ImportClient } from "@/app/import/import-client";
+import { TemplatePreviewDialog } from "@/components/contract/template-preview-dialog";
 
 type Building = {
   id: string;
@@ -191,6 +192,8 @@ function DefaultTemplateSlot({
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [uploading, setUploading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -212,22 +215,48 @@ function DefaultTemplateSlot({
     router.refresh();
   }
 
+  async function clear() {
+    if (!confirm("Xoá mẫu mặc định này?")) return;
+    setClearing(true);
+    const res = await fetch(`/api/app-settings/template?kind=${kind}`, { method: "DELETE" });
+    setClearing(false);
+    if (!res.ok) return toast.error("Xoá thất bại");
+    setUrl(null);
+    toast.success("Đã xoá mẫu mặc định");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-2">
       <Label className="text-xs">{label}</Label>
       {url ? (
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
           <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu mặc định</span>
-          <a href={url} target="_blank" rel="noopener" className="text-xs text-primary">Xem</a>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Eye className="h-3.5 w-3.5" /> Xem
+          </button>
         </div>
       ) : (
         <p className="text-xs text-slate-500">Chưa có mẫu mặc định.</p>
       )}
-      <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={upload} />
-      <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
-        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-        {url ? "Thay mẫu" : "Upload mẫu .docx"}
-      </Button>
+      <div className="flex gap-2">
+        <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={upload} />
+        <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {url ? "Thay mẫu" : "Upload mẫu .docx"}
+        </Button>
+        {url && (
+          <Button variant="outline" size="sm" onClick={clear} disabled={clearing}>
+            {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Xoá
+          </Button>
+        )}
+      </div>
+      <TemplatePreviewDialog open={previewOpen} onClose={() => setPreviewOpen(false)} docxUrl={url} />
     </div>
   );
 }
