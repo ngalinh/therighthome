@@ -77,15 +77,15 @@ export function InvoiceReceiptDialog({
 }
 
 function ReceiptBody({ data }: { data: ReceiptData }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
 
   async function saveImage() {
-    if (!ref.current) return;
+    if (!cardRef.current) return;
     setSaving(true);
     try {
       const { toBlob } = await import("html-to-image");
-      const blob = await toBlob(ref.current, {
+      const blob = await toBlob(cardRef.current, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
@@ -128,20 +128,22 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end max-w-[720px] mx-auto w-full">
         <Button variant="gradient" onClick={saveImage} disabled={saving} size="sm">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           Lưu ảnh
         </Button>
       </div>
-      <div ref={ref}>
-        <ReceiptCard data={data} />
+      {/* Centering wrapper is outside the captured ref so the saved PNG is
+          exactly the receipt card — no white gutters on the sides. */}
+      <div className="max-w-[720px] mx-auto w-full">
+        <ReceiptCard data={data} cardRef={cardRef} />
       </div>
     </div>
   );
 }
 
-function ReceiptCard({ data }: { data: ReceiptData }) {
+function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<HTMLDivElement> }) {
   const remaining = data.totalAmount - data.paidAmount;
   const customerName = customerDisplayName(data.customer);
   const kwh =
@@ -161,7 +163,7 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
     : `${data.invoiceCode} P${data.roomNumber}`;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden mx-auto" style={{ maxWidth: 720 }}>
+    <div ref={cardRef} className="bg-white rounded-2xl shadow-sm overflow-hidden">
       {/* Header: brand */}
       <div
         className="px-6 py-5 text-white"
@@ -291,31 +293,29 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
           <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
             Thông tin chuyển khoản
           </h4>
-          <div className="flex gap-4 items-start">
-            <div className="flex-1 space-y-1.5 text-sm">
-              {data.paymentMethod.bankName && (
-                <KV label="Ngân hàng" value={data.paymentMethod.bankName} />
-              )}
-              {data.paymentMethod.accountHolder && (
-                <KV label="Chủ tài khoản" value={data.paymentMethod.accountHolder} />
-              )}
-              {data.paymentMethod.accountNumber && (
-                <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
-              )}
-              <KV label="Nội dung chuyển khoản" value={transferContent} mono />
-            </div>
-            {data.paymentMethod.qrCodeUrl && (
-              <div className="shrink-0">
-                <img
-                  src={data.paymentMethod.qrCodeUrl}
-                  alt="QR chuyển khoản"
-                  className="block"
-                  style={{ width: 180, height: 180, objectFit: "contain" }}
-                />
-                <div className="text-[10px] text-center text-slate-500 mt-1">Quét để chuyển khoản</div>
-              </div>
+          <div className="space-y-1.5 text-sm">
+            {data.paymentMethod.bankName && (
+              <KV label="Ngân hàng" value={data.paymentMethod.bankName} />
             )}
+            {data.paymentMethod.accountHolder && (
+              <KV label="Chủ tài khoản" value={data.paymentMethod.accountHolder} />
+            )}
+            {data.paymentMethod.accountNumber && (
+              <KV label="Số tài khoản" value={data.paymentMethod.accountNumber} mono />
+            )}
+            <KV label="Nội dung chuyển khoản" value={transferContent} mono />
           </div>
+          {data.paymentMethod.qrCodeUrl && (
+            <div className="mt-4 flex flex-col items-center">
+              <img
+                src={data.paymentMethod.qrCodeUrl}
+                alt="QR chuyển khoản"
+                className="block"
+                style={{ width: 220, height: 220, objectFit: "contain" }}
+              />
+              <div className="text-[10px] text-slate-500 mt-1">Quét để chuyển khoản</div>
+            </div>
+          )}
         </div>
       )}
 
