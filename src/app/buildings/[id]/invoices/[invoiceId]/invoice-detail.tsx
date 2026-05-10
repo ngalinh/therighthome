@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
@@ -108,6 +109,7 @@ export function InvoiceDetail({
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
 
   const [elecStart, setElecStart] = useState<string>(invoice.electricityStart?.toString() ?? "");
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
@@ -541,10 +543,15 @@ export function InvoiceDetail({
         )}
 
         {canWrite && (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 flex-wrap">
             {invoice.status !== "CANCELLED" && (
               <Button variant="outline" onClick={cancelInvoice}>
                 <XIcon className="h-4 w-4" /> Huỷ HĐ
+              </Button>
+            )}
+            {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
+              <Button variant="outline" onClick={() => setPayOpen(true)}>
+                <DollarSign className="h-4 w-4" /> Thanh toán
               </Button>
             )}
             <Button variant="gradient" onClick={save} disabled={saving}>
@@ -600,7 +607,103 @@ export function InvoiceDetail({
         onClose={() => setReceiptOpen(false)}
         data={receiptData}
       />
+
+      <PayDialog
+        open={payOpen}
+        invoiceId={invoice.id}
+        invoiceCode={invoice.code}
+        remaining={remaining}
+        paymentMethods={paymentMethods}
+        onClose={() => setPayOpen(false)}
+        onSuccess={() => { setPayOpen(false); router.refresh(); }}
+      />
     </div>
+  );
+}
+
+function PayDialog({
+  open, invoiceId, invoiceCode, remaining, paymentMethods, onClose, onSuccess,
+}: {
+  open: boolean;
+  invoiceId: string;
+  invoiceCode: string;
+  remaining: bigint;
+  paymentMethods: PMOption[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [pmId, setPmId] = useState<string>("");
+  const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    const a = parseVNDInput(amount);
+    if (a <= 0n) return toast.error("Số tiền > 0");
+    setLoading(true);
+    const res = await fetch(`/api/invoices/${invoiceId}/pay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: a.toString(), paymentMethodId: pmId || undefined, paidAt }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success("Đã ghi nhận thanh toán");
+    setAmount("");
+    setPmId("");
+    onSuccess();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ghi nhận thanh toán — {invoiceCode}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="text-sm text-slate-600">Còn lại: <strong>{formatVND(remaining)}</strong></div>
+          <div className="space-y-1.5">
+            <Label>Số tiền nhận</Label>
+            <Input
+              inputMode="numeric"
+              value={amount ? formatNumber(parseVNDInput(amount)) : ""}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={formatNumber(remaining)}
+            />
+            <button type="button" className="text-xs text-primary" onClick={() => setAmount(remaining.toString())}>
+              Dùng số còn lại
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Ngày thanh toán</Label>
+            <DateInput value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Phương thức thanh toán</Label>
+            <Select value={pmId} onValueChange={setPmId}>
+              <SelectTrigger><SelectValue placeholder="Chọn tài khoản TT" /></SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}{p.isCash ? " (Tiền mặt)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Ghi nhận
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

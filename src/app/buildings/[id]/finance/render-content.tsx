@@ -3,14 +3,15 @@ import type { ReactNode } from "react";
 
 /**
  * Replace contract codes ("HĐ <TYPE>-DDMMYY[-NN]") and invoice codes
- * ("HD-YYMM-NNN") in `content` with Links to their detail pages, when the
- * code maps to a known id. Unknown codes are rendered as plain text.
+ * (legacy "HD-YYMM-NNN" or new "HD-DDMMYY-NN") in `content` with Links to
+ * their detail pages, when the code maps to a known id. Unknown codes are
+ * rendered as plain text.
  *
  * The two formats are distinguishable: contract codes follow the "HĐ "
- * prefix (Latin H + Vietnamese Đ); invoice codes are bare "HD-YYMM-NNN"
+ * prefix (Latin H + Vietnamese Đ); invoice codes are bare "HD-..."
  * (Latin H + Latin D).
  */
-const CODE_RE = /(HĐ\s+)([A-Z]+-\d{6}(?:-\d{2})?)|(HD-\d{4}-\d{3,})/g;
+const CODE_RE = /(HĐ\s+)([A-Z]+-\d{6}(?:-\d{2})?)|(HD-\d{4,6}-\d{2,3})/g;
 
 export function renderContentWithLinks({
   content, buildingId, contractMap, invoiceMap,

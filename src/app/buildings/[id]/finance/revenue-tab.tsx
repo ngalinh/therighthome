@@ -169,7 +169,11 @@ export async function RevenueTab({
     const pmNames = Array.from(pmThisByInvoice.get(inv.id) ?? []);
     rows.push({
       key: `inv-${inv.id}`,
-      date: inv.dueDate.toISOString(),
+      // Manual invoices are issued on demand, so the createdAt timestamp is
+      // the meaningful "ngày phát sinh" — dueDate is just a payment deadline.
+      // Auto rent invoices keep the dueDate so monthly receivables sort by
+      // payment day, not by when the cron happened to run.
+      date: (inv.isManual ? inv.createdAt : inv.dueDate).toISOString(),
       roomId: inv.contract.room.id,
       roomNumber: inv.contract.room.number,
       category: "Tiền thuê phòng",
