@@ -421,6 +421,16 @@ function PartyKindsSection({ items }: { items: PartyKindConfig[] }) {
   );
 }
 
+function slugifyToCode(label: string): string {
+  // Strip Vietnamese diacritics, uppercase, non-alphanumerics → underscore.
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+  return normalized.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+}
+
 function PartyKindDialog({
   open, onClose, mode, item,
 }: {
@@ -430,7 +440,6 @@ function PartyKindDialog({
   item?: PartyKindConfig | null;
 }) {
   const router = useRouter();
-  const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
   const [forRevenue, setForRevenue] = useState(true);
   const [forExpense, setForExpense] = useState(true);
@@ -440,13 +449,11 @@ function PartyKindDialog({
   useEffect(() => {
     if (!open) return;
     if (mode === "edit" && item) {
-      setCode(item.code);
       setLabel(item.label);
       setForRevenue(item.forRevenue);
       setForExpense(item.forExpense);
       setSortOrder(item.sortOrder);
     } else {
-      setCode("");
       setLabel("");
       setForRevenue(true);
       setForExpense(true);
@@ -456,14 +463,15 @@ function PartyKindDialog({
 
   async function submit() {
     if (!label.trim()) return toast.error("Nhập tên");
-    if (mode === "create" && !code.trim()) return toast.error("Nhập code (IN HOA, gạch dưới)");
     if (!forRevenue && !forExpense) return toast.error("Chọn ít nhất Sổ thu hoặc Sổ chi");
+    const generatedCode = slugifyToCode(label);
+    if (mode === "create" && !generatedCode) return toast.error("Tên không hợp lệ");
     setLoading(true);
     const res = mode === "create"
       ? await fetch("/api/party-kinds", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: code.trim().toUpperCase(), label: label.trim(), forRevenue, forExpense, sortOrder }),
+          body: JSON.stringify({ code: generatedCode, label: label.trim(), forRevenue, forExpense, sortOrder }),
         })
       : await fetch(`/api/party-kinds/${item!.id}`, {
           method: "PATCH",
@@ -490,15 +498,6 @@ function PartyKindDialog({
           <div className="space-y-1.5">
             <Label className="text-xs">Tên hiển thị</Label>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="vd: Bảo trì điện" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Code {mode === "edit" && <span className="text-slate-400">(không đổi được)</span>}</Label>
-            <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
-              placeholder="vd: BAO_TRI_DIEN"
-              disabled={mode === "edit"}
-            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer rounded border border-slate-200 px-3 py-2">
