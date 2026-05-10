@@ -99,6 +99,33 @@ export function formatDateVN(d: Date | string | null | undefined): string {
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// Rent period for an invoice, anchored to the contract start day. For a
+// contract starting on day D, the May invoice covers D/05 → (D-1)/06, etc.
+// Returned format: "DD/MM/YY-DD/MM/YY".
+export function rentPeriodLabel(
+  contractStart: Date | string,
+  invoiceMonth: number,
+  invoiceYear: number,
+): string {
+  const start = typeof contractStart === "string" ? new Date(contractStart) : contractStart;
+  const day = start.getUTCDate();
+  // Period start: day-of-contract-start in invoice month/year
+  const fromY = invoiceYear;
+  const fromM = invoiceMonth;
+  // Period end: (day - 1) of the following month. If day === 1, end is the
+  // last day of the same invoice month.
+  let toY = invoiceYear;
+  let toM = invoiceMonth + 1;
+  if (toM > 12) { toM = 1; toY += 1; }
+  const fmt = (d: number, m: number, y: number) =>
+    `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y).slice(-2)}`;
+  if (day === 1) {
+    const lastDay = new Date(Date.UTC(fromY, fromM, 0)).getUTCDate();
+    return `${fmt(1, fromM, fromY)}-${fmt(lastDay, fromM, fromY)}`;
+  }
+  return `${fmt(day, fromM, fromY)}-${fmt(day - 1, toM, toY)}`;
+}
+
 // Display a room number with leading "P" prefix, but only if the stored
 // number doesn't already start with one (case-insensitive). Avoids "PP201".
 export function formatRoomNumber(n: string | null | undefined): string {

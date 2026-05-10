@@ -25,6 +25,7 @@ export type ReceiptData = {
   invoiceCode: string;
   month: number;
   year: number;
+  rentPeriod: string;
   dueDate: string;
   buildingName: string;
   buildingAddress: string;
@@ -182,8 +183,8 @@ function ReceiptCard({ data }: { data: ReceiptData }) {
             <CostRow
               label={
                 data.vatAmount > 0n
-                  ? `Tiền thuê T${data.month} (đã VAT, gồm ${formatVND(data.vatAmount)})`
-                  : `Tiền thuê T${data.month}`
+                  ? `Tiền thuê (${data.rentPeriod}) · đã VAT, gồm ${formatVND(data.vatAmount)}`
+                  : `Tiền thuê (${data.rentPeriod})`
               }
               value={formatVND(data.rentAmount)}
             />

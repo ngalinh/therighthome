@@ -33,45 +33,51 @@ export async function renderContractDocx(templateRelUrl: string, data: Record<st
 }
 
 /**
- * Convert a stored .docx (under contracts/ bucket) to PDF, caching the result
- * next to it on disk. Returns the relative `/api/files/contracts/...pdf` URL.
+ * Convert a stored .docx (under any bucket) to PDF, caching the result next
+ * to it on disk. Returns the relative `/api/files/<bucket>/...pdf` URL.
  *
  * Idempotent: if the PDF already exists on disk, it's returned as-is.
  */
-export async function convertContractDocxToPdf(docxRelUrl: string): Promise<string> {
-  const m = docxRelUrl.match(/\/api\/files\/contracts\/(.+\.docx)$/);
-  if (!m) throw new Error("Invalid docx URL");
-  const docxName = path.basename(m[1]);
-  const pdfName = docxName.replace(/\.docx$/, ".pdf");
-  const docxPath = path.join(STORAGE_PATH, "contracts", docxName);
-  const pdfPath = path.join(STORAGE_PATH, "contracts", pdfName);
+export async function convertDocxToPdf(bucket: string, docxName: string): Promise<string> {
+  const safeBucket = path.basename(bucket);
+  const safeDocx = path.basename(docxName);
+  const pdfName = safeDocx.replace(/\.docx$/, ".pdf");
+  const docxPath = path.join(STORAGE_PATH, safeBucket, safeDocx);
+  const pdfPath = path.join(STORAGE_PATH, safeBucket, pdfName);
 
   try {
     await fs.access(pdfPath);
-    return `/api/files/contracts/${pdfName}`;
+    return `/api/files/${safeBucket}/${pdfName}`;
   } catch {
-    // not cached; convert below
+    // not cached
+  }
+  try {
+    await fs.access(docxPath);
+  } catch {
+    throw new Error("DOCX not found");
   }
 
-  // libreoffice expects --outdir; it picks the output filename based on the
-  // input. We convert into a temp dir then move into the contracts bucket so
-  // a half-written PDF never gets served.
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "docx2pdf-"));
   const homeDir = path.join(tmpDir, "home");
   await fs.mkdir(homeDir, { recursive: true });
   try {
     await runLibreOffice(docxPath, tmpDir, homeDir);
-    const tmpPdf = path.join(tmpDir, docxName.replace(/\.docx$/, ".pdf"));
+    const tmpPdf = path.join(tmpDir, safeDocx.replace(/\.docx$/, ".pdf"));
     await fs.access(tmpPdf);
     await fs.rename(tmpPdf, pdfPath).catch(async () => {
-      // Fallback if /tmp and storage are on different devices.
       const buf = await fs.readFile(tmpPdf);
       await fs.writeFile(pdfPath, buf);
     });
-    return `/api/files/contracts/${pdfName}`;
+    return `/api/files/${safeBucket}/${pdfName}`;
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+export async function convertContractDocxToPdf(docxRelUrl: string): Promise<string> {
+  const m = docxRelUrl.match(/\/api\/files\/contracts\/(.+\.docx)$/);
+  if (!m) throw new Error("Invalid docx URL");
+  return convertDocxToPdf("contracts", path.basename(m[1]));
 }
 
 function runLibreOffice(docxPath: string, outDir: string, homeDir: string): Promise<void> {

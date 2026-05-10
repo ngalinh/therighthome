@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileText } from "lucide-react";
+import { Loader2, Upload, FileText, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseVNDInput } from "@/lib/utils";
 import { PLACEHOLDER_HELP } from "@/lib/contract-template";
+import { TemplatePreviewDialog } from "@/components/contract/template-preview-dialog";
 
 type Setting = {
   electricityPricePerKwh: string;
@@ -142,6 +143,13 @@ export function BuildingSettingsForm({
             uploading={uploadingIndividual}
             inputRef={indivInputRef}
             onChange={(e) => uploadTemplate(e, "individual")}
+            onClear={async () => {
+              const res = await fetch(`/api/buildings/${buildingId}/settings/template?kind=individual`, { method: "DELETE" });
+              if (!res.ok) { toast.error("Xoá thất bại"); return; }
+              setTplUrl(null);
+              toast.success("Đã xoá mẫu riêng — sẽ dùng mẫu mặc định");
+              router.refresh();
+            }}
             canWrite={canWrite}
           />
           {isVP && (
@@ -151,6 +159,13 @@ export function BuildingSettingsForm({
               uploading={uploadingCompany}
               inputRef={companyInputRef}
               onChange={(e) => uploadTemplate(e, "company")}
+              onClear={async () => {
+                const res = await fetch(`/api/buildings/${buildingId}/settings/template?kind=company`, { method: "DELETE" });
+                if (!res.ok) { toast.error("Xoá thất bại"); return; }
+                setTplUrlCompany(null);
+                toast.success("Đã xoá mẫu riêng — sẽ dùng mẫu mặc định");
+                router.refresh();
+              }}
               canWrite={canWrite}
             />
           )}
@@ -184,35 +199,60 @@ function VNDInput({ value, onChange, disabled }: { value: string; onChange: (v: 
 }
 
 export function TemplateSlot({
-  label, url, uploading, inputRef, onChange, canWrite,
+  label, url, uploading, inputRef, onChange, onClear, canWrite,
 }: {
   label: string;
   url: string | null;
   uploading: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear?: () => Promise<void> | void;
   canWrite: boolean;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
   return (
     <div className="space-y-2">
       <Label className="text-xs">{label}</Label>
       {url ? (
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-          <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu</span>
-          <a href={url} target="_blank" rel="noopener" className="text-xs text-primary">Xem</a>
+          <span className="flex items-center gap-2 text-sm text-emerald-800"><FileText className="h-4 w-4" /> Đã có mẫu riêng</span>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Eye className="h-3.5 w-3.5" /> Xem
+          </button>
         </div>
       ) : (
         <p className="text-xs text-slate-500">Chưa có mẫu riêng — sẽ dùng mẫu mặc định.</p>
       )}
       {canWrite && (
-        <>
+        <div className="flex gap-2">
           <input ref={inputRef} type="file" accept=".docx" className="hidden" onChange={onChange} />
           <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {url ? "Thay mẫu" : "Upload mẫu .docx"}
           </Button>
-        </>
+          {url && onClear && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (!confirm("Xoá mẫu riêng cho toà này? Sẽ quay về dùng mẫu mặc định.")) return;
+                setClearing(true);
+                try { await onClear(); } finally { setClearing(false); }
+              }}
+              disabled={clearing}
+            >
+              {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Xoá
+            </Button>
+          )}
+        </div>
       )}
+      <TemplatePreviewDialog open={previewOpen} onClose={() => setPreviewOpen(false)} docxUrl={url} />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
-import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
+import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
 import { InvoiceReceiptDialog, type ReceiptData } from "./invoice-receipt";
 
 type Invoice = {
@@ -41,6 +41,7 @@ type Invoice = {
   paidAmount: string;
   notes: string | null;
   contract: {
+    startDate: string;
     room: { number: string };
     customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null } }[];
   };
@@ -118,9 +119,10 @@ export function InvoiceDetail({
     BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee) + waterFee;
   const remaining = BigInt(invoice.totalAmount) - BigInt(invoice.paidAmount);
 
-  // Month labels: rent = current month, all other costs = previous month
+  // Month labels: rent = current month (anchored to contract start day),
+  // other costs = previous month (consumption period).
   const prevMonth = invoice.month === 1 ? 12 : invoice.month - 1;
-  const rentLabelMonth = `T${invoice.month}`;
+  const rentPeriod = rentPeriodLabel(invoice.contract.startDate, invoice.month, invoice.year);
   const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {
@@ -184,6 +186,7 @@ export function InvoiceDetail({
     invoiceCode: invoice.code,
     month: invoice.month,
     year: invoice.year,
+    rentPeriod,
     dueDate: invoice.dueDate,
     buildingName,
     buildingAddress,
@@ -245,8 +248,8 @@ export function InvoiceDetail({
             <Row
               label={
                 BigInt(invoice.vatAmount) > 0n
-                  ? `Tiền thuê ${rentLabelMonth} (đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT)`
-                  : `Tiền thuê ${rentLabelMonth}`
+                  ? `Tiền thuê (${rentPeriod}) · đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT`
+                  : `Tiền thuê (${rentPeriod})`
               }
               value={formatVND(BigInt(invoice.rentAmount))}
             />
