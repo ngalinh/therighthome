@@ -61,6 +61,7 @@ type PaymentMethodInfo = {
   id: string;
   name: string;
   bankName: string | null;
+  bankBin: string | null;
   accountHolder: string | null;
   accountNumber: string | null;
   qrCodeUrl: string | null;

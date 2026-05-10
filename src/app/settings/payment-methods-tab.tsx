@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Loader2, Wallet, Edit, Users as UsersIcon, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { VN_BANKS, findBankByBin } from "@/lib/vn-banks";
 
 type BuildingLite = { id: string; name: string; type: "CHDV" | "VP" };
 type PM = {
@@ -19,6 +20,7 @@ type PM = {
   buildingType: "CHDV" | "VP" | null;
   qrCodeUrl: string | null;
   bankName: string | null;
+  bankBin: string | null;
   accountHolder: string | null;
   accountNumber: string | null;
   buildings: BuildingLite[];
@@ -143,6 +145,7 @@ function PMDialog({
   const [name, setName] = useState("");
   const [isCash, setIsCash] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [bankBin, setBankBin] = useState<string>("");
   const [bankName, setBankName] = useState("");
   const [accountHolder, setAccountHolder] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -158,6 +161,7 @@ function PMDialog({
       setName(item.name);
       setIsCash(item.isCash);
       setQrCodeUrl(item.qrCodeUrl ?? null);
+      setBankBin(item.bankBin ?? "");
       setBankName(item.bankName ?? "");
       setAccountHolder(item.accountHolder ?? "");
       setAccountNumber(item.accountNumber ?? "");
@@ -167,6 +171,7 @@ function PMDialog({
       setName("");
       setIsCash(false);
       setQrCodeUrl(null);
+      setBankBin("");
       setBankName("");
       setAccountHolder("");
       setAccountNumber("");
@@ -216,6 +221,7 @@ function PMDialog({
       name: name.trim(),
       isCash,
       qrCodeUrl,
+      bankBin: bankBin || null,
       bankName: bankName.trim() || null,
       accountHolder: accountHolder.trim() || null,
       accountNumber: accountNumber.trim() || null,
@@ -280,7 +286,44 @@ function PMDialog({
                 <h4 className="text-xs font-semibold text-slate-600">Thông tin chuyển khoản</h4>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Ngân hàng</Label>
-                  <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="vd: BIDV - CN Sài Gòn" />
+                  <Select
+                    value={bankBin || "__OTHER__"}
+                    onValueChange={(v) => {
+                      if (v === "__OTHER__") {
+                        setBankBin("");
+                        // leave bankName as-is so user can edit free-text
+                      } else {
+                        const bank = findBankByBin(v);
+                        setBankBin(v);
+                        if (bank) setBankName(bank.shortName);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn ngân hàng" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VN_BANKS.map((b) => (
+                        <SelectItem key={b.bin} value={b.bin}>
+                          {b.shortName} <span className="text-slate-400 text-xs">({b.bin})</span>
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__OTHER__">Khác (tự nhập)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!bankBin && (
+                    <Input
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      placeholder="vd: BIDV - CN Sài Gòn"
+                      className="mt-1.5"
+                    />
+                  )}
+                  {bankBin && (
+                    <p className="text-[11px] text-emerald-700">
+                      ✓ Đã chọn — phiếu hoá đơn sẽ tự render mã QR theo số tiền + nội dung CK của từng hoá đơn
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Họ tên chủ tài khoản</Label>
@@ -292,7 +335,10 @@ function PMDialog({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Mã QR</Label>
+                  <Label className="text-xs">
+                    Mã QR (tuỳ chọn)
+                    {bankBin && <span className="ml-2 text-[10px] text-slate-500">— ko cần upload nếu đã chọn ngân hàng</span>}
+                  </Label>
                   {qrCodeUrl ? (
                     <div className="relative w-40 h-40 rounded-xl overflow-hidden border bg-slate-50">
                       <img src={qrCodeUrl} alt="QR code" className="w-full h-full object-contain" />

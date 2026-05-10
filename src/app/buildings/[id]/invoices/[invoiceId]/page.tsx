@@ -74,6 +74,7 @@ export default async function InvoiceDetailPage({
         id: pm.id,
         name: pm.name,
         bankName: pm.bankName,
+        bankBin: pm.bankBin,
         accountHolder: pm.accountHolder,
         accountNumber: pm.accountNumber,
         qrCodeUrl: pm.qrCodeUrl,
