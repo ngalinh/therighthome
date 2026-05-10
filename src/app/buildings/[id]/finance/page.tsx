@@ -34,7 +34,7 @@ export default async function FinancePage({
   const fromDate = sp.from ?? null;
   const toDate = sp.to ?? null;
 
-  const [categories, paymentMethods] = await Promise.all([
+  const [categories, paymentMethods, partyKindConfigs] = await Promise.all([
     prisma.transactionCategory.findMany({
       where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -42,6 +42,9 @@ export default async function FinancePage({
     prisma.paymentMethod.findMany({
       where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
       orderBy: { name: "asc" },
+    }),
+    prisma.partyKindConfig.findMany({
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
   ]);
 
@@ -80,6 +83,7 @@ export default async function FinancePage({
               year={year}
               categories={categories}
               paymentMethods={paymentMethods}
+              partyKindConfigs={partyKindConfigs}
               canWrite={canWrite}
             />
           </TabsContent>
@@ -90,11 +94,12 @@ export default async function FinancePage({
               year={year}
               categories={categories}
               paymentMethods={paymentMethods}
+              partyKindConfigs={partyKindConfigs}
               canWrite={canWrite}
             />
           </TabsContent>
           <TabsContent value="cashbook">
-            <CashbookTab buildingId={id} month={month} year={year} paymentMethods={paymentMethods} />
+            <CashbookTab buildingId={id} month={month} year={year} paymentMethods={paymentMethods} partyKindConfigs={partyKindConfigs} />
           </TabsContent>
           <TabsContent value="pnl">
             <PnLTab buildingId={id} range={range} from={fromDate} to={toDate} />

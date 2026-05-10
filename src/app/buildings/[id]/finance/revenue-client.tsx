@@ -14,18 +14,7 @@ import { CreateTransactionDialog } from "./create-transaction-dialog";
 import { EditTransactionDialog, type EditableTransaction } from "./edit-transaction-dialog";
 import { renderContentWithLinks } from "./render-content";
 
-const PARTY_KINDS = [
-  { value: "CUSTOMER", label: "Khách hàng" },
-  { value: "THO_SUA_CHUA", label: "Thợ sửa chữa" },
-  { value: "THO_XAY", label: "Thợ xây" },
-  { value: "DON_VE_SINH", label: "Dọn vệ sinh" },
-  { value: "BAO_VE", label: "Bảo vệ" },
-  { value: "NHA_NUOC", label: "Nhà nước" },
-  { value: "MOI_GIOI", label: "Môi giới" },
-  { value: "TOA_NHA", label: "Toà nhà" },
-  { value: "NCC_KHAC", label: "NCC khác" },
-  { value: "OTHER", label: "Khác" },
-];
+type PartyKindConfig = { code: string; label: string; forRevenue: boolean; forExpense: boolean };
 
 type Row = {
   key: string;
@@ -45,7 +34,7 @@ type Row = {
 };
 
 export function RevenueClient({
-  buildingId, month, year, rows, rooms, categories, paymentMethods, canWrite,
+  buildingId, month, year, rows, rooms, categories, paymentMethods, partyKindConfigs, canWrite,
   contractCodes, invoiceCodes,
 }: {
   buildingId: string;
@@ -55,6 +44,7 @@ export function RevenueClient({
   rooms: { id: string; number: string; primaryCustomerId: string | null }[];
   categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
+  partyKindConfigs: PartyKindConfig[];
   canWrite: boolean;
   contractCodes: { id: string; code: string }[];
   invoiceCodes: { id: string; code: string }[];
@@ -103,7 +93,7 @@ export function RevenueClient({
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Đối tượng" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả đối tượng</SelectItem>
-            {PARTY_KINDS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            {partyKindConfigs.filter((p) => p.forRevenue).map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">
@@ -229,6 +219,7 @@ export function RevenueClient({
         year={year}
         categories={categories}
         paymentMethods={paymentMethods}
+        partyKindConfigs={partyKindConfigs}
         rooms={rooms}
         onClose={() => setCreateOpen(false)}
       />
@@ -236,6 +227,7 @@ export function RevenueClient({
         tx={editTx}
         categories={categories}
         paymentMethods={paymentMethods}
+        partyKindConfigs={partyKindConfigs}
         rooms={rooms}
         onClose={() => setEditTx(null)}
       />

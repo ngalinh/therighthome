@@ -367,6 +367,21 @@ enum PartyKind {
   OTHER
 }
 
+// Configurable party kinds (Đối tượng) shown in the Phiếu thu/Chi dropdown.
+// `code` matches the legacy PartyKind enum values for the seeded defaults, but
+// new entries can use any unique string. `forRevenue`/`forExpense` control
+// which transaction type the kind appears in.
+model PartyKindConfig {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  label       String
+  forRevenue  Boolean  @default(true)
+  forExpense  Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Transaction {
   id          String          @id @default(cuid())
   buildingId  String
@@ -380,7 +395,7 @@ model Transaction {
   categoryId      String?
   paymentMethodId String?
 
-  partyKind  PartyKind?
+  partyKind  String?    // PartyKindConfig.code (legacy values from PartyKind enum still valid)
   customerId String?    // if partyKind = CUSTOMER
   partyId    String?    // if not customer
 
@@ -416,7 +431,7 @@ model Transaction {
 // Non-customer counterparties (workers, suppliers, govt)
 model Party {
   id         String    @id @default(cuid())
-  kind       PartyKind
+  kind       String    // PartyKindConfig.code
   name       String
   phone      String?
   notes      String?
@@ -548,7 +563,7 @@ model MaintenanceTask {
   buildingId      String
   roomId          String?
   date            DateTime
-  partyKind       PartyKind?
+  partyKind       String?           // PartyKindConfig.code
   partyId         String?           // non-customer party (Thợ sửa, …)
   customerId      String?           // if "Đối tượng" is the renter
   taskName        String

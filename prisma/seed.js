@@ -117,6 +117,28 @@ async function main() {
     if (!exists) await prisma.party.create({ data: { kind, name } });
   }
 
+  // Seed default PartyKindConfig (Đối tượng) entries — codes match the legacy
+  // PartyKind enum values so existing transactions/parties keep their labels.
+  const PARTY_KIND_CONFIGS = [
+    { code: "CUSTOMER",     label: "Khách hàng",   forRevenue: true,  forExpense: false, sortOrder: 0 },
+    { code: "THO_SUA_CHUA", label: "Thợ sửa chữa", forRevenue: false, forExpense: true,  sortOrder: 10 },
+    { code: "THO_XAY",      label: "Thợ xây",      forRevenue: false, forExpense: true,  sortOrder: 20 },
+    { code: "DON_VE_SINH",  label: "Dọn vệ sinh",  forRevenue: false, forExpense: true,  sortOrder: 30 },
+    { code: "BAO_VE",       label: "Bảo vệ",       forRevenue: false, forExpense: true,  sortOrder: 40 },
+    { code: "NHA_NUOC",     label: "Nhà nước",     forRevenue: false, forExpense: true,  sortOrder: 50 },
+    { code: "MOI_GIOI",     label: "Môi giới",     forRevenue: false, forExpense: true,  sortOrder: 60 },
+    { code: "TOA_NHA",      label: "Toà nhà",      forRevenue: true,  forExpense: true,  sortOrder: 70 },
+    { code: "NCC_KHAC",     label: "NCC khác",     forRevenue: false, forExpense: true,  sortOrder: 80 },
+    { code: "OTHER",        label: "Khác",         forRevenue: true,  forExpense: true,  sortOrder: 90 },
+  ];
+  for (const cfg of PARTY_KIND_CONFIGS) {
+    await prisma.partyKindConfig.upsert({
+      where: { code: cfg.code },
+      create: cfg,
+      update: {}, // never overwrite existing user edits
+    });
+  }
+
   // One-off: dedupe contracts that were created multiple times because earlier
   // versions of seed-vp1 only checked ACTIVE status, so when a contract auto-
   // expired the next deploy re-created it. Group by (roomId, startDate, monthlyRent),

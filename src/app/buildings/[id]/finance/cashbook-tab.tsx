@@ -4,19 +4,6 @@ import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "
 import { MonthYearFilter } from "./month-year-filter";
 import { renderContentWithLinks } from "./render-content";
 
-const PARTY_KIND_LABEL: Record<string, string> = {
-  CUSTOMER: "Khách hàng",
-  THO_SUA_CHUA: "Thợ sửa chữa",
-  THO_XAY: "Thợ xây",
-  DON_VE_SINH: "Dọn vệ sinh",
-  BAO_VE: "Bảo vệ",
-  NHA_NUOC: "Nhà nước",
-  MOI_GIOI: "Môi giới",
-  TOA_NHA: "Toà nhà",
-  NCC_KHAC: "NCC khác",
-  OTHER: "Khác",
-};
-
 /**
  * Sổ quỹ — mỗi PTTT 1 bảng:
  * - Số dư đầu kỳ (OpeningBalance kind=CASHBOOK với paymentMethodLabel)
@@ -24,13 +11,17 @@ const PARTY_KIND_LABEL: Record<string, string> = {
  * - Số dư cuối kỳ
  */
 export async function CashbookTab({
-  buildingId, month, year, paymentMethods,
+  buildingId, month, year, paymentMethods, partyKindConfigs,
 }: {
   buildingId: string;
   month: number;
   year: number;
   paymentMethods: { id: string; name: string }[];
+  partyKindConfigs: { code: string; label: string }[];
 }) {
+  const PARTY_KIND_LABEL: Record<string, string> = Object.fromEntries(
+    partyKindConfigs.map((p) => [p.code, p.label])
+  );
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
