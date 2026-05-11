@@ -92,6 +92,8 @@ export function PnLBreakdownTable({
                                 <span className="text-slate-600">{d.content.replace(d.invoiceCode, "").trim() || "Hoá đơn"} · </span>
                                 <Link
                                   href={`/buildings/${buildingId}/invoices/${d.invoiceId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="text-primary hover:underline"
                                 >
                                   {d.invoiceCode}

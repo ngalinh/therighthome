@@ -52,25 +52,40 @@ export function ManageTasksTab({
 }) {
   const [editing, setEditing] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
+  const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
+
+  const filteredTasks = useMemo(
+    () => (buildingFilter === "ALL" ? tasks : tasks.filter((t) => t.buildingId === buildingFilter)),
+    [tasks, buildingFilter],
+  );
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-base font-semibold flex items-center gap-2">
-          <ClipboardList className="h-4 w-4" /> {tasks.length} công việc
+          <ClipboardList className="h-4 w-4" /> {filteredTasks.length} công việc
         </h2>
-        <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
-          <Plus className="h-4 w-4" /> Thêm công việc
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Toà nhà" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả toà nhà</SelectItem>
+              {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
+            <Plus className="h-4 w-4" /> Thêm công việc
+          </Button>
+        </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <EmptyState icon={ClipboardList} title="Chưa có công việc nào" description="Bấm “Thêm công việc” để tạo mới." />
       ) : (
         <>
           {/* Mobile cards */}
           <div className="space-y-2 lg:hidden">
-            {tasks.map((t) => (
+            {filteredTasks.map((t) => (
               <TaskCard key={t.id} task={t} onEdit={() => setEditing(t)} paymentMethods={paymentMethods} />
             ))}
           </div>
@@ -91,7 +106,7 @@ export function ManageTasksTab({
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t) => (
+                {filteredTasks.map((t) => (
                   <TaskRow key={t.id} task={t} onEdit={() => setEditing(t)} paymentMethods={paymentMethods} />
                 ))}
               </tbody>

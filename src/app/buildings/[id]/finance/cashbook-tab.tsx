@@ -8,9 +8,12 @@ import type { ExportSheet } from "@/lib/export-xlsx";
 
 /**
  * Sổ quỹ — mỗi PTTT 1 bảng:
- * - Số dư đầu kỳ (OpeningBalance kind=CASHBOOK với paymentMethodLabel)
- * - Tất cả giao dịch trong tháng dùng PTTT đó, hiển thị Thu / Chi / Số dư running
- * - Số dư cuối kỳ
+ * - Số dư đầu kỳ: lấy OpeningBalance gần nhất (cùng tháng → dùng trực tiếp,
+ *   tháng trước → cộng dồn giao dịch tới đầu tháng này). Nếu chưa có OB,
+ *   cộng dồn tất cả giao dịch từ xưa tới đầu tháng này.
+ * - Tất cả giao dịch trong tháng dùng PTTT đó (mới nhất ở trên), hiển thị
+ *   Thu / Chi / Số dư running.
+ * - Số dư cuối kỳ.
  */
 export async function CashbookTab({
   buildingId, month, year, paymentMethods, partyKindConfigs,
@@ -27,7 +30,7 @@ export async function CashbookTab({
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
-  const [transactions, openings, contractList, invoiceList] = await Promise.all([
+  const [transactions, allOpenings, priorTxs, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
       where: { buildingId, date: { gte: start, lte: end } },
       include: {
@@ -40,18 +43,55 @@ export async function CashbookTab({
       orderBy: { date: "asc" },
     }),
     prisma.openingBalance.findMany({
-      where: { buildingId, kind: "CASHBOOK", asOfMonth: month, asOfYear: year },
+      where: {
+        buildingId,
+        kind: "CASHBOOK",
+        OR: [
+          { asOfYear: { lt: year } },
+          { asOfYear: year, asOfMonth: { lte: month } },
+        ],
+      },
+      orderBy: [{ asOfYear: "desc" }, { asOfMonth: "desc" }],
+    }),
+    prisma.transaction.findMany({
+      where: { buildingId, date: { lt: start } },
+      select: { type: true, amount: true, paymentMethodId: true, date: true },
     }),
     prisma.contract.findMany({ where: { buildingId }, select: { id: true, code: true } }),
     prisma.invoice.findMany({ where: { buildingId }, select: { id: true, code: true } }),
   ]);
-  const openingMap = new Map(openings.map((o) => [o.paymentMethodLabel, o.amount]));
+
+  // Latest OpeningBalance per PTTT name (already sorted desc → first wins).
+  const latestOBByPM = new Map<string, { amount: bigint; asOfMonth: number; asOfYear: number }>();
+  for (const ob of allOpenings) {
+    const key = ob.paymentMethodLabel ?? "";
+    if (!latestOBByPM.has(key)) {
+      latestOBByPM.set(key, { amount: ob.amount, asOfMonth: ob.asOfMonth, asOfYear: ob.asOfYear });
+    }
+  }
+
+  function computeOpening(pmId: string, pmName: string): bigint {
+    const ob = latestOBByPM.get(pmName);
+    // Manual override: an OB exists for this exact month → use as-is.
+    if (ob && ob.asOfMonth === month && ob.asOfYear === year) return ob.amount;
+    // Else accumulate transactions from after the OB's month (or from the
+    // beginning of time if no OB) up to the start of the current month.
+    const obStart = ob ? new Date(ob.asOfYear, ob.asOfMonth - 1, 1) : new Date(0);
+    let bal = ob?.amount ?? 0n;
+    for (const t of priorTxs) {
+      if (t.paymentMethodId !== pmId) continue;
+      if (t.date < obStart) continue;
+      bal += t.type === "INCOME" ? t.amount : -t.amount;
+    }
+    return bal;
+  }
+
   const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
   const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
 
   const exportSheets: ExportSheet[] = paymentMethods.map((pm) => {
     const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
-    const opening = openingMap.get(pm.name) ?? 0n;
+    const opening = computeOpening(pm.id, pm.name);
     let running = opening;
     const rows: Record<string, unknown>[] = [
       { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
@@ -88,12 +128,24 @@ export async function CashbookTab({
 
       {paymentMethods.map((pm) => {
         const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
-        const opening = openingMap.get(pm.name) ?? 0n;
+        const opening = computeOpening(pm.id, pm.name);
         const totalIn = txs.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0n);
         const totalOut = txs.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0n);
         const closing = opening + totalIn - totalOut;
 
+        // Compute running balance chronologically, then render in reverse so
+        // the most recent transaction sits at the top of the table.
         let running = opening;
+        const rendered = txs.map((t) => {
+          if (t.type === "INCOME") running += t.amount;
+          else running -= t.amount;
+          const partyLabel = t.customer
+            ? customerDisplayName(t.customer)
+            : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
+          const roomLabel = t.room ? formatRoomNumber(t.room.number) : "";
+          return { tx: t, partyLabel, roomLabel, runningAfter: running };
+        });
+        rendered.reverse();
 
         return (
           <Card key={pm.id}>
@@ -120,41 +172,33 @@ export async function CashbookTab({
                 </thead>
                 <tbody>
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
-                    <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
+                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
+                    <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
                   </tr>
                   {txs.length === 0 && (
                     <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-500 text-sm">Không có giao dịch</td></tr>
                   )}
-                  {txs.map((t) => {
-                    if (t.type === "INCOME") running += t.amount;
-                    else running -= t.amount;
-                    const partyLabel = t.customer
-                      ? customerDisplayName(t.customer)
-                      : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
-                    const roomLabel = t.room ? formatRoomNumber(t.room.number) : "";
-                    return (
-                      <tr key={t.id} className="border-t hover:bg-slate-50">
-                        <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          {partyLabel || roomLabel ? (
-                            <>
-                              {partyLabel && <div>{partyLabel}</div>}
-                              {roomLabel && <div className="text-xs text-slate-500">{roomLabel}</div>}
-                            </>
-                          ) : <span className="text-slate-400">—</span>}
-                        </td>
-                        <td className="px-4 py-2 max-w-xs truncate">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
-                        <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
-                        <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatVND(running)}</td>
-                      </tr>
-                    );
-                  })}
+                  {rendered.map(({ tx: t, partyLabel, roomLabel, runningAfter }) => (
+                    <tr key={t.id} className="border-t hover:bg-slate-50">
+                      <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {partyLabel || roomLabel ? (
+                          <>
+                            {partyLabel && <div>{partyLabel}</div>}
+                            {roomLabel && <div className="text-xs text-slate-500">{roomLabel}</div>}
+                          </>
+                        ) : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="px-4 py-2 max-w-xs truncate">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
+                      <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
+                      <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
+                      <td className="px-4 py-2 text-right font-medium">{formatVND(runningAfter)}</td>
+                    </tr>
+                  ))}
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
-                    <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
+                    <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
+                    <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
                   </tr>
                 </tbody>
               </table>
