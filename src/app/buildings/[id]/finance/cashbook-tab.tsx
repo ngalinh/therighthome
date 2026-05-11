@@ -89,7 +89,34 @@ export async function CashbookTab({
   const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
   const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
 
-  const exportSheets: ExportSheet[] = paymentMethods.map((pm) => {
+  // Merge the prop PM list with any PM that already has a transaction in this
+  // building (regardless of buildingType scope). Without this, a tx whose PM
+  // wasn't in the type-filtered list (e.g. user-created PM with buildingType
+  // mismatched, or a PM scoped to a different building type) would silently
+  // disappear from Sổ Quỹ. Also pull priorTxs PMs so opening balance still
+  // accumulates against the right card.
+  const pmMap = new Map<string, { id: string; name: string }>();
+  for (const p of paymentMethods) pmMap.set(p.id, { id: p.id, name: p.name });
+  for (const t of transactions) {
+    if (t.paymentMethod && !pmMap.has(t.paymentMethod.id)) {
+      pmMap.set(t.paymentMethod.id, { id: t.paymentMethod.id, name: t.paymentMethod.name });
+    }
+  }
+  // priorTxs only has paymentMethodId (not the PM record) → fetch missing ones.
+  const priorPmIds = new Set<string>();
+  for (const t of priorTxs) {
+    if (t.paymentMethodId && !pmMap.has(t.paymentMethodId)) priorPmIds.add(t.paymentMethodId);
+  }
+  if (priorPmIds.size > 0) {
+    const extras = await prisma.paymentMethod.findMany({
+      where: { id: { in: Array.from(priorPmIds) } },
+      select: { id: true, name: true },
+    });
+    for (const p of extras) pmMap.set(p.id, p);
+  }
+  const allPms = Array.from(pmMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  const exportSheets: ExportSheet[] = allPms.map((pm) => {
     const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
     const opening = computeOpening(pm.id, pm.name);
     let running = opening;
@@ -126,7 +153,7 @@ export async function CashbookTab({
         </div>
       </div>
 
-      {paymentMethods.map((pm) => {
+      {allPms.map((pm) => {
         const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
         const opening = computeOpening(pm.id, pm.name);
         const totalIn = txs.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0n);
