@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
-import { addMonths, monthsBetween } from "@/lib/utils";
+import { addMonths, contractEndDate, monthsBetween } from "@/lib/utils";
 
 // "Gia hạn HĐ": same contract code; either turn it open-ended (vô thời hạn)
 // or push the endDate forward by N months from a chosen restart date, with an
@@ -59,9 +59,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ error: "Số tháng gia hạn phải > 0" }, { status: 400 });
   }
   const restart = d.startDate ? new Date(d.startDate) : c.endDate;
-  const newEnd = addMonths(restart, d.extensionMonths);
-  // termMonths is the total span from original startDate to the new endDate.
-  const totalMonths = monthsBetween(c.startDate, newEnd);
+  const newEnd = contractEndDate(restart, d.extensionMonths);
+  // termMonths = total span from original startDate. Pass the exclusive end
+  // (newEnd + 1 day) to monthsBetween so the -1 day doesn't undercount when
+  // crossing a month boundary (e.g. 2026-05-01 + 12m → 2027-04-30 should
+  // still read as 12 months, not 11).
+  const totalMonths = monthsBetween(c.startDate, addMonths(restart, d.extensionMonths));
 
   await prisma.contract.update({
     where: { id },

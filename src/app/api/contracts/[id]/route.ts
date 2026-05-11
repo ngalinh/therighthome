@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
-import { addMonths } from "@/lib/utils";
+import { contractEndDate } from "@/lib/utils";
 
 const updateSchema = z.object({
   startDate: z.string().optional(),
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const term = d.termMonths ?? c.termMonths;
     updateData.startDate = start;
     updateData.termMonths = term;
-    updateData.endDate = addMonths(start, term);
+    updateData.endDate = contractEndDate(start, term);
   }
   if (d.paymentDay !== undefined) updateData.paymentDay = d.paymentDay;
   if (d.monthlyRent !== undefined) updateData.monthlyRent = BigInt(d.monthlyRent);

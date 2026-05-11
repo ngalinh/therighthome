@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt } from "lucide-react";
 import { toast } from "sonner";
-import { addMonths, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
+import { contractEndDate, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 
@@ -131,7 +131,7 @@ export function EditContractForm({
 
   const endDate = useMemo(() => {
     if (!startDate) return "";
-    return addMonths(new Date(startDate), termMonths).toISOString().slice(0, 10);
+    return contractEndDate(new Date(startDate), termMonths).toISOString().slice(0, 10);
   }, [startDate, termMonths]);
 
   // Upload + view contract file
@@ -1563,7 +1563,7 @@ function ExtendContractDialog({
 
   const newEnd = useMemo(() => {
     if (openEnded || !restartDate) return "";
-    return addMonths(new Date(restartDate), extensionMonths).toISOString().slice(0, 10);
+    return contractEndDate(new Date(restartDate), extensionMonths).toISOString().slice(0, 10);
   }, [openEnded, restartDate, extensionMonths]);
 
   async function submit() {

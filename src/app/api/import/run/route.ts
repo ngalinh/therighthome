@@ -7,7 +7,7 @@ import {
   type ChdvRow, type VpRow,
 } from "@/lib/excel-import";
 import { nextContractCode } from "@/lib/codes";
-import { addMonths } from "@/lib/utils";
+import { contractEndDate } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -266,7 +266,7 @@ async function createContractIfNew(
     return;
   }
 
-  const end = input.endDate ? new Date(input.endDate) : addMonths(start, input.termMonths);
+  const end = input.endDate ? new Date(input.endDate) : contractEndDate(start, input.termMonths);
   const setting = await prisma.buildingSetting.findUnique({ where: { buildingId } });
   const elec = setting?.electricityPricePerKwh ?? BigInt(3500);
   const parking = setting?.parkingFeePerVehicle ?? BigInt(0);

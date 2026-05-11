@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { nextContractCode } from "@/lib/codes";
 import { renderContractDocx } from "@/lib/docx";
-import { addMonths } from "@/lib/utils";
+import { contractEndDate } from "@/lib/utils";
 import { buildContractPlaceholders, resolveTemplateUrl } from "@/lib/contract-template";
 
 const customerSchema = z.discriminatedUnion("kind", [
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!building) return NextResponse.json({ error: "Building not found" }, { status: 404 });
 
   const start = new Date(d.startDate);
-  const end = addMonths(start, d.termMonths);
+  const end = contractEndDate(start, d.termMonths);
   const code = await nextContractCode(buildingId, start);
 
   const contract = await prisma.$transaction(async (tx) => {

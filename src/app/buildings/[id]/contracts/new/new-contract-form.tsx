@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
-import { addMonths, parseVNDInput, formatNumber } from "@/lib/utils";
+import { contractEndDate, parseVNDInput, formatNumber } from "@/lib/utils";
 
 type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; businessLicenseUrls?: string[] } };
 
@@ -54,7 +54,7 @@ export function NewContractForm({
   const [trExpiresAt, setTrExpiresAt] = useState("");
   const [trIndefinite, setTrIndefinite] = useState(false);
 
-  const endDate = startDate ? addMonths(new Date(startDate), termMonths).toISOString().slice(0, 10) : "";
+  const endDate = startDate ? contractEndDate(new Date(startDate), termMonths).toISOString().slice(0, 10) : "";
 
   function addCustomer(c: Customer) {
     if (buildingType === "VP" && customers.length >= 1) {
