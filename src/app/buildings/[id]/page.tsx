@@ -66,8 +66,9 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
     prisma.invoice.count({ where: { buildingId: id } }),
     prisma.transaction.count({ where: { buildingId: id } }),
   ]);
-  const totalDue = monthInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
-  const totalPaid = monthInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
+  const activeMonthInvoices = monthInvoices.filter((i) => i.status !== "CANCELLED");
+  const totalDue = activeMonthInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
+  const totalPaid = activeMonthInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
   const occupied = building.rooms.filter((r) => r.status === "OCCUPIED").length;
   const totalRooms = building.rooms.length;
 
