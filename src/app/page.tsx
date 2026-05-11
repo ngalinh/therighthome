@@ -47,8 +47,9 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const totalDue = monthlyInvoices.reduce((s, i) => s + Number(i.totalAmount), 0);
-  const totalPaid = monthlyInvoices.reduce((s, i) => s + Number(i.paidAmount), 0);
+  const activeMonthly = monthlyInvoices.filter((i) => i.status !== "CANCELLED");
+  const totalDue = activeMonthly.reduce((s, i) => s + Number(i.totalAmount), 0);
+  const totalPaid = activeMonthly.reduce((s, i) => s + Number(i.paidAmount), 0);
   const remaining = Math.max(totalDue - totalPaid, 0);
   const paidPct = totalDue > 0 ? Math.round((totalPaid / totalDue) * 1000) / 10 : 0;
   const occupancyPct = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;

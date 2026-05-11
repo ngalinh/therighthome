@@ -112,9 +112,10 @@ export function InvoicesView({
     router.refresh();
   }
 
-  // Stats
-  const totalDue = invoices.reduce((s, i) => s + Number(i.totalAmount), 0);
-  const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
+  // Stats — exclude CANCELLED so huỷ HĐ không còn tính vào "phải thu / đã thu".
+  const active = invoices.filter((i) => i.status !== "CANCELLED");
+  const totalDue = active.reduce((s, i) => s + Number(i.totalAmount), 0);
+  const totalPaid = active.reduce((s, i) => s + Number(i.paidAmount), 0);
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length;
 
   return (
