@@ -4,7 +4,10 @@ import { computeInvoice, getEffectiveRent } from "@/lib/invoice-compute";
 
 /**
  * Generate invoices for all ACTIVE contracts that don't yet have an invoice
- * for the given (month, year). Idempotent — calling twice doesn't duplicate.
+ * for the given (month, year). Idempotent — calling twice doesn't duplicate,
+ * and CANCELLED auto invoices are intentionally NOT regenerated (the user
+ * explicitly chose to cancel them; use the "Tạo hoá đơn" button on the
+ * contract page to reactivate).
  *
  * Pulls electricity price + parking fee from BuildingSetting (snapshot at
  * generation time). Picks rent from ContractYearlyRent if exists for the
@@ -17,85 +20,115 @@ export async function generateMonthlyInvoices(month: number, year: number, build
       ...(buildingId ? { buildingId } : {}),
       startDate: { lte: new Date(year, month, 0) },
     },
+    select: { id: true, isOpenEnded: true, endDate: true },
+  });
+
+  const created: string[] = [];
+  for (const c of contracts) {
+    if (!c.isOpenEnded && c.endDate < new Date(year, month - 1, 1)) continue;
+    const result = await generateInvoiceForContract(c.id, month, year);
+    if (result?.created) created.push(result.code);
+  }
+  return created;
+}
+
+/**
+ * Generate (or reactivate) an invoice for a single contract + period.
+ *
+ * Behavior matrix:
+ *   - No existing non-manual invoice → create fresh, return { created: true }
+ *   - Existing non-manual CANCELLED invoice:
+ *       · reactivateCancelled=true  → recompute + status PENDING, return { reactivated: true }
+ *       · reactivateCancelled=false → skip, return null (auto-gen path)
+ *   - Existing non-manual non-CANCELLED invoice → skip, return null (idempotent)
+ */
+export async function generateInvoiceForContract(
+  contractId: string,
+  month: number,
+  year: number,
+  opts: { reactivateCancelled?: boolean } = {},
+): Promise<{ invoiceId: string; code: string; created: boolean; reactivated: boolean } | null> {
+  const c = await prisma.contract.findUnique({
+    where: { id: contractId },
     include: {
       building: { include: { setting: true } },
       yearlyRents: true,
       _count: { select: { customers: true } },
     },
   });
+  if (!c) return null;
 
-  const created: string[] = [];
+  const existing = await prisma.invoice.findFirst({
+    where: { contractId: c.id, month, year, isManual: false },
+  });
 
-  for (const c of contracts) {
-    if (!c.isOpenEnded && c.endDate < new Date(year, month - 1, 1)) continue;
+  if (existing && existing.status !== "CANCELLED") {
+    // Active invoice already exists — never overwrite.
+    return { invoiceId: existing.id, code: existing.code, created: false, reactivated: false };
+  }
+  if (existing && existing.status === "CANCELLED" && !opts.reactivateCancelled) {
+    // Auto-gen path: respect the cancellation, do nothing.
+    return null;
+  }
 
-    const existing = await prisma.invoice.findFirst({
-      where: { contractId: c.id, month, year, isManual: false },
-    });
-    if (existing) continue;
+  // Prefer the contract's own paymentDay over the building default; the user
+  // expects "Ngày thanh toán hàng tháng" set on each HĐ to apply.
+  const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
+  const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
-    // Prefer the contract's own paymentDay over the building default; the
-    // user expects "Ngày thanh toán hàng tháng" set on each HĐ to apply.
-    const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
-    const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
+  const effectiveRent = getEffectiveRent(
+    c.startDate,
+    c.monthlyRent,
+    c.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
+    month,
+    year,
+  );
 
-    // Effective rent: yearly override if exists, else monthlyRent
-    const effectiveRent = getEffectiveRent(
-      c.startDate,
-      c.monthlyRent,
-      c.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
-      month,
-      year,
-    );
+  const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
+  const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
+  const waterPricePerPerson =
+    c.waterPricePerPerson > 0n
+      ? c.waterPricePerPerson
+      : (c.building.setting?.waterPricePerPerson ?? 0n);
+  const waterOccupants = c._count.customers;
 
-    // Snapshot electricity + parking from CURRENT building setting
-    const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
-    const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
-    // Water: prefer contract override (>0), else building setting.
-    const waterPricePerPerson =
-      c.waterPricePerPerson > 0n
-        ? c.waterPricePerPerson
-        : (c.building.setting?.waterPricePerPerson ?? 0n);
-    const waterOccupants = c._count.customers;
+  // Carry electricityEnd from the previous month's invoice so the new
+  // invoice's "số điện đầu kỳ" is pre-filled with last month's "cuối kỳ".
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const prev = await prisma.invoice.findFirst({
+    where: { contractId: c.id, month: prevMonth, year: prevYear, isManual: false },
+    select: { electricityEnd: true, electricityEndPhoto: true },
+  });
+  const electricityStart = prev?.electricityEnd ?? null;
+  const electricityStartPhoto = prev?.electricityEndPhoto ?? null;
 
-    // Carry electricityEnd from the previous month's invoice so the new
-    // invoice's "số điện đầu kỳ" is pre-filled with last month's "cuối kỳ".
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-    const prev = await prisma.invoice.findFirst({
-      where: { contractId: c.id, month: prevMonth, year: prevYear, isManual: false },
-      select: { electricityEnd: true, electricityEndPhoto: true },
-    });
-    const electricityStart = prev?.electricityEnd ?? null;
-    const electricityStartPhoto = prev?.electricityEndPhoto ?? null;
+  const compute = computeInvoice({
+    rentAmount: effectiveRent,
+    vatRate: c.vatRate,
+    electricityStart,
+    electricityEnd: null,
+    electricityPricePerKwh: electricityPrice,
+    parkingCount: c.parkingCount,
+    parkingFeePerVehicle,
+    overtimeFee: 0n,
+    serviceFee: c.serviceFeeAmount,
+    waterPricePerPerson,
+    waterOccupants,
+  });
 
-    const compute = computeInvoice({
-      rentAmount: effectiveRent,
-      vatRate: c.vatRate,
-      electricityStart,
-      electricityEnd: null,
-      electricityPricePerKwh: electricityPrice,
-      parkingCount: c.parkingCount,
-      parkingFeePerVehicle,
-      overtimeFee: 0n,
-      serviceFee: c.serviceFeeAmount,
-      waterPricePerPerson,
-      waterOccupants,
-    });
-
-    const code = await nextInvoiceCode();
-    await prisma.invoice.create({
+  if (existing && existing.status === "CANCELLED") {
+    // Reactivate: keep code + id, reset payment state, snapshot fresh fees.
+    await prisma.invoice.update({
+      where: { id: existing.id },
       data: {
-        contractId: c.id,
-        buildingId: c.buildingId,
-        code,
-        month,
-        year,
         dueDate,
         rentAmount: effectiveRent,
         vatAmount: compute.vatAmount,
         electricityStart,
         electricityStartPhoto,
+        electricityEnd: null,
+        electricityEndPhoto: null,
         electricityPricePerKwh: electricityPrice,
         electricityFee: 0n,
         parkingCount: c.parkingCount,
@@ -111,10 +144,39 @@ export async function generateMonthlyInvoices(month: number, year: number, build
         status: "PENDING",
       },
     });
-    created.push(code);
+    return { invoiceId: existing.id, code: existing.code, created: false, reactivated: true };
   }
 
-  return created;
+  const code = await nextInvoiceCode();
+  const inv = await prisma.invoice.create({
+    data: {
+      contractId: c.id,
+      buildingId: c.buildingId,
+      code,
+      month,
+      year,
+      dueDate,
+      rentAmount: effectiveRent,
+      vatAmount: compute.vatAmount,
+      electricityStart,
+      electricityStartPhoto,
+      electricityPricePerKwh: electricityPrice,
+      electricityFee: 0n,
+      parkingCount: c.parkingCount,
+      parkingFeePerVehicle,
+      parkingFee: compute.parkingFee,
+      overtimeFee: 0n,
+      serviceFee: c.serviceFeeAmount,
+      waterPricePerPerson,
+      waterOccupants,
+      waterFee: compute.waterFee,
+      totalAmount: compute.totalAmount,
+      paidAmount: 0n,
+      status: "PENDING",
+    },
+    select: { id: true, code: true },
+  });
+  return { invoiceId: inv.id, code: inv.code, created: true, reactivated: false };
 }
 
 /**

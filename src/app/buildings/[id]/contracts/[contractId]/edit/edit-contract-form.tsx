@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2 } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
@@ -214,6 +214,7 @@ export function EditContractForm({
   const [terminateOpen, setTerminateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
+  const [genInvoiceOpen, setGenInvoiceOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
   async function handleDelete() {
@@ -664,6 +665,11 @@ export function EditContractForm({
 
         <div className="flex flex-wrap justify-between gap-2">
           <div className="flex flex-wrap gap-2">
+            {contract.status === "ACTIVE" && (
+              <Button variant="outline" onClick={() => setGenInvoiceOpen(true)}>
+                <Receipt className="h-4 w-4" /> Tạo hoá đơn
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setExtendOpen(true)}>
               <RefreshCw className="h-4 w-4" /> Gia hạn
             </Button>
@@ -711,6 +717,13 @@ export function EditContractForm({
         onDone={() => router.refresh()}
       />
 
+      <GenerateInvoiceDialog
+        open={genInvoiceOpen}
+        onClose={() => setGenInvoiceOpen(false)}
+        contract={contract}
+        buildingId={buildingId}
+      />
+
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
         <DialogContent>
           <DialogHeader>
@@ -732,6 +745,89 @@ export function EditContractForm({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function GenerateInvoiceDialog({
+  open, onClose, contract, buildingId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contract: { id: string; code: string; startDate: string };
+  buildingId: string;
+}) {
+  const router = useRouter();
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [loading, setLoading] = useState(false);
+
+  const startYear = new Date(contract.startDate).getFullYear();
+  const years: number[] = [];
+  for (let y = startYear; y <= now.getFullYear() + 1; y++) years.push(y);
+
+  async function submit() {
+    setLoading(true);
+    const res = await fetch(`/api/contracts/${contract.id}/generate-invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, year }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Tạo hoá đơn thất bại");
+    }
+    const data = await res.json();
+    toast.success(data.reactivated ? "Đã kích hoạt lại HĐ đã huỷ" : "Đã tạo hoá đơn");
+    onClose();
+    router.push(`/buildings/${buildingId}/invoices/${data.invoiceId}`);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && !loading && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Tạo hoá đơn cho HĐ {contract.code}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            Tạo (hoặc kích hoạt lại nếu đã huỷ) hoá đơn cho kỳ chọn. Đơn giá điện/nước/giữ xe lấy từ cài đặt toà nhà hiện tại.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Tháng</Label>
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Năm</Label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={loading}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Tạo hoá đơn
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

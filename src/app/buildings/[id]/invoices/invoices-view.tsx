@@ -41,6 +41,7 @@ type Invoice = {
   paidAmount: string;
   sentAt: string | null;
   notes: string | null;
+  isManual: boolean;
   contract: {
     id: string;
     room: { number: string };
@@ -500,7 +501,7 @@ function InvoiceTable({
                       {sending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                     </Button>
                   )}
-                  {canWrite && inv.status === "CANCELLED" && (
+                  {canWrite && inv.status === "CANCELLED" && inv.isManual && (
                     <Button
                       onClick={() => onHardDelete(inv)}
                       variant="ghost"
@@ -578,7 +579,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
                 {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               </Button>
             )}
-            {canWrite && inv.status === "CANCELLED" && (
+            {canWrite && inv.status === "CANCELLED" && inv.isManual && (
               <Button
                 onClick={onHardDelete}
                 variant="ghost"
