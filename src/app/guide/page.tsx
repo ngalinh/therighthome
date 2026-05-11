@@ -17,6 +17,16 @@ import {
   ChevronRight,
   ArrowRight,
   Sparkles,
+  Mail,
+  Lock,
+  Search,
+  Plus,
+  UploadCloud,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Download,
+  Users,
 } from "lucide-react";
 
 type Section = {
@@ -26,6 +36,7 @@ type Section = {
   sub: string;
   route?: { href: string; label: string };
   intro: string;
+  preview: React.ReactNode;
   steps: { title: string; body: React.ReactNode }[];
   tips?: React.ReactNode[];
   adminOnly?: boolean;
@@ -37,6 +48,7 @@ const SECTIONS: Section[] = [
     icon: LogIn,
     title: "Đăng nhập & giao diện chính",
     sub: "Bắt đầu sử dụng hệ thống",
+    preview: <PreviewLogin />,
     route: { href: "/login", label: "Trang đăng nhập" },
     intro:
       "Tất cả người dùng đều cần đăng nhập bằng email và mật khẩu do quản trị viên cấp. Sau khi đăng nhập, bạn sẽ thấy thanh điều hướng bên trái (máy tính) hoặc thanh dưới cùng (điện thoại).",
@@ -90,6 +102,7 @@ const SECTIONS: Section[] = [
     icon: LayoutDashboard,
     title: "Tổng quan",
     sub: "Trang chủ hiển thị tình hình chung",
+    preview: <PreviewDashboard />,
     route: { href: "/", label: "Mở Tổng quan" },
     intro:
       "Trang Tổng quan tóm tắt tình hình kinh doanh của bạn trong tháng hiện tại: số toà nhà, số hợp đồng đang hoạt động, doanh thu đã thu và số hoá đơn quá hạn.",
@@ -145,6 +158,7 @@ const SECTIONS: Section[] = [
     icon: Building2,
     title: "Toà nhà",
     sub: "Danh sách & tạo toà nhà mới",
+    preview: <PreviewBuildings />,
     route: { href: "/buildings", label: "Mở danh sách toà nhà" },
     intro:
       "Trang Toà nhà liệt kê tất cả CHDV (căn hộ dịch vụ) và VP (văn phòng) bạn được phân quyền, kèm tỉ lệ lấp đầy hiện tại.",
@@ -189,6 +203,7 @@ const SECTIONS: Section[] = [
     icon: KeyRound,
     title: "Sơ đồ phòng",
     sub: "Trạng thái thuê theo từng phòng",
+    preview: <PreviewRoomMap />,
     intro:
       "Sơ đồ phòng cho phép bạn nhìn nhanh tình trạng từng phòng: trống, đang thuê, sắp hết hạn, hay cần xử lý.",
     steps: [
@@ -217,6 +232,7 @@ const SECTIONS: Section[] = [
     icon: FileText,
     title: "Hợp đồng",
     sub: "Tạo, gia hạn, kết thúc hợp đồng",
+    preview: <PreviewContracts />,
     intro:
       "Mỗi hợp đồng gắn với một phòng và một hoặc nhiều khách thuê. Hệ thống tự động cảnh báo khi hợp đồng sắp hết hạn (30 ngày với CHDV, 60 ngày với VP).",
     steps: [
@@ -261,6 +277,7 @@ const SECTIONS: Section[] = [
     icon: Receipt,
     title: "Hoá đơn",
     sub: "Tạo hàng loạt, thu tiền, xuất PDF",
+    preview: <PreviewInvoices />,
     intro:
       "Hoá đơn được phát hành theo tháng dựa trên hợp đồng đang hoạt động. Bạn có thể tạo từng cái hoặc tạo hàng loạt cho cả toà nhà.",
     steps: [
@@ -314,6 +331,7 @@ const SECTIONS: Section[] = [
     icon: Wallet,
     title: "Tài chính toà nhà",
     sub: "Doanh thu, chi phí, sổ quỹ",
+    preview: <PreviewFinance />,
     intro:
       "Mỗi toà nhà có trang Tài chính riêng với biểu đồ doanh thu - chi phí theo tháng và sổ quỹ chi tiết.",
     steps: [
@@ -353,6 +371,7 @@ const SECTIONS: Section[] = [
     icon: ClipboardList,
     title: "Quản lý CHDV & Văn phòng",
     sub: "5 tab thao tác hàng ngày",
+    preview: <PreviewManage />,
     route: { href: "/manage/chdv", label: "Mở Quản lý CHDV" },
     intro:
       "Trang Quản lý gom các thao tác hàng ngày cho riêng từng loại hình (CHDV hoặc VP) thành 5 tab.",
@@ -389,6 +408,7 @@ const SECTIONS: Section[] = [
     icon: Settings,
     title: "Cài đặt chung",
     sub: "Người dùng, danh mục, nhật ký",
+    preview: <PreviewSettings />,
     route: { href: "/settings", label: "Mở Cài đặt" },
     adminOnly: true,
     intro:
@@ -421,6 +441,7 @@ const SECTIONS: Section[] = [
     icon: Upload,
     title: "Nhập dữ liệu từ Excel",
     sub: "Khởi tạo nhanh khi mới dùng",
+    preview: <PreviewImport />,
     route: { href: "/import", label: "Mở trang Nhập dữ liệu" },
     adminOnly: true,
     intro:
@@ -448,6 +469,7 @@ const SECTIONS: Section[] = [
     icon: Lightbulb,
     title: "Mẹo & câu hỏi thường gặp",
     sub: "Những điều nên biết",
+    preview: <PreviewTips />,
     intro:
       "Một vài lưu ý nhỏ giúp bạn dùng hệ thống mượt hơn.",
     steps: [
@@ -509,20 +531,20 @@ export default async function GuidePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6 lg:gap-10">
           {/* TOC */}
-          <aside className="hidden lg:block">
-            <nav
-              className="sticky top-24 flex flex-col gap-1 p-3 rounded-[var(--r-lg)]"
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-              }}
+          <aside
+            className="hidden lg:block lg:sticky lg:top-24 lg:self-start max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin p-3 rounded-[var(--r-lg)]"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+            }}
+          >
+            <div
+              className="px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.2em]"
+              style={{ color: "var(--text-3)" }}
             >
-              <div
-                className="px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.2em]"
-                style={{ color: "var(--text-3)" }}
-              >
-                Mục lục
-              </div>
+              Mục lục
+            </div>
+            <nav className="flex flex-col gap-1">
               {SECTIONS.map((s) => {
                 const Icon = s.icon;
                 return (
@@ -621,8 +643,11 @@ function SectionCard({
         </p>
       ) : (
         <>
+          <div className="mt-6">
+            <PreviewFrame>{section.preview}</PreviewFrame>
+          </div>
           <p
-            className="mt-5 text-[14.5px] leading-relaxed"
+            className="mt-1 text-[14.5px] leading-relaxed"
             style={{ color: "var(--text-2)" }}
           >
             {section.intro}
@@ -757,6 +782,714 @@ function FooterCta() {
           Mở Quản lý
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ─── UI mockup previews ──────────────────────────────────── */
+
+function PreviewFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="rounded-[12px] overflow-hidden"
+      style={{
+        border: "1px solid var(--line-2)",
+        background: "var(--bg)",
+        boxShadow: "var(--shadow-md)",
+      }}
+    >
+      <div
+        className="flex items-center gap-1.5 px-3 py-2"
+        style={{
+          background: "var(--surface-2)",
+          borderBottom: "1px solid var(--line)",
+        }}
+      >
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#ff6058" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#febc2e" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#28c93f" }} />
+        <span
+          className="ml-3 text-[10.5px] font-medium tracking-wide"
+          style={{ color: "var(--text-3)" }}
+        >
+          The Right Home
+        </span>
+      </div>
+      <div className="p-4 lg:p-5">{children}</div>
+    </div>
+  );
+}
+
+function PreviewLogin() {
+  return (
+    <div className="max-w-[300px] mx-auto py-3">
+      <div
+        className="text-center font-serif text-[20px] mb-1"
+        style={{ color: "var(--text)" }}
+      >
+        Đăng nhập
+      </div>
+      <div
+        className="text-center text-[11px] mb-4"
+        style={{ color: "var(--text-3)" }}
+      >
+        The Right Home
+      </div>
+      <div className="flex flex-col gap-2.5">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white"
+          style={{ border: "1px solid var(--line)" }}
+        >
+          <Mail className="h-3.5 w-3.5" style={{ color: "var(--text-3)" }} />
+          <span className="text-[12px]" style={{ color: "var(--text-2)" }}>
+            admin@therighthome.vn
+          </span>
+        </div>
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white"
+          style={{ border: "1px solid var(--line)" }}
+        >
+          <Lock className="h-3.5 w-3.5" style={{ color: "var(--text-3)" }} />
+          <span
+            className="text-[12px] tracking-widest"
+            style={{ color: "var(--text-2)" }}
+          >
+            ••••••••
+          </span>
+        </div>
+        <div
+          className="mt-1 px-4 py-2 rounded-lg text-[12.5px] font-semibold text-white text-center"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--accent-coral) 0%, var(--accent-coral-2) 100%)",
+            boxShadow: "0 6px 16px -6px rgba(var(--accent-shadow-rgb), .55)",
+          }}
+        >
+          Đăng nhập
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewDashboard() {
+  const stats: { label: string; value: string; foot: string; coral?: boolean }[] = [
+    { label: "Toà nhà", value: "4", foot: "23/28 phòng" },
+    { label: "Hợp đồng", value: "23", foot: "Đang hoạt động" },
+    { label: "Đã thu", value: "182M ₫", foot: "Còn 18M", coral: true },
+    { label: "Quá hạn", value: "3", foot: "Cần xử lý" },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className="rounded-[10px] p-3"
+          style={
+            s.coral
+              ? {
+                  background:
+                    "linear-gradient(135deg, #ffe7d8 0%, #ffcfb1 70%, #ffb78f 100%)",
+                  border: "1px solid #ffc6a8",
+                }
+              : { background: "var(--surface)", border: "1px solid var(--line)" }
+          }
+        >
+          <div
+            className="text-[9px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: s.coral ? "var(--accent-ink)" : "var(--text-3)" }}
+          >
+            {s.label}
+          </div>
+          <div
+            className="text-[20px] font-bold mt-1.5 leading-none"
+            style={{ color: s.coral ? "var(--accent-ink)" : "var(--text)" }}
+          >
+            {s.value}
+          </div>
+          <div
+            className="text-[10px] mt-1.5"
+            style={{
+              color: s.coral ? "var(--accent-ink)" : "var(--text-2)",
+              opacity: s.coral ? 0.82 : 1,
+            }}
+          >
+            {s.foot}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PreviewBuildings() {
+  const buildings = [
+    { num: "46", name: "46 Đường số 18", type: "CHDV", pct: 85 },
+    { num: "228", name: "228 Lê Quang Định", type: "VP", pct: 60 },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      {buildings.map((b) => (
+        <div
+          key={b.num}
+          className="rounded-[12px] p-3"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+        >
+          <div className="flex justify-between items-start gap-2">
+            <div
+              className="font-serif italic text-[24px] leading-none"
+              style={{ color: "var(--text)" }}
+            >
+              {b.num}
+            </div>
+            <span
+              className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+              style={
+                b.type === "CHDV"
+                  ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
+                  : { background: "#f4e7d0", color: "#4d2f1e" }
+              }
+            >
+              {b.type}
+            </span>
+          </div>
+          <div
+            className="font-serif text-[12px] mt-2 leading-tight"
+            style={{ color: "var(--text)" }}
+          >
+            {b.name}
+          </div>
+          <div className="mt-2.5">
+            <div
+              className="flex justify-between text-[10px]"
+              style={{ color: "var(--text-2)" }}
+            >
+              <span>lấp đầy</span>
+              <strong style={{ color: "var(--text)" }}>{b.pct}%</strong>
+            </div>
+            <div
+              className="h-1.5 rounded-full mt-1 overflow-hidden"
+              style={{ background: "var(--surface-3)" }}
+            >
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${b.pct}%`,
+                  background:
+                    "linear-gradient(90deg, var(--accent-coral), #de9f8a)",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PreviewRoomMap() {
+  const rooms = [1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 1, 1];
+  const colors = [
+    { bg: "var(--surface)", border: "var(--line)", text: "var(--text-3)" },
+    {
+      bg: "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+      border: "var(--accent-coral)",
+      text: "#fff",
+    },
+    { bg: "var(--sun-soft)", border: "var(--sun)", text: "var(--sun-ink)" },
+  ];
+  return (
+    <div>
+      <div
+        className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+        style={{ color: "var(--text-3)" }}
+      >
+        Tầng 1
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {rooms.map((status, i) => {
+          const c = colors[status];
+          return (
+            <div
+              key={i}
+              className="rounded-md text-center py-2 text-[10.5px] font-semibold"
+              style={{
+                background: c.bg,
+                border: `1px solid ${c.border}`,
+                color: c.text,
+              }}
+            >
+              {String(101 + i).padStart(3, "0")}
+            </div>
+          );
+        })}
+      </div>
+      <div
+        className="flex flex-wrap gap-3 mt-3 text-[10px]"
+        style={{ color: "var(--text-2)" }}
+      >
+        <span className="flex items-center gap-1">
+          <span
+            className="h-2 w-2 rounded-sm"
+            style={{ background: "var(--accent-coral)" }}
+          />
+          Đang thuê
+        </span>
+        <span className="flex items-center gap-1">
+          <span
+            className="h-2 w-2 rounded-sm"
+            style={{ background: "var(--sun)" }}
+          />
+          Sắp hết hạn
+        </span>
+        <span className="flex items-center gap-1">
+          <span
+            className="h-2 w-2 rounded-sm"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+            }}
+          />
+          Trống
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PreviewContracts() {
+  const items = [
+    {
+      room: "201",
+      name: "Nguyễn Văn A",
+      status: "active" as const,
+      date: "Hết hạn 31/12/2026",
+    },
+    {
+      room: "305",
+      name: "Trần Thị B",
+      status: "expiring" as const,
+      date: "Hết hạn 22/06/2026",
+    },
+    {
+      room: "102",
+      name: "Lê Văn C",
+      status: "active" as const,
+      date: "Hết hạn 15/03/2027",
+    },
+  ];
+  return (
+    <div className="flex flex-col gap-1.5">
+      {items.map((c) => {
+        const isExp = c.status === "expiring";
+        return (
+          <div
+            key={c.room}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-[10px]"
+            style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+          >
+            <div
+              className="h-8 w-8 rounded-lg grid place-items-center font-serif text-[12px] font-semibold shrink-0"
+              style={{ background: "var(--accent-tint)", color: "var(--accent-ink)" }}
+            >
+              {c.room}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div
+                className="text-[12.5px] font-semibold"
+                style={{ color: "var(--text)" }}
+              >
+                {c.name}
+              </div>
+              <div className="text-[10.5px]" style={{ color: "var(--text-3)" }}>
+                {c.date}
+              </div>
+            </div>
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={
+                isExp
+                  ? { background: "var(--sun-soft)", color: "var(--sun-ink)" }
+                  : { background: "var(--sage-soft)", color: "var(--sage-ink)" }
+              }
+            >
+              {isExp ? "Sắp hết hạn" : "Hoạt động"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PreviewInvoices() {
+  const items = [
+    { code: "HD-202605-201", amount: "8.450.000", status: "paid" as const },
+    { code: "HD-202605-305", amount: "12.200.000", status: "overdue" as const },
+    { code: "HD-202605-102", amount: "6.800.000", status: "pending" as const },
+  ];
+  const statusStyle = {
+    paid: { bg: "var(--sage-soft)", color: "var(--sage-ink)" },
+    overdue: { bg: "var(--bad-soft)", color: "var(--bad)" },
+    pending: { bg: "var(--sun-soft)", color: "var(--sun-ink)" },
+  };
+  const statusLabel = { paid: "Đã thu", overdue: "Quá hạn", pending: "Chưa thu" };
+  return (
+    <div className="flex flex-col gap-1.5">
+      {items.map((i) => {
+        const Icon =
+          i.status === "paid"
+            ? CheckCircle2
+            : i.status === "overdue"
+            ? AlertCircle
+            : Clock;
+        return (
+          <div
+            key={i.code}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-[10px]"
+            style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+          >
+            <Receipt
+              className="h-4 w-4 shrink-0"
+              style={{ color: "var(--accent-coral)" }}
+            />
+            <div className="flex-1 min-w-0">
+              <div
+                className="text-[11.5px] font-mono font-semibold"
+                style={{ color: "var(--text)" }}
+              >
+                {i.code}
+              </div>
+              <div className="text-[10.5px]" style={{ color: "var(--text-3)" }}>
+                Tháng 5 · 2026
+              </div>
+            </div>
+            <div
+              className="text-[12px] font-semibold tabular-nums shrink-0"
+              style={{ color: "var(--text)" }}
+            >
+              {i.amount} ₫
+            </div>
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1"
+              style={{
+                background: statusStyle[i.status].bg,
+                color: statusStyle[i.status].color,
+              }}
+            >
+              <Icon className="h-2.5 w-2.5" />
+              {statusLabel[i.status]}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PreviewFinance() {
+  const months = [
+    { m: "T1", revenue: 60, expense: 35 },
+    { m: "T2", revenue: 70, expense: 40 },
+    { m: "T3", revenue: 80, expense: 45 },
+    { m: "T4", revenue: 75, expense: 38 },
+    { m: "T5", revenue: 90, expense: 50 },
+    { m: "T6", revenue: 100, expense: 52 },
+  ];
+  return (
+    <div>
+      <div className="flex justify-between items-end mb-3">
+        <div>
+          <div
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--text-3)" }}
+          >
+            Doanh thu 6 tháng
+          </div>
+          <div
+            className="font-serif text-[18px] leading-tight mt-0.5"
+            style={{ color: "var(--text)" }}
+          >
+            475.000.000 ₫
+          </div>
+        </div>
+        <div className="flex gap-2 text-[9.5px]">
+          <span className="flex items-center gap-1">
+            <span
+              className="h-2 w-2 rounded-sm"
+              style={{ background: "var(--accent-coral)" }}
+            />
+            Thu
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="h-2 w-2 rounded-sm"
+              style={{ background: "var(--text-3)" }}
+            />
+            Chi
+          </span>
+        </div>
+      </div>
+      <div className="flex items-end gap-2 h-[100px]">
+        {months.map((m) => (
+          <div
+            key={m.m}
+            className="flex-1 flex flex-col items-center gap-1"
+          >
+            <div className="w-full flex gap-0.5 items-end" style={{ height: "84px" }}>
+              <div
+                className="flex-1 rounded-t"
+                style={{
+                  height: `${m.revenue}%`,
+                  background:
+                    "linear-gradient(180deg, var(--accent-coral), var(--accent-coral-2))",
+                }}
+              />
+              <div
+                className="flex-1 rounded-t"
+                style={{
+                  height: `${m.expense}%`,
+                  background: "var(--text-3)",
+                  opacity: 0.5,
+                }}
+              />
+            </div>
+            <div className="text-[9.5px]" style={{ color: "var(--text-3)" }}>
+              {m.m}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PreviewManage() {
+  const tabs = [
+    { label: "Hoá đơn", icon: Receipt, active: true },
+    { label: "Hợp đồng", icon: FileText, active: false },
+    { label: "Công việc", icon: ClipboardList, active: false },
+    { label: "Tăng ca", icon: Clock, active: false },
+    { label: "Sổ quỹ", icon: Wallet, active: false },
+  ];
+  return (
+    <div>
+      <div className="flex gap-1 mb-3 overflow-x-auto no-scrollbar">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          return (
+            <div
+              key={t.label}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[11px] font-semibold whitespace-nowrap shrink-0"
+              style={
+                t.active
+                  ? {
+                      background:
+                        "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+                      color: "#fff",
+                    }
+                  : {
+                      background: "var(--surface)",
+                      border: "1px solid var(--line)",
+                      color: "var(--text-2)",
+                    }
+              }
+            >
+              <Icon className="h-3 w-3" />
+              {t.label}
+            </div>
+          );
+        })}
+      </div>
+      <div
+        className="rounded-[10px] p-3"
+        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div
+            className="text-[11px] font-semibold"
+            style={{ color: "var(--text)" }}
+          >
+            Hoá đơn tháng 5/2026
+          </div>
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-white"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+            }}
+          >
+            <Plus className="h-2.5 w-2.5" />
+            Tạo hàng loạt
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-2 text-[10.5px]">
+              <div
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: "var(--accent-coral)" }}
+              />
+              <span style={{ color: "var(--text-2)" }}>
+                P.20{i} — 8.450.000 ₫
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewSettings() {
+  const users = [
+    { name: "Ngọc Linh", role: "ADMIN" as const },
+    { name: "Minh Tâm", role: "STAFF" as const },
+    { name: "Hoàng Anh", role: "STAFF" as const },
+  ];
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2.5">
+        <div
+          className="text-[11px] font-semibold flex items-center gap-1.5"
+          style={{ color: "var(--text)" }}
+        >
+          <Users className="h-3 w-3" style={{ color: "var(--accent-coral)" }} />
+          Người dùng
+        </div>
+        <div
+          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-white"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+          }}
+        >
+          <Plus className="h-2.5 w-2.5" />
+          Mời
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {users.map((u) => (
+          <div
+            key={u.name}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-[8px]"
+            style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+          >
+            <div
+              className="h-7 w-7 rounded-full grid place-items-center text-white font-serif text-[11px]"
+              style={{
+                background: "linear-gradient(135deg, var(--sage) 0%, #6ba978 100%)",
+              }}
+            >
+              {u.name.charAt(0)}
+            </div>
+            <div
+              className="flex-1 text-[11.5px] font-semibold"
+              style={{ color: "var(--text)" }}
+            >
+              {u.name}
+            </div>
+            <span
+              className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={
+                u.role === "ADMIN"
+                  ? { background: "var(--accent-tint)", color: "var(--accent-ink)" }
+                  : { background: "var(--sage-soft)", color: "var(--sage-ink)" }
+              }
+            >
+              {u.role === "ADMIN" ? "Quản trị" : "Nhân viên"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PreviewImport() {
+  return (
+    <div
+      className="rounded-[12px] py-7 px-6 text-center"
+      style={{
+        background: "var(--accent-tint)",
+        border: "2px dashed var(--accent-soft-2)",
+      }}
+    >
+      <div
+        className="h-12 w-12 rounded-2xl grid place-items-center mx-auto mb-3"
+        style={{
+          background:
+            "linear-gradient(135deg, var(--accent-coral), var(--accent-coral-2))",
+          color: "#fff",
+          boxShadow: "0 8px 20px -6px rgba(var(--accent-shadow-rgb), .55)",
+        }}
+      >
+        <UploadCloud className="h-6 w-6" />
+      </div>
+      <div
+        className="font-serif text-[15px]"
+        style={{ color: "var(--text)" }}
+      >
+        Kéo file Excel vào đây
+      </div>
+      <div className="text-[11px] mt-1" style={{ color: "var(--text-2)" }}>
+        hoặc bấm để chọn file (.xlsx, .xls — tối đa 10 MB)
+      </div>
+      <div
+        className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--line)",
+          color: "var(--text-2)",
+        }}
+      >
+        <Download className="h-3 w-3" />
+        Tải mẫu Excel
+      </div>
+    </div>
+  );
+}
+
+function PreviewTips() {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div
+        className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+      >
+        <Search className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--text-3)" }} />
+        <span
+          className="flex-1 text-[11.5px]"
+          style={{ color: "var(--text-3)" }}
+        >
+          Tìm kiếm hoá đơn, khách thuê, toà nhà...
+        </span>
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+          style={{
+            color: "var(--text-3)",
+            border: "1px solid var(--line)",
+            background: "var(--bg-2)",
+          }}
+        >
+          ⌘K
+        </span>
+      </div>
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-xl"
+        style={{ background: "var(--sun-soft)", border: "1px solid #f0d896" }}
+      >
+        <Lightbulb
+          className="h-3.5 w-3.5 shrink-0"
+          style={{ color: "var(--sun-ink)" }}
+        />
+        <span
+          className="text-[11px] font-medium"
+          style={{ color: "var(--sun-ink)" }}
+        >
+          Phím tắt giúp bạn thao tác nhanh hơn nhiều.
+        </span>
       </div>
     </div>
   );
