@@ -52,6 +52,7 @@ export function DebtClient({
   const router = useRouter();
   const [filterRoom, setFilterRoom] = useState<string>("ALL");
   const [filterParty, setFilterParty] = useState<string>("ALL");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTx, setEditTx] = useState<EditableTransaction | null>(null);
 
@@ -61,9 +62,10 @@ export function DebtClient({
   const filtered = useMemo(() => {
     return rows.filter((r) =>
       (filterRoom === "ALL" || r.roomId === filterRoom) &&
-      (filterParty === "ALL" || r.partyKind === filterParty),
+      (filterParty === "ALL" || r.partyKind === filterParty) &&
+      (filterCategory === "ALL" || r.category === filterCategory),
     );
-  }, [rows, filterRoom, filterParty]);
+  }, [rows, filterRoom, filterParty, filterCategory]);
 
   const totalOpen = filtered.reduce((s, r) => s + BigInt(r.opening), 0n);
   const totalDue = filtered.reduce((s, r) => s + BigInt(r.payable), 0n);
@@ -94,6 +96,13 @@ export function DebtClient({
           <SelectContent>
             <SelectItem value="ALL">Tất cả đối tượng</SelectItem>
             {partyKindConfigs.filter((p) => p.forExpense).map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Loại chi" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả loại chi</SelectItem>
+            {categories.filter((c) => c.type === "EXPENSE").map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">

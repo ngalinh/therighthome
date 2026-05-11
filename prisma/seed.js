@@ -93,19 +93,17 @@ async function main() {
     console.log(`Skipping building seed (count=${buildingCount}, deleted=${deletedBuildingsCount}).`);
   }
 
+  // Same pattern as PaymentMethod below: only seed defaults when a buildingType
+  // has zero records, so deletes by the user persist across container restarts.
   for (const buildingType of ["CHDV", "VP"]) {
-    for (const t of ["INCOME", "EXPENSE"]) {
-      for (const name of TX_CATEGORIES[buildingType][t]) {
-        await prisma.transactionCategory.upsert({
-          where: { buildingType_name_type: { buildingType, name, type: t } },
-          create: { buildingType, name, type: t },
-          update: {},
-        });
+    const tcCount = await prisma.transactionCategory.count({ where: { buildingType } });
+    if (tcCount === 0) {
+      for (const t of ["INCOME", "EXPENSE"]) {
+        for (const name of TX_CATEGORIES[buildingType][t]) {
+          await prisma.transactionCategory.create({ data: { buildingType, name, type: t } });
+        }
       }
     }
-    // Only seed payment methods for a buildingType when none exist yet —
-    // otherwise this loop re-creates entries the user has intentionally
-    // deleted on every container restart (seed runs in entrypoint.sh).
     const pmCount = await prisma.paymentMethod.count({ where: { buildingType } });
     if (pmCount === 0) {
       for (const pm of PAYMENT_METHODS[buildingType]) {
@@ -114,13 +112,17 @@ async function main() {
     }
   }
 
-  for (const [kind, name] of Object.entries(PARTY_KINDS)) {
-    const exists = await prisma.party.findFirst({ where: { kind, name } });
-    if (!exists) await prisma.party.create({ data: { kind, name } });
+  // Only seed default Parties when the table is empty — preserves user deletes.
+  const partyCount = await prisma.party.count();
+  if (partyCount === 0) {
+    for (const [kind, name] of Object.entries(PARTY_KINDS)) {
+      await prisma.party.create({ data: { kind, name } });
+    }
   }
 
   // Seed default PartyKindConfig (Đối tượng) entries — codes match the legacy
   // PartyKind enum values so existing transactions/parties keep their labels.
+  // Only on fresh install (table empty), to preserve user deletes/edits.
   const PARTY_KIND_CONFIGS = [
     { code: "CUSTOMER",     label: "Khách hàng",   forRevenue: true,  forExpense: false, sortOrder: 0 },
     { code: "THO_SUA_CHUA", label: "Thợ sửa chữa", forRevenue: false, forExpense: true,  sortOrder: 10 },
@@ -133,12 +135,11 @@ async function main() {
     { code: "NCC_KHAC",     label: "NCC khác",     forRevenue: false, forExpense: true,  sortOrder: 80 },
     { code: "OTHER",        label: "Khác",         forRevenue: true,  forExpense: true,  sortOrder: 90 },
   ];
-  for (const cfg of PARTY_KIND_CONFIGS) {
-    await prisma.partyKindConfig.upsert({
-      where: { code: cfg.code },
-      create: cfg,
-      update: {}, // never overwrite existing user edits
-    });
+  const cfgCount = await prisma.partyKindConfig.count();
+  if (cfgCount === 0) {
+    for (const cfg of PARTY_KIND_CONFIGS) {
+      await prisma.partyKindConfig.create({ data: cfg });
+    }
   }
 
   // One-off: dedupe contracts that were created multiple times because earlier

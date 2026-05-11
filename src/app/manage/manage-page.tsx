@@ -26,6 +26,8 @@ export async function ManageTypePage({
     status?: string;
     building?: string;
     room?: string;
+    cbCategory?: string;
+    cbParty?: string;
   };
 }) {
   const session = await auth();
@@ -239,6 +241,7 @@ export async function ManageTypePage({
               parties={partiesS}
               tasks={tasksS}
               paymentMethods={paymentMethods}
+              partyKindConfigs={partyKindConfigs}
             />
           </TabsContent>
           <TabsContent value="contracts">
@@ -272,6 +275,8 @@ export async function ManageTypePage({
               year={year}
               buildingFilter={buildingFilter}
               partyKindConfigs={partyKindConfigs}
+              categoryFilter={searchParams.cbCategory ?? "ALL"}
+              partyFilter={searchParams.cbParty ?? "ALL"}
             />
           </TabsContent>
           {kind === "VP" && (

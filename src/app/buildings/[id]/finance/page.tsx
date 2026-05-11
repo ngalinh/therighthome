@@ -14,7 +14,7 @@ export default async function FinancePage({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; month?: string; year?: string; range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ tab?: string; month?: string; year?: string; range?: string; from?: string; to?: string; cbCategory?: string; cbParty?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect("/login");
@@ -99,7 +99,16 @@ export default async function FinancePage({
             />
           </TabsContent>
           <TabsContent value="cashbook">
-            <CashbookTab buildingId={id} month={month} year={year} paymentMethods={paymentMethods} partyKindConfigs={partyKindConfigs} />
+            <CashbookTab
+              buildingId={id}
+              month={month}
+              year={year}
+              paymentMethods={paymentMethods}
+              partyKindConfigs={partyKindConfigs}
+              categories={categories}
+              categoryFilter={sp.cbCategory ?? "ALL"}
+              partyFilter={sp.cbParty ?? "ALL"}
+            />
           </TabsContent>
           <TabsContent value="pnl">
             <PnLTab buildingId={id} range={range} from={fromDate} to={toDate} />
