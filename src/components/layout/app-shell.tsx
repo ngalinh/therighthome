@@ -95,8 +95,8 @@ export function AppShell({
             isActive={isActive}
             isBuildingsActive={isBuildingsActive}
           />
-          <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} />
           <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
+          <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} />
         </nav>
         <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
       </aside>
@@ -162,8 +162,8 @@ export function AppShell({
                 isBuildingsActive={isBuildingsActive}
                 onChildClick={() => setMobileOpen(false)}
               />
-              <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} onClick={() => setMobileOpen(false)} />
               <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
+              <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} onClick={() => setMobileOpen(false)} />
             </nav>
             <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
           </aside>
