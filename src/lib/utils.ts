@@ -142,6 +142,14 @@ export function addMonths(d: Date, m: number): Date {
   return result;
 }
 
+// endDate hợp đồng = startDate + termMonths - 1 ngày (last inclusive day).
+// VD: 11/5/26 + 12 tháng → 10/5/27 (không phải 11/5/27).
+export function contractEndDate(start: Date, termMonths: number): Date {
+  const d = addMonths(start, termMonths);
+  d.setDate(d.getDate() - 1);
+  return d;
+}
+
 // Sort key for room numbers. "G01"/"G02" come before any non-G room, and
 // within each group we order by the trailing digits numerically. So the
 // resulting order is e.g. G01, G02, P101, P102, P201, ...
