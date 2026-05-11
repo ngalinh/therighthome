@@ -124,10 +124,10 @@ export function RevenueClient({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniStat label="Số dư đầu" value={formatVND(totalOpen)} />
-        <MiniStat label="Phải thu" value={formatVND(totalDue)} />
-        <MiniStat label="Đã thu" value={formatVND(totalPaid)} positive />
-        <MiniStat label="Số dư cuối" value={formatVND(totalClose)} bold />
+        <MiniStat label="Số dư đầu" value={formatVND(totalOpen)} variant="tan" />
+        <MiniStat label="Phải thu" value={formatVND(totalDue)} variant="sage" />
+        <MiniStat label="Đã thu" value={formatVND(totalPaid)} variant="accent" />
+        <MiniStat label="Số dư cuối" value={formatVND(totalClose)} variant="dark" bold />
       </div>
 
       {/* Mobile/PWA: card list */}
@@ -293,13 +293,16 @@ function CardStat({ label, value, positive, danger, bold }: { label: string; val
   );
 }
 
-function MiniStat({ label, value, positive, bold }: { label: string; value: string; positive?: boolean; bold?: boolean }) {
+function MiniStat({ label, value, variant, bold }: {
+  label: string;
+  value: string;
+  variant?: "accent" | "dark" | "sage" | "tan";
+  bold?: boolean;
+}) {
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-[11px] text-slate-500">{label}</div>
-        <div className={`${bold ? "text-lg" : "text-base"} font-bold mt-0.5 ${positive ? "text-emerald-600" : ""}`}>{value}</div>
-      </CardContent>
-    </Card>
+    <div className={`stat ${variant ?? ""} flex flex-col justify-center min-h-[100px]`}>
+      <div className="stat-label">{label}</div>
+      <div className={`stat-value ${bold ? "text-xl" : "text-base"} lg:text-xl break-words`}>{value}</div>
+    </div>
   );
 }
