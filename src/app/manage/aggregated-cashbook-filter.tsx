@@ -5,18 +5,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function AggregatedCashbookFilter({
-  kind, buildings, month, year, buildingFilter,
+  kind, buildings, month, year, buildingFilter, categories, partyKindConfigs, categoryFilter, partyFilter,
 }: {
   kind: "CHDV" | "VP";
   buildings: { id: string; name: string }[];
   month: number;
   year: number;
   buildingFilter: string;
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  partyKindConfigs: { code: string; label: string }[];
+  categoryFilter: string;
+  partyFilter: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
 
-  function go(next: { month?: number; year?: number; building?: string }) {
+  function go(next: { month?: number; year?: number; building?: string; cbCategory?: string; cbParty?: string }) {
     const params = new URLSearchParams(sp);
     params.set("tab", "cashbook");
     if (next.month != null) params.set("month", String(next.month));
@@ -24,6 +28,14 @@ export function AggregatedCashbookFilter({
     if (next.building != null) {
       if (next.building === "ALL") params.delete("building");
       else params.set("building", next.building);
+    }
+    if (next.cbCategory != null) {
+      if (next.cbCategory === "ALL") params.delete("cbCategory");
+      else params.set("cbCategory", next.cbCategory);
+    }
+    if (next.cbParty != null) {
+      if (next.cbParty === "ALL") params.delete("cbParty");
+      else params.set("cbParty", next.cbParty);
     }
     router.push(`/manage/${kind === "CHDV" ? "chdv" : "vp"}?${params}`);
   }
@@ -47,6 +59,20 @@ export function AggregatedCashbookFilter({
         <SelectContent>
           <SelectItem value="ALL">Tất cả toà</SelectItem>
           {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={categoryFilter} onValueChange={(v) => go({ cbCategory: v })}>
+        <SelectTrigger className="w-[180px]"><SelectValue placeholder="Loại thu/chi" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ALL">Tất cả loại thu/chi</SelectItem>
+          {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={partyFilter} onValueChange={(v) => go({ cbParty: v })}>
+        <SelectTrigger className="w-[160px]"><SelectValue placeholder="Đối tượng" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ALL">Tất cả đối tượng</SelectItem>
+          {partyKindConfigs.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>

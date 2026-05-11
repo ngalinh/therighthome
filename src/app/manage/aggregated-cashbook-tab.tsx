@@ -17,6 +17,8 @@ export async function AggregatedCashbookTab({
   year,
   buildingFilter,
   partyKindConfigs,
+  categoryFilter,
+  partyFilter,
 }: {
   kind: "CHDV" | "VP";
   buildings: { id: string; name: string; type: string }[];
@@ -24,12 +26,19 @@ export async function AggregatedCashbookTab({
   year: number;
   buildingFilter: string;
   partyKindConfigs: { code: string; label: string }[];
+  categoryFilter: string;
+  partyFilter: string;
 }) {
   const PARTY_KIND_LABEL: Record<string, string> = Object.fromEntries(
     partyKindConfigs.map((p) => [p.code, p.label]),
   );
   const accessibleBuildingIds = buildings.map((b) => b.id);
   const buildingNameById = new Map(buildings.map((b) => [b.id, b.name]));
+  const categories = await prisma.transactionCategory.findMany({
+    where: { OR: [{ buildingType: kind }, { buildingType: null }] },
+    orderBy: [{ type: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, type: true },
+  });
 
   // PMs are shared across buildings via the BuildingPaymentMethods join. We
   // include `buildings` so we can count how many of THIS user's accessible
@@ -55,6 +64,10 @@ export async function AggregatedCashbookTab({
           month={month}
           year={year}
           buildingFilter={buildingFilter}
+          categories={categories}
+          partyKindConfigs={partyKindConfigs}
+          categoryFilter={categoryFilter}
+          partyFilter={partyFilter}
         />
         <Card>
           <CardContent className="py-12 text-center text-sm text-slate-500">
@@ -133,6 +146,10 @@ export async function AggregatedCashbookTab({
         month={month}
         year={year}
         buildingFilter={buildingFilter}
+        categories={categories}
+        partyKindConfigs={partyKindConfigs}
+        categoryFilter={categoryFilter}
+        partyFilter={partyFilter}
       />
 
       {sharedPMs.map((pm) => {
@@ -141,7 +158,17 @@ export async function AggregatedCashbookTab({
         const totalIn = txs.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0n);
         const totalOut = txs.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0n);
         const closing = opening + totalIn - totalOut;
+        // Running balance computed over ALL txs; filter only hides display rows.
         let running = opening;
+        const withRunning = txs.map((t) => {
+          if (t.type === "INCOME") running += t.amount;
+          else running -= t.amount;
+          return { tx: t, runningAfter: running };
+        });
+        const visible = withRunning.filter(({ tx: t }) =>
+          (categoryFilter === "ALL" || t.category?.name === categoryFilter) &&
+          (partyFilter === "ALL" || t.partyKind === partyFilter),
+        );
         const linkedNames = pm.buildings.map((b) => b.name).join(", ");
 
         return (
@@ -181,12 +208,12 @@ export async function AggregatedCashbookTab({
                     <td colSpan={7} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
                     <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
                   </tr>
-                  {txs.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-4 text-center text-slate-500 text-sm">Không có giao dịch</td></tr>
+                  {visible.length === 0 && (
+                    <tr><td colSpan={8} className="px-4 py-4 text-center text-slate-500 text-sm">
+                      {txs.length === 0 ? "Không có giao dịch" : "Không có giao dịch khớp bộ lọc"}
+                    </td></tr>
                   )}
-                  {txs.map((t) => {
-                    if (t.type === "INCOME") running += t.amount;
-                    else running -= t.amount;
+                  {visible.map(({ tx: t, runningAfter }) => {
                     const partyLabel = t.customer
                       ? customerDisplayName(t.customer)
                       : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
@@ -211,7 +238,7 @@ export async function AggregatedCashbookTab({
                         </td>
                         <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
                         <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatVND(running)}</td>
+                        <td className="px-4 py-2 text-right font-medium">{formatVND(runningAfter)}</td>
                       </tr>
                     );
                   })}

@@ -4,6 +4,7 @@ import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "
 import { MonthYearFilter } from "./month-year-filter";
 import { renderContentWithLinks } from "./render-content";
 import { FinanceExportButton } from "./finance-export-button";
+import { CashbookFilters } from "./cashbook-filters";
 import type { ExportSheet } from "@/lib/export-xlsx";
 
 /**
@@ -16,13 +17,16 @@ import type { ExportSheet } from "@/lib/export-xlsx";
  * - Số dư cuối kỳ.
  */
 export async function CashbookTab({
-  buildingId, month, year, paymentMethods, partyKindConfigs,
+  buildingId, month, year, paymentMethods, partyKindConfigs, categories, categoryFilter, partyFilter,
 }: {
   buildingId: string;
   month: number;
   year: number;
   paymentMethods: { id: string; name: string }[];
   partyKindConfigs: { code: string; label: string }[];
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  categoryFilter: string;
+  partyFilter: string;
 }) {
   const PARTY_KIND_LABEL: Record<string, string> = Object.fromEntries(
     partyKindConfigs.map((p) => [p.code, p.label])
@@ -148,6 +152,13 @@ export async function CashbookTab({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <MonthYearFilter buildingId={buildingId} month={month} year={year} tab="cashbook" />
+        <CashbookFilters
+          buildingId={buildingId}
+          categories={categories}
+          partyKindConfigs={partyKindConfigs}
+          categoryFilter={categoryFilter}
+          partyFilter={partyFilter}
+        />
         <div className="ml-auto">
           <FinanceExportButton filename={`so-quy-${month}-${year}.xlsx`} sheets={exportSheets} />
         </div>
@@ -160,8 +171,9 @@ export async function CashbookTab({
         const totalOut = txs.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0n);
         const closing = opening + totalIn - totalOut;
 
-        // Compute running balance chronologically, then render in reverse so
-        // the most recent transaction sits at the top of the table.
+        // Compute running balance chronologically across ALL transactions so
+        // the "Số dư" column reflects the actual cash position regardless of
+        // filter. Filtering (category/đối tượng) only hides display rows.
         let running = opening;
         const rendered = txs.map((t) => {
           if (t.type === "INCOME") running += t.amount;
@@ -172,7 +184,11 @@ export async function CashbookTab({
           const roomLabel = t.room ? formatRoomNumber(t.room.number) : "";
           return { tx: t, partyLabel, roomLabel, runningAfter: running };
         });
-        rendered.reverse();
+        const visible = rendered.filter(({ tx: t }) =>
+          (categoryFilter === "ALL" || t.category?.name === categoryFilter) &&
+          (partyFilter === "ALL" || t.partyKind === partyFilter),
+        );
+        visible.reverse();
 
         return (
           <Card key={pm.id}>
@@ -202,10 +218,12 @@ export async function CashbookTab({
                     <td colSpan={6} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
                     <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
                   </tr>
-                  {txs.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-500 text-sm">Không có giao dịch</td></tr>
+                  {visible.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-500 text-sm">
+                      {txs.length === 0 ? "Không có giao dịch" : "Không có giao dịch khớp bộ lọc"}
+                    </td></tr>
                   )}
-                  {rendered.map(({ tx: t, partyLabel, roomLabel, runningAfter }) => (
+                  {visible.map(({ tx: t, partyLabel, roomLabel, runningAfter }) => (
                     <tr key={t.id} className="border-t hover:bg-slate-50">
                       <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>

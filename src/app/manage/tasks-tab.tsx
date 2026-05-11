@@ -41,7 +41,7 @@ type Task = {
 };
 
 export function ManageTasksTab({
-  kind, buildings, rooms, parties, tasks, paymentMethods,
+  kind, buildings, rooms, parties, tasks, paymentMethods, partyKindConfigs,
 }: {
   kind: "CHDV" | "VP";
   buildings: BuildingLite[];
@@ -49,14 +49,27 @@ export function ManageTasksTab({
   parties: PartyLite[];
   tasks: Task[];
   paymentMethods: PaymentMethodLite[];
+  partyKindConfigs: { code: string; label: string }[];
 }) {
   const [editing, setEditing] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
+  const [partyFilter, setPartyFilter] = useState<string>("ALL");
+  const [roomFilter, setRoomFilter] = useState<string>("ALL");
 
   const filteredTasks = useMemo(
-    () => (buildingFilter === "ALL" ? tasks : tasks.filter((t) => t.buildingId === buildingFilter)),
-    [tasks, buildingFilter],
+    () =>
+      tasks.filter((t) =>
+        (buildingFilter === "ALL" || t.buildingId === buildingFilter) &&
+        (partyFilter === "ALL" || t.partyKind === partyFilter) &&
+        (roomFilter === "ALL" || t.roomId === roomFilter),
+      ),
+    [tasks, buildingFilter, partyFilter, roomFilter],
+  );
+
+  const availableRooms = useMemo(
+    () => (buildingFilter === "ALL" ? rooms : rooms.filter((r) => r.buildingId === buildingFilter)),
+    [rooms, buildingFilter],
   );
 
   return (
@@ -65,12 +78,26 @@ export function ManageTasksTab({
         <h2 className="text-base font-semibold flex items-center gap-2">
           <ClipboardList className="h-4 w-4" /> {filteredTasks.length} công việc
         </h2>
-        <div className="flex items-center gap-2">
-          <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={buildingFilter} onValueChange={(v) => { setBuildingFilter(v); setRoomFilter("ALL"); }}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Toà nhà" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Tất cả toà nhà</SelectItem>
               {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={roomFilter} onValueChange={setRoomFilter}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Phòng" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả phòng</SelectItem>
+              {availableRooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={partyFilter} onValueChange={setPartyFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Đối tượng" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả đối tượng</SelectItem>
+              {partyKindConfigs.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>
