@@ -1,6 +1,6 @@
 // Minimal PWA service worker — installable + offline shell
-const CACHE = "trh-v1";
-const ASSETS = ["/", "/manifest.webmanifest", "/icons/icon-192.svg", "/icons/icon-512.svg"];
+const CACHE = "trh-v2";
+const ASSETS = ["/manifest.webmanifest", "/icons/icon-192.svg", "/icons/icon-512.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -18,12 +18,25 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(request.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith("/api/")) return; // network-first for API
+
+  // Navigation (HTML documents) are user-specific because they're server-
+  // rendered with session data. Caching them showed stale greetings like
+  // "Xin chào, admin" after switching to a named account. Always go network;
+  // fall back gracefully when truly offline.
+  if (request.mode === "navigate" || request.destination === "document") {
+    e.respondWith(
+      fetch(request).catch(() => new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } })),
+    );
+    return;
+  }
+
+  // Static assets: cache-on-fetch, fall back to cached copy when offline.
   e.respondWith(
     fetch(request).then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
       return res;
-    }).catch(() => caches.match(request).then((m) => m || caches.match("/"))),
+    }).catch(() => caches.match(request)),
   );
 });
 
