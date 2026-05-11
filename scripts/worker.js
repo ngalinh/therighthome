@@ -22,26 +22,6 @@ async function markOverdueInvoices() {
   return r.count;
 }
 
-async function autoExpireContracts() {
-  const now = new Date();
-  const r = await prisma.contract.updateMany({
-    where: { status: "ACTIVE", isOpenEnded: false, endDate: { lt: now } },
-    data: { status: "EXPIRED" },
-  });
-  // Free rooms whose ACTIVE contracts just expired
-  const expired = await prisma.contract.findMany({
-    where: { status: "EXPIRED", isOpenEnded: false, endDate: { lt: now } },
-    select: { roomId: true },
-  });
-  for (const e of expired) {
-    const stillActive = await prisma.contract.count({ where: { roomId: e.roomId, status: "ACTIVE" } });
-    if (stillActive === 0) {
-      await prisma.room.update({ where: { id: e.roomId }, data: { status: "AVAILABLE" } }).catch(() => {});
-    }
-  }
-  return r.count;
-}
-
 async function autoGenerateInvoices() {
   const now = new Date();
   const dom = now.getDate();
@@ -139,12 +119,15 @@ async function nextInvoiceCode(buildingId, month, year) {
 
 async function runJobs() {
   try {
-    const [ov, ex, gen] = await Promise.all([
+    // autoExpireContracts() intentionally NOT scheduled — users want to
+    // terminate contracts manually via the "Kết thúc HĐ" flow. Letting the
+    // worker flip status to EXPIRED + free the room hid the button and
+    // surprised users with a "trống" room they hadn't ended themselves.
+    const [ov, gen] = await Promise.all([
       markOverdueInvoices(),
-      autoExpireContracts(),
       autoGenerateInvoices(),
     ]);
-    if (ov || ex || gen) log(`overdue=${ov} expired=${ex} generated=${gen}`);
+    if (ov || gen) log(`overdue=${ov} generated=${gen}`);
   } catch (e) {
     log("job error:", e.message);
   }
