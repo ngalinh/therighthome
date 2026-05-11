@@ -85,7 +85,7 @@ export async function ManageTypePage({
       select: { id: true, name: true, kind: true },
     }),
     prisma.partyKindConfig.findMany({
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      orderBy: { label: "asc" },
       select: { code: true, label: true },
     }),
   ]);

@@ -44,7 +44,7 @@ export default async function FinancePage({
       orderBy: { name: "asc" },
     }),
     prisma.partyKindConfig.findMany({
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      orderBy: { label: "asc" },
     }),
   ]);
 
