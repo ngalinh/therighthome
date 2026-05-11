@@ -225,33 +225,27 @@ export async function PnLTab({
       <PnLFilter buildingId={buildingId} range={range} from={from} to={to} />
 
       <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="text-xs text-slate-500">Tổng thu (BCKD)</div>
-            <div className="text-base lg:text-xl font-bold text-emerald-600 mt-1 break-words">
-              <span className="lg:hidden">{formatVNDCompact(grandIn)}</span>
-              <span className="hidden lg:inline">{formatVND(grandIn)}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="text-xs text-slate-500">Tổng chi (BCKD)</div>
-            <div className="text-base lg:text-xl font-bold text-rose-600 mt-1 break-words">
-              <span className="lg:hidden">{formatVNDCompact(grandOut)}</span>
-              <span className="hidden lg:inline">{formatVND(grandOut)}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="text-xs text-slate-500">Lợi nhuận</div>
-            <div className={`text-base lg:text-xl font-bold mt-1 break-words ${grandProfit >= 0n ? "text-emerald-600" : "text-rose-600"}`}>
-              <span className="lg:hidden">{formatVNDCompact(grandProfit)}</span>
-              <span className="hidden lg:inline">{formatVND(grandProfit)}</span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="stat sage flex flex-col justify-center min-h-[100px]">
+          <div className="stat-label">Tổng thu (BCKD)</div>
+          <div className="stat-value text-base lg:text-xl break-words">
+            <span className="lg:hidden">{formatVNDCompact(grandIn)}</span>
+            <span className="hidden lg:inline">{formatVND(grandIn)}</span>
+          </div>
+        </div>
+        <div className="stat accent flex flex-col justify-center min-h-[100px]">
+          <div className="stat-label">Tổng chi (BCKD)</div>
+          <div className="stat-value text-base lg:text-xl break-words">
+            <span className="lg:hidden">{formatVNDCompact(grandOut)}</span>
+            <span className="hidden lg:inline">{formatVND(grandOut)}</span>
+          </div>
+        </div>
+        <div className="stat dark flex flex-col justify-center min-h-[100px]">
+          <div className="stat-label">Lợi nhuận</div>
+          <div className="stat-value text-base lg:text-xl break-words">
+            <span className="lg:hidden">{formatVNDCompact(grandProfit)}</span>
+            <span className="hidden lg:inline">{formatVND(grandProfit)}</span>
+          </div>
+        </div>
       </div>
 
       {monthKeys.length === 0 && (
