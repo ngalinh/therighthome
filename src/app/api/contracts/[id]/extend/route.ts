@@ -38,6 +38,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         ...(d.monthlyRent ? { monthlyRent: BigInt(d.monthlyRent) } : {}),
       },
     });
+    // Mark room occupied in case the worker had freed it after the original
+    // endDate passed; the contract is now active again indefinitely.
+    await prisma.room.update({ where: { id: c.roomId }, data: { status: "OCCUPIED" } }).catch(() => {});
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
