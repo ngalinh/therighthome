@@ -56,6 +56,11 @@ export async function DebtTab({
         accountingMonth: month,
         accountingYear: year,
         type: "EXPENSE",
+        // Auto-tạo phiếu chi "Hoàn tiền cọc - HĐ ..." (từ terminate route)
+        // đã có dòng riêng dựng từ contract record bên trên — không list
+        // thêm lần nữa ở đây để tránh trùng lặp, khiến user xoá nhầm dòng
+        // Transaction → mất phiếu trong Sổ Quỹ.
+        NOT: { content: { startsWith: "Hoàn tiền cọc - HĐ " } },
       },
       include: {
         category: { select: { id: true, name: true } },

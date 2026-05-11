@@ -673,7 +673,7 @@ export function EditContractForm({
             <Button variant="outline" onClick={() => setExtendOpen(true)}>
               <RefreshCw className="h-4 w-4" /> Gia hạn
             </Button>
-            {(contract.status === "ACTIVE" || contract.status === "EXPIRED") && (
+            {contract.status !== "TERMINATED_LOST_DEPOSIT" && (
               <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
                 <XCircle className="h-4 w-4" /> Kết thúc
               </Button>
