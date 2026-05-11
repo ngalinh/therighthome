@@ -34,7 +34,7 @@ export function renderContentWithLinks({
       if (id) {
         parts.push(<span key={key++}>{m[1]}</span>);
         parts.push(
-          <Link key={key++} href={`/buildings/${buildingId}/contracts/${id}/edit`} className="text-primary hover:underline">
+          <Link key={key++} href={`/buildings/${buildingId}/contracts/${id}/edit`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
             {code}
           </Link>,
         );
@@ -46,7 +46,7 @@ export function renderContentWithLinks({
       const id = invoiceMap.get(code);
       if (id) {
         parts.push(
-          <Link key={key++} href={`/buildings/${buildingId}/invoices/${id}`} className="text-primary hover:underline">
+          <Link key={key++} href={`/buildings/${buildingId}/invoices/${id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
             {code}
           </Link>,
         );

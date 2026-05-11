@@ -135,38 +135,26 @@ export async function PnLTab({
       ? customerDisplayName(t.customer)
       : t.party?.name ?? "";
 
-    if (t.type === "INCOME" && t.invoice && t.invoice.totalAmount > 0n) {
+    if (t.type === "INCOME" && t.invoice && t.invoice.totalAmount > 0n && !t.invoice.isManual) {
       const inv = t.invoice;
-      // Manual invoice: split the payment proportionally across non-deposit
-      // (countInBR=true) line items, grouped by their category. Deposit lines
-      // are explicitly excluded from BCKD by their countInBR=false flag, which
-      // also keeps the deposit per-line transaction out of `transactions`.
-      const breakdown: [string, bigint][] = inv.isManual
-        ? inv.lineItems
-            .filter((l) => l.countInBR && l.amount > 0n)
-            .map<[string, bigint]>((l) => [l.category?.name ?? "Khác", l.amount])
-        : ([
-            ["Tiền phòng", inv.rentAmount],
-            ["Tiền điện", inv.electricityFee],
-            ["Tiền nước", inv.waterFee],
-            ["Phí gửi xe", inv.parkingFee],
-            ["Phí dịch vụ", inv.serviceFee],
-            ["Phí ngoài giờ", inv.overtimeFee],
-            ["VAT", inv.vatAmount],
-          ].filter(([, v]) => (v as bigint) > 0n) as [string, bigint][]);
-      // Sum used for proportional allocation. For manual invoices this is the
-      // BCKD-eligible portion only — for auto invoices it's the full
-      // totalAmount (matches the existing behavior).
-      const breakdownTotal = inv.isManual
-        ? breakdown.reduce((s, [, v]) => s + v, 0n)
-        : inv.totalAmount;
-      if (breakdown.length > 0 && breakdownTotal > 0n) {
+      // Auto invoice: split the payment proportionally across the structured
+      // fee fields so KQKD reflects what's actually rent vs điện vs nước etc.
+      const breakdown = [
+        ["Tiền phòng", inv.rentAmount],
+        ["Tiền điện", inv.electricityFee],
+        ["Tiền nước", inv.waterFee],
+        ["Phí gửi xe", inv.parkingFee],
+        ["Phí dịch vụ", inv.serviceFee],
+        ["Phí ngoài giờ", inv.overtimeFee],
+        ["VAT", inv.vatAmount],
+      ].filter(([, v]) => (v as bigint) > 0n) as [string, bigint][];
+      if (breakdown.length > 0) {
         let allocated = 0n;
         for (let i = 0; i < breakdown.length; i++) {
           const [name, fee] = breakdown[i];
           const amt = i === breakdown.length - 1
             ? t.amount - allocated
-            : (fee * t.amount) / breakdownTotal;
+            : (fee * t.amount) / inv.totalAmount;
           if (amt > 0n) {
             add(map, name, amt, {
               txId: t.id,
@@ -181,21 +169,23 @@ export async function PnLTab({
             allocated += amt;
           }
         }
-      } else {
-        // Manual invoice with no eligible lines (e.g. deposit-only). Bucket
-        // under the transaction's own category so it doesn't silently vanish.
-        const key = t.category?.name ?? "Khác";
-        add(map, key, t.amount, {
-          txId: t.id,
-          date: t.date.toISOString(),
-          amount: t.amount.toString(),
-          content: t.content,
-          partyLabel,
-          roomNumber: t.room?.number ?? null,
-          invoiceId: inv.id,
-          invoiceCode: inv.code,
-        });
       }
+    } else if (t.type === "INCOME" && t.invoice && t.invoice.isManual) {
+      // Manual invoice: the user wants the entire payment to land under
+      // "Tiền phòng" instead of being split across the freeform line item
+      // categories (which can include điện, dịch vụ, etc. that aren't really
+      // rent). Keeps KQKD totals stable: 1 manual invoice → 1 row.
+      const inv = t.invoice;
+      add(map, "Tiền phòng", t.amount, {
+        txId: t.id,
+        date: t.date.toISOString(),
+        amount: t.amount.toString(),
+        content: t.content,
+        partyLabel,
+        roomNumber: t.room?.number ?? null,
+        invoiceId: inv.id,
+        invoiceCode: inv.code,
+      });
     } else {
       const key = t.category?.name ?? "Khác";
       add(map, key, t.amount, {

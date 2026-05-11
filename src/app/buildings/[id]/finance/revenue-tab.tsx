@@ -224,7 +224,7 @@ export async function RevenueTab({
     });
   }
 
-  rows.sort((a, b) => a.date.localeCompare(b.date));
+  rows.sort((a, b) => b.date.localeCompare(a.date));
 
   const flatRooms = rooms.map((r) => ({
     id: r.id,
