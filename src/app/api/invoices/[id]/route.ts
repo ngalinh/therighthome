@@ -151,9 +151,18 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
 
   if (hard) {
     // Permanent removal — only allowed for already-cancelled invoices so the
-    // user can't accidentally wipe an active HĐ in one click.
+    // user can't accidentally wipe an active HĐ in one click. For auto
+    // invoices (isManual=false), keep the CANCELLED row instead so the
+    // monthly auto-gen respects the cancellation; users wanting a fresh
+    // invoice should use "Tạo hoá đơn" on the contract page (reactivates).
     if (inv.status !== "CANCELLED") {
       return NextResponse.json({ error: "Chỉ có thể xoá HĐ đã huỷ" }, { status: 400 });
+    }
+    if (!inv.isManual) {
+      return NextResponse.json(
+        { error: "Không thể xoá vĩnh viễn HĐ tự động. Dùng 'Tạo hoá đơn' trên trang HĐ để kích hoạt lại." },
+        { status: 400 },
+      );
     }
     await prisma.$transaction(async (tx) => {
       // Cancel should already have wiped the transactions, but we re-run for
