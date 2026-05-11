@@ -103,12 +103,14 @@ async function main() {
         });
       }
     }
-    for (const pm of PAYMENT_METHODS[buildingType]) {
-      await prisma.paymentMethod.upsert({
-        where: { buildingType_name: { buildingType, name: pm.name } },
-        create: { buildingType, ...pm },
-        update: {},
-      });
+    // Only seed payment methods for a buildingType when none exist yet —
+    // otherwise this loop re-creates entries the user has intentionally
+    // deleted on every container restart (seed runs in entrypoint.sh).
+    const pmCount = await prisma.paymentMethod.count({ where: { buildingType } });
+    if (pmCount === 0) {
+      for (const pm of PAYMENT_METHODS[buildingType]) {
+        await prisma.paymentMethod.create({ data: { buildingType, ...pm } });
+      }
     }
   }
 
