@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND, formatVNDCompact, customerDisplayName, serializeBigInt } from "@/lib/utils";
 import { PnLFilter } from "./pnl-filter";
 import { PnLBreakdownTable, type DetailRow } from "./pnl-breakdown-table";
+import { PnLBarChart, type PnLChartPoint } from "./pnl-bar-chart";
+import { FinanceExportButton } from "./finance-export-button";
+import type { ExportSheet } from "@/lib/export-xlsx";
 
 /**
  * KQKD = chỉ tính giao dịch tick countInBR.
@@ -220,9 +223,87 @@ export async function PnLTab({
   }
   const grandProfit = grandIn - grandOut;
 
+  // Chart series. For "Trong tháng" we bucket the single month's transactions
+  // into 4 weeks (1-7, 8-14, 15-21, 22+); otherwise one bar group per month.
+  let chartSeries: PnLChartPoint[] = [];
+  if (range === "month" && fromY != null && fromM != null) {
+    const key = `${fromY}-${String(fromM).padStart(2, "0")}`;
+    const agg = byMonth.get(key);
+    const weeks = [
+      { income: 0n, expense: 0n },
+      { income: 0n, expense: 0n },
+      { income: 0n, expense: 0n },
+      { income: 0n, expense: 0n },
+    ];
+    const weekIdx = (day: number) => (day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3);
+    if (agg) {
+      for (const cat of agg.incomeByCat.values()) {
+        for (const d of cat.details) {
+          weeks[weekIdx(new Date(d.date).getDate())].income += BigInt(d.amount);
+        }
+      }
+      for (const cat of agg.expenseByCat.values()) {
+        for (const d of cat.details) {
+          weeks[weekIdx(new Date(d.date).getDate())].expense += BigInt(d.amount);
+        }
+      }
+    }
+    chartSeries = weeks.map((w, i) => ({
+      label: `Tuần ${i + 1}`,
+      income: Number(w.income),
+      expense: Number(w.expense),
+      profit: Number(w.income - w.expense),
+    }));
+  } else {
+    // Chronological order (oldest → newest) so months read left to right.
+    chartSeries = [...monthKeys].reverse().map((k) => {
+      const agg = byMonth.get(k)!;
+      let inc = 0n;
+      let exp = 0n;
+      for (const v of agg.incomeByCat.values()) inc += v.total;
+      for (const v of agg.expenseByCat.values()) exp += v.total;
+      const [yStr, mStr] = k.split("-");
+      return {
+        label: `T${Number(mStr)}/${yStr.slice(-2)}`,
+        income: Number(inc),
+        expense: Number(exp),
+        profit: Number(inc - exp),
+      };
+    });
+  }
+
+  // Export: one row per (month, type, category). Periodic totals appended.
+  const exportRows: Record<string, unknown>[] = [];
+  for (const k of [...monthKeys].reverse()) {
+    const [yStr, mStr] = k.split("-");
+    const period = `T${Number(mStr)}/${yStr}`;
+    const agg = byMonth.get(k)!;
+    let inc = 0n;
+    let exp = 0n;
+    for (const [name, v] of agg.incomeByCat.entries()) {
+      exportRows.push({ "Tháng": period, "Loại": "THU", "Hạng mục": name, "Số tiền": Number(v.total) });
+      inc += v.total;
+    }
+    for (const [name, v] of agg.expenseByCat.entries()) {
+      exportRows.push({ "Tháng": period, "Loại": "CHI", "Hạng mục": name, "Số tiền": Number(v.total) });
+      exp += v.total;
+    }
+    exportRows.push({ "Tháng": period, "Loại": "TỔNG THU", "Hạng mục": "", "Số tiền": Number(inc) });
+    exportRows.push({ "Tháng": period, "Loại": "TỔNG CHI", "Hạng mục": "", "Số tiền": Number(exp) });
+    exportRows.push({ "Tháng": period, "Loại": "LỢI NHUẬN", "Hạng mục": "", "Số tiền": Number(inc - exp) });
+  }
+  const exportSheets: ExportSheet[] = [{ name: "KQKD", rows: exportRows }];
+  const rangeLabel = range === "month" ? "thang" : range === "6m" ? "6thang" : range === "1y" ? "1nam" : range === "custom" ? "tuychon" : "tatca";
+  const exportFilename = `kqkd-${rangeLabel}.xlsx`;
+
   return (
     <div className="space-y-4">
-      <PnLFilter buildingId={buildingId} range={range} from={from} to={to} />
+      <div className="flex flex-wrap gap-2 items-end">
+        <PnLFilter buildingId={buildingId} range={range} from={from} to={to} />
+        <div className="ml-auto">
+          <FinanceExportButton filename={exportFilename} sheets={exportSheets} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div className="stat sage flex flex-col justify-center min-h-[100px]">
@@ -252,6 +333,19 @@ export async function PnLTab({
         <Card>
           <CardContent className="p-6 text-center text-sm text-slate-500">
             Không có dữ liệu trong khoảng đã chọn
+          </CardContent>
+        </Card>
+      )}
+
+      {chartSeries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {range === "month" ? "Biểu đồ theo tuần" : "Biểu đồ theo tháng"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PnLBarChart series={chartSeries} />
           </CardContent>
         </Card>
       )}
