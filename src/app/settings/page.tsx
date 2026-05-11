@@ -33,7 +33,7 @@ export default async function GlobalSettingsPage({
       include: { buildings: { select: { id: true, name: true, type: true } } },
       orderBy: [{ buildingType: "asc" }, { name: "asc" }],
     }) : [],
-    isAdmin ? prisma.partyKindConfig.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }) : [],
+    isAdmin ? prisma.partyKindConfig.findMany({ orderBy: { label: "asc" } }) : [],
     isAdmin ? prisma.auditLog.findMany({
       include: { user: { select: { email: true, name: true } } },
       orderBy: { createdAt: "desc" },
