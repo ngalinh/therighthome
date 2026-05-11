@@ -840,9 +840,9 @@ function TerminateContractDialog({
   paymentMethods: { id: string; name: string }[];
   onDone: () => void;
 }) {
-  const [reason, setReason] = useState<"EXPIRED" | "TERMINATED_LOST_DEPOSIT">("EXPIRED");
+  const [reason, setReason] = useState<"TERMINATED" | "TERMINATED_LOST_DEPOSIT">("TERMINATED");
   const [terminatedAt, setTerminatedAt] = useState(new Date().toISOString().slice(0, 10));
-  const [refund, setRefund] = useState("");
+  const [refund, setRefund] = useState(formatNumber(BigInt(contract.depositAmount)));
   const [lost, setLost] = useState(formatNumber(BigInt(contract.depositAmount)));
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -883,10 +883,10 @@ function TerminateContractDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Lý do</Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as "EXPIRED" | "TERMINATED_LOST_DEPOSIT")}>
+            <Select value={reason} onValueChange={(v) => setReason(v as "TERMINATED" | "TERMINATED_LOST_DEPOSIT")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="EXPIRED">Hết hạn HĐ (trả cọc)</SelectItem>
+                <SelectItem value="TERMINATED">Hết hạn HĐ (trả cọc)</SelectItem>
                 <SelectItem value="TERMINATED_LOST_DEPOSIT">Dừng thuê (mất cọc)</SelectItem>
               </SelectContent>
             </Select>
