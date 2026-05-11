@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "@/lib/utils";
 import { MonthYearFilter } from "./month-year-filter";
 import { renderContentWithLinks } from "./render-content";
+import { FinanceExportButton } from "./finance-export-button";
+import type { ExportSheet } from "@/lib/export-xlsx";
 
 /**
  * Sổ quỹ — mỗi PTTT 1 bảng:
@@ -47,9 +49,42 @@ export async function CashbookTab({
   const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
   const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
 
+  const exportSheets: ExportSheet[] = paymentMethods.map((pm) => {
+    const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
+    const opening = openingMap.get(pm.name) ?? 0n;
+    let running = opening;
+    const rows: Record<string, unknown>[] = [
+      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
+    ];
+    for (const t of txs) {
+      if (t.type === "INCOME") running += t.amount;
+      else running -= t.amount;
+      const partyLabel = t.customer
+        ? customerDisplayName(t.customer)
+        : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
+      rows.push({
+        "Ngày": formatDateVN(t.date),
+        "Loại thu/chi": t.category?.name ?? "",
+        "Đối tượng": partyLabel,
+        "Phòng": t.room ? formatRoomNumber(t.room.number) : "",
+        "Nội dung": t.content,
+        "Thu": t.type === "INCOME" ? Number(t.amount) : "",
+        "Chi": t.type === "EXPENSE" ? Number(t.amount) : "",
+        "Số dư": Number(running),
+      });
+    }
+    rows.push({ "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) });
+    return { name: pm.name, rows };
+  });
+
   return (
     <div className="space-y-4">
-      <MonthYearFilter buildingId={buildingId} month={month} year={year} tab="cashbook" />
+      <div className="flex flex-wrap gap-2 items-center">
+        <MonthYearFilter buildingId={buildingId} month={month} year={year} tab="cashbook" />
+        <div className="ml-auto">
+          <FinanceExportButton filename={`so-quy-${month}-${year}.xlsx`} sheets={exportSheets} />
+        </div>
+      </div>
 
       {paymentMethods.map((pm) => {
         const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
