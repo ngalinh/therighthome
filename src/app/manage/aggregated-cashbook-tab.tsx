@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "@/lib/utils";
 import { renderContentWithLinks } from "@/app/buildings/[id]/finance/render-content";
+import { FinanceExportButton } from "@/app/buildings/[id]/finance/finance-export-button";
+import type { ExportSheet } from "@/lib/export-xlsx";
 import { AggregatedCashbookFilter } from "./aggregated-cashbook-filter";
 
 /**
@@ -90,10 +92,11 @@ export async function AggregatedCashbookTab({
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
-  const [transactions, openings, contractList, invoiceList] = await Promise.all([
+  const sharedPMIds = sharedPMs.map((pm) => pm.id);
+  const [transactions, allOpenings, priorTxs, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
       where: {
-        paymentMethodId: { in: sharedPMs.map((pm) => pm.id) },
+        paymentMethodId: { in: sharedPMIds },
         buildingId: { in: targetBuildingIds },
         date: { gte: start, lte: end },
       },
@@ -111,9 +114,20 @@ export async function AggregatedCashbookTab({
       where: {
         buildingId: { in: targetBuildingIds },
         kind: "CASHBOOK",
-        asOfMonth: month,
-        asOfYear: year,
+        OR: [
+          { asOfYear: { lt: year } },
+          { asOfYear: year, asOfMonth: { lte: month } },
+        ],
       },
+      orderBy: [{ asOfYear: "desc" }, { asOfMonth: "desc" }],
+    }),
+    prisma.transaction.findMany({
+      where: {
+        buildingId: { in: targetBuildingIds },
+        paymentMethodId: { in: sharedPMIds },
+        date: { lt: start },
+      },
+      select: { type: true, amount: true, paymentMethodId: true, buildingId: true, date: true },
     }),
     prisma.contract.findMany({
       where: { buildingId: { in: targetBuildingIds } },
@@ -126,31 +140,86 @@ export async function AggregatedCashbookTab({
   ]);
   const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
   const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
-  // Opening balances are stored per (building, paymentMethodLabel). For the
-  // aggregated view we sum the openings of every accessible building that
-  // shares the PM, so the "Đầu kỳ" reflects the cross-building starting point.
-  const openingByPMLabel = new Map<string, bigint>();
-  for (const o of openings) {
-    if (!o.paymentMethodLabel) continue;
-    openingByPMLabel.set(
-      o.paymentMethodLabel,
-      (openingByPMLabel.get(o.paymentMethodLabel) ?? 0n) + o.amount,
-    );
+  // Mirror per-building Sổ quỹ logic: opening for each (building, PM) is the
+  // latest OB on/before this month, then accumulate prior-month txs from that
+  // OB's month forward. Sum across buildings to get the aggregated opening.
+  const latestOBByBldgPm = new Map<string, { amount: bigint; asOfMonth: number; asOfYear: number }>();
+  for (const ob of allOpenings) {
+    if (!ob.paymentMethodLabel) continue;
+    const key = `${ob.buildingId}::${ob.paymentMethodLabel}`;
+    if (!latestOBByBldgPm.has(key)) {
+      latestOBByBldgPm.set(key, { amount: ob.amount, asOfMonth: ob.asOfMonth, asOfYear: ob.asOfYear });
+    }
   }
+  const openingByPMLabel = new Map<string, bigint>();
+  for (const pm of sharedPMs) {
+    let sum = 0n;
+    for (const bId of targetBuildingIds) {
+      const ob = latestOBByBldgPm.get(`${bId}::${pm.name}`);
+      if (ob && ob.asOfMonth === month && ob.asOfYear === year) {
+        sum += ob.amount;
+        continue;
+      }
+      const obStart = ob ? new Date(ob.asOfYear, ob.asOfMonth - 1, 1) : new Date(0);
+      let bal = ob?.amount ?? 0n;
+      for (const t of priorTxs) {
+        if (t.buildingId !== bId) continue;
+        if (t.paymentMethodId !== pm.id) continue;
+        if (t.date < obStart) continue;
+        bal += t.type === "INCOME" ? t.amount : -t.amount;
+      }
+      sum += bal;
+    }
+    openingByPMLabel.set(pm.name, sum);
+  }
+
+  const exportSheets: ExportSheet[] = sharedPMs.map((pm) => {
+    const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
+    const opening = openingByPMLabel.get(pm.name) ?? 0n;
+    let running = opening;
+    const rows: Record<string, unknown>[] = [
+      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
+    ];
+    for (const t of txs) {
+      if (t.type === "INCOME") running += t.amount;
+      else running -= t.amount;
+      const partyLabel = t.customer
+        ? customerDisplayName(t.customer)
+        : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
+      rows.push({
+        "Ngày": formatDateVN(t.date),
+        "Toà nhà": buildingNameById.get(t.buildingId) ?? t.building?.name ?? "",
+        "Loại thu/chi": t.category?.name ?? "",
+        "Đối tượng": partyLabel,
+        "Phòng": t.room ? formatRoomNumber(t.room.number) : "",
+        "Nội dung": t.content,
+        "Thu": t.type === "INCOME" ? Number(t.amount) : "",
+        "Chi": t.type === "EXPENSE" ? Number(t.amount) : "",
+        "Số dư": Number(running),
+      });
+    }
+    rows.push({ "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) });
+    return { name: pm.name, rows };
+  });
 
   return (
     <div className="space-y-4">
-      <AggregatedCashbookFilter
-        kind={kind}
-        buildings={buildings}
-        month={month}
-        year={year}
-        buildingFilter={buildingFilter}
-        categories={categories}
-        partyKindConfigs={partyKindConfigs}
-        categoryFilter={categoryFilter}
-        partyFilter={partyFilter}
-      />
+      <div className="flex flex-wrap gap-2 items-center">
+        <AggregatedCashbookFilter
+          kind={kind}
+          buildings={buildings}
+          month={month}
+          year={year}
+          buildingFilter={buildingFilter}
+          categories={categories}
+          partyKindConfigs={partyKindConfigs}
+          categoryFilter={categoryFilter}
+          partyFilter={partyFilter}
+        />
+        <div className="ml-auto">
+          <FinanceExportButton filename={`so-quy-tong-${month}-${year}.xlsx`} sheets={exportSheets} />
+        </div>
+      </div>
 
       {sharedPMs.map((pm) => {
         const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
