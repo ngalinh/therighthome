@@ -204,7 +204,11 @@ export async function AggregatedCashbookTab({
       ...txRows,
       { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
     ];
-    return { name: pm.name, rows };
+    return {
+      name: pm.name,
+      rows,
+      header: ["Ngày", "Toà nhà", "Loại thu/chi", "Đối tượng", "Phòng", "Nội dung", "Thu", "Chi", "Số dư"],
+    };
   });
 
   return (

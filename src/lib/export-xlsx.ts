@@ -5,6 +5,11 @@
 export type ExportSheet = {
   name: string;
   rows: Record<string, unknown>[];
+  // Optional explicit column order. Without this, xlsx.json_to_sheet derives
+  // headers from the FIRST row's keys, then appends new keys as it scans —
+  // which produces wrong order when summary rows (with fewer keys) lead the
+  // data. Pass header to lock the column sequence.
+  header?: string[];
 };
 
 export async function exportToXlsx(filename: string, sheets: ExportSheet[]): Promise<void> {
@@ -13,7 +18,9 @@ export async function exportToXlsx(filename: string, sheets: ExportSheet[]): Pro
   for (const s of sheets) {
     // Sanitize sheet name (Excel: ≤31 chars, no special).
     const safeName = s.name.replace(/[\\/?*[\]:]/g, "").slice(0, 31) || "Sheet";
-    const ws = XLSX.utils.json_to_sheet(s.rows);
+    const ws = s.header
+      ? XLSX.utils.json_to_sheet(s.rows, { header: s.header })
+      : XLSX.utils.json_to_sheet(s.rows);
     XLSX.utils.book_append_sheet(wb, ws, safeName);
   }
   const safeFile = filename.toLowerCase().endsWith(".xlsx") ? filename : `${filename}.xlsx`;
