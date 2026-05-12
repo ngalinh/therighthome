@@ -11,7 +11,7 @@ export type PnLChartPoint = {
 // Brand palette (matches the stat card variants on the same page).
 const COLORS = {
   income: "#4f8a5c",  // sage
-  expense: "#c96442", // terra coral
+  expense: "#a04a30", // earthy red-brown ("đỏ nâu đất")
   profit: "#6b4226",  // dark brown
 };
 
@@ -61,9 +61,9 @@ export function PnLBarChart({ series }: { series: PnLChartPoint[] }) {
               <div className="absolute inset-0 flex items-end justify-around gap-2 px-2">
                 {series.map((p) => (
                   <div key={p.label} className="flex items-end justify-center gap-1.5 h-full flex-1">
-                    <Bar value={p.income} max={yTop} color={COLORS.income} title={`Doanh thu: ${formatVND(p.income)}`} />
-                    <Bar value={p.expense} max={yTop} color={COLORS.expense} title={`Chi phí: ${formatVND(p.expense)}`} />
-                    <Bar value={p.profit} max={yTop} color={COLORS.profit} title={`Lợi nhuận: ${formatVND(p.profit)}`} />
+                    <Bar value={p.income} max={yTop} color={COLORS.income} label="Doanh thu" />
+                    <Bar value={p.expense} max={yTop} color={COLORS.expense} label="Chi phí" />
+                    <Bar value={p.profit} max={yTop} color={COLORS.profit} label="Lợi nhuận" />
                   </div>
                 ))}
               </div>
@@ -88,19 +88,25 @@ export function PnLBarChart({ series }: { series: PnLChartPoint[] }) {
   );
 }
 
-function Bar({ value, max, color, title }: { value: number; max: number; color: string; title: string }) {
+function Bar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
   const pct = max > 0 ? Math.min(100, (Math.abs(value) / max) * 100) : 0;
   return (
-    <div
-      title={title}
-      className="rounded-t-sm transition-all"
-      style={{
-        width: 16,
-        height: `${pct}%`,
-        minHeight: value !== 0 ? 2 : 0,
-        backgroundColor: color,
-      }}
-    />
+    <div className="h-full flex flex-col justify-end" style={{ width: 16 }}>
+      <div
+        className="relative group rounded-t-sm transition-all hover:opacity-80"
+        style={{
+          width: 16,
+          height: `${pct}%`,
+          minHeight: value !== 0 ? 2 : 0,
+          backgroundColor: color,
+        }}
+      >
+        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-md">
+          <div className="text-[9px] uppercase tracking-wider text-slate-300">{label}</div>
+          <div className="tabular-nums">{formatVND(value)}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

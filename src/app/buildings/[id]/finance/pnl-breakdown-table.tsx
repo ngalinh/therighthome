@@ -57,8 +57,11 @@ export function PnLBreakdownTable({
               </div>
               <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden ml-4">
                 <div
-                  className={`h-full ${accent === "emerald" ? "bg-emerald-500" : "bg-rose-500"}`}
-                  style={{ width: `${pct}%` }}
+                  className="h-full"
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: accent === "emerald" ? "#4f8a5c" : "#a04a30",
+                  }}
                 />
               </div>
               <div className="text-[10px] text-slate-500 mt-0.5 ml-4">{pct.toFixed(1)}%</div>
