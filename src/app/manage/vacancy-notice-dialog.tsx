@@ -27,27 +27,59 @@ type VacantRoom = {
   previousRent: string | null;
 };
 
+type Group = { building: Building; rooms: VacantRoom[] };
+
+type EditableRoom = {
+  id: string;
+  number: string;
+  rent: string;        // raw input (digits or empty)
+  info: string;
+  notes: string;
+};
+
+type EditableGroup = {
+  buildingId: string;
+  title: string;       // building name (editable)
+  address: string;
+  body: string;        // building.info-derived multiline text
+  rooms: EditableRoom[];
+};
+
 export function VacancyNoticeDialog({
-  building, room, onClose,
+  groups, onClose,
 }: {
-  building: Building;
-  room: VacantRoom;
+  groups: Group[];
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState("THE RIGHT HOME");
-  const [address, setAddress] = useState(building.address);
-  const [roomNumber, setRoomNumber] = useState(formatRoomNumber(room.number));
-  const [expectedRent, setExpectedRent] = useState(room.expectedRent ?? "");
-  const [roomInfo, setRoomInfo] = useState(room.info ?? "");
-  const [vacancyNotes, setVacancyNotes] = useState(room.vacancyNotes ?? "");
-  const [body, setBody] = useState(building.info ?? "");
+  const [brand, setBrand] = useState("THE RIGHT HOME");
+  const [editable, setEditable] = useState<EditableGroup[]>(
+    () => groups.map((g) => ({
+      buildingId: g.building.id,
+      title: g.building.name,
+      address: g.building.address,
+      body: g.building.info ?? "",
+      rooms: g.rooms.map((r) => ({
+        id: r.id,
+        number: formatRoomNumber(r.number),
+        rent: r.expectedRent ?? "",
+        info: r.info ?? "",
+        notes: r.vacancyNotes ?? "",
+      })),
+    })),
+  );
   const [exporting, setExporting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const rentDisplay = expectedRent ? formatNumber(parseVNDInput(expectedRent)) : "";
-  const rentVND = expectedRent ? formatVND(parseVNDInput(expectedRent)) : "";
-
-  const bodyBlocks = useMemo(() => parseTemplateBody(body), [body]);
+  function patchGroup(buildingId: string, patch: Partial<EditableGroup>) {
+    setEditable((prev) => prev.map((g) => (g.buildingId === buildingId ? { ...g, ...patch } : g)));
+  }
+  function patchRoom(buildingId: string, roomId: string, patch: Partial<EditableRoom>) {
+    setEditable((prev) => prev.map((g) =>
+      g.buildingId === buildingId
+        ? { ...g, rooms: g.rooms.map((r) => (r.id === roomId ? { ...r, ...patch } : r)) }
+        : g,
+    ));
+  }
 
   async function generateBlob(): Promise<Blob | null> {
     if (!previewRef.current) return null;
@@ -62,6 +94,13 @@ export function VacancyNoticeDialog({
     return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
   }
 
+  const fileLabel = useMemo(() => {
+    if (editable.length === 1) {
+      return `thong-bao-${editable[0].title}-${editable[0].rooms.map((r) => r.number).join("-")}.png`;
+    }
+    return `thong-bao-phong-trong.png`;
+  }, [editable]);
+
   async function download() {
     setExporting(true);
     try {
@@ -70,7 +109,7 @@ export function VacancyNoticeDialog({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `thong-bao-${building.name}-P${room.number}.png`;
+      a.download = fileLabel;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -88,14 +127,13 @@ export function VacancyNoticeDialog({
     try {
       const blob = await generateBlob();
       if (!blob) throw new Error("Không tạo được hình");
-      const file = new File([blob], `thong-bao-${building.name}-P${room.number}.png`, { type: "image/png" });
+      const file = new File([blob], fileLabel, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Phòng trống — ${building.name}` });
+        await navigator.share({ files: [file], title: "Thông báo phòng trống" });
       } else {
         await download();
       }
     } catch (e) {
-      // Sharing cancelled is not an error.
       if (e instanceof Error && e.name === "AbortError") return;
       toast.error(e instanceof Error ? e.message : "Lỗi chia sẻ");
     } finally {
@@ -103,87 +141,99 @@ export function VacancyNoticeDialog({
     }
   }
 
+  const totalRooms = editable.reduce((s, g) => s + g.rooms.length, 0);
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Thông báo phòng trống — {building.name} · Phòng {room.number}</DialogTitle>
+          <DialogTitle>
+            Thông báo phòng trống — {totalRooms} phòng / {editable.length} toà
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Editor */}
-          <div className="space-y-3 text-sm">
+          <div className="space-y-4 text-sm">
             <p className="text-xs text-slate-500">
               Chỉnh nội dung bên dưới rồi bấm "Tải hình" để xuất ảnh gửi môi giới. Mỗi dòng bắt đầu bằng <code>**Heading**</code> sẽ in đậm trong mẫu.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tiêu đề</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Phòng</Label>
-                <Input value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} />
-              </div>
-            </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Địa chỉ</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+              <Label className="text-xs">Tiêu đề thương hiệu</Label>
+              <Input value={brand} onChange={(e) => setBrand(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Giá thuê dự kiến (₫)</Label>
-                <Input
-                  inputMode="numeric"
-                  value={rentDisplay}
-                  onChange={(e) => setExpectedRent(e.target.value)}
-                  placeholder="—"
-                />
+            {editable.map((g) => (
+              <div key={g.buildingId} className="rounded-xl border border-slate-200 p-3 space-y-3 bg-slate-50/40">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tên toà</Label>
+                    <Input value={g.title} onChange={(e) => patchGroup(g.buildingId, { title: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Địa chỉ</Label>
+                    <Input value={g.address} onChange={(e) => patchGroup(g.buildingId, { address: e.target.value })} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {g.rooms.map((r) => {
+                    const rentDisplay = r.rent ? formatNumber(parseVNDInput(r.rent)) : "";
+                    return (
+                      <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Phòng</Label>
+                            <Input value={r.number} onChange={(e) => patchRoom(g.buildingId, r.id, { number: e.target.value })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Giá thuê dự kiến (₫)</Label>
+                            <Input
+                              inputMode="numeric"
+                              value={rentDisplay}
+                              onChange={(e) => patchRoom(g.buildingId, r.id, { rent: e.target.value })}
+                              placeholder="—"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Thông tin phòng</Label>
+                          <Textarea
+                            value={r.info}
+                            onChange={(e) => patchRoom(g.buildingId, r.id, { info: e.target.value })}
+                            rows={2}
+                            placeholder="vd: 25m², ban công, hướng Đông Nam"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Ghi chú</Label>
+                          <Input
+                            value={r.notes}
+                            onChange={(e) => patchRoom(g.buildingId, r.id, { notes: e.target.value })}
+                            placeholder="vd: dọn vào tháng 6"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nội dung chung của toà</Label>
+                  <Textarea
+                    value={g.body}
+                    onChange={(e) => patchGroup(g.buildingId, { body: e.target.value })}
+                    rows={10}
+                    className="font-mono text-[12px]"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Ghi chú phòng</Label>
-                <Input value={vacancyNotes} onChange={(e) => setVacancyNotes(e.target.value)} placeholder="vd: dọn vào tháng 6" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Thông tin phòng</Label>
-              <Textarea
-                value={roomInfo}
-                onChange={(e) => setRoomInfo(e.target.value)}
-                rows={3}
-                placeholder="vd: 25m², ban công, hướng Đông Nam"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nội dung chung</Label>
-              <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={16}
-                className="font-mono text-[12px]"
-                placeholder="Mỗi dòng một mục. Dùng **...** để in đậm tiêu đề."
-              />
-              <p className="text-[11px] text-slate-500">
-                Mặc định lấy từ trường "Thông tin chung" của toà nhà (Cài đặt chung &gt; Toà nhà).
-              </p>
-            </div>
+            ))}
           </div>
 
-          {/* Preview (also the export target) */}
+          {/* Preview (export target) */}
           <div className="lg:sticky lg:top-0 lg:self-start">
             <div className="text-[11px] text-slate-500 mb-1.5">Xem trước · Tỷ lệ thật khi xuất hình</div>
             <div className="overflow-x-auto -mx-1 px-1">
               <div className="inline-block min-w-[640px]">
-                <NoticePreview
-                  ref={previewRef}
-                  title={title}
-                  address={address}
-                  roomNumber={roomNumber}
-                  rentVND={rentVND}
-                  roomInfo={roomInfo}
-                  vacancyNotes={vacancyNotes}
-                  bodyBlocks={bodyBlocks}
-                />
+                <NoticePreview ref={previewRef} brand={brand} groups={editable} />
               </div>
             </div>
           </div>
@@ -220,20 +270,12 @@ function parseTemplateBody(text: string): BodyBlock[] {
 }
 
 function NoticePreview({
-  ref, title, address, roomNumber, rentVND, roomInfo, vacancyNotes, bodyBlocks,
+  ref, brand, groups,
 }: {
   ref?: React.Ref<HTMLDivElement>;
-  title: string;
-  address: string;
-  roomNumber: string;
-  rentVND: string;
-  roomInfo: string;
-  vacancyNotes: string;
-  bodyBlocks: BodyBlock[];
+  brand: string;
+  groups: EditableGroup[];
 }) {
-  // Inline styles only — html2canvas-pro needs concrete values; Tailwind
-  // classes work but using inline keeps the captured layout deterministic
-  // regardless of viewport.
   return (
     <div
       ref={ref}
@@ -248,71 +290,83 @@ function NoticePreview({
         borderRadius: 12,
       }}
     >
-      {/* Header */}
       <div style={{ textAlign: "center", paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.18)" }}>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1.5 }}>{title}</div>
-        <div style={{ marginTop: 4, fontSize: 13, opacity: 0.92 }}>{address}</div>
-      </div>
-
-      {/* Room highlight */}
-      <div
-        style={{
-          marginTop: 14,
-          padding: "12px 14px",
-          background: "rgba(255,255,255,0.07)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>Phòng {roomNumber}</div>
-          {rentVND && (
-            <div style={{ fontWeight: 700, fontSize: 15, color: "#ffd47a" }}>
-              {rentVND}/tháng
-            </div>
-          )}
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1.5 }}>{brand}</div>
+        <div style={{ marginTop: 4, fontSize: 12.5, opacity: 0.85 }}>
+          THÔNG BÁO PHÒNG TRỐNG
         </div>
-        {roomInfo && (
-          <div style={{ marginTop: 6, fontSize: 12.5, opacity: 0.92, whiteSpace: "pre-line" }}>{roomInfo}</div>
-        )}
-        {vacancyNotes && (
-          <div style={{ marginTop: 6, fontSize: 12, fontStyle: "italic", color: "#ffd47a" }}>{vacancyNotes}</div>
-        )}
       </div>
 
-      {/* Body */}
-      <div style={{ marginTop: 14 }}>
-        {bodyBlocks.length === 0 ? (
-          <p style={{ opacity: 0.7, fontSize: 12.5 }}>
-            (Chưa có nội dung chung. Cập nhật ở Cài đặt chung &gt; Toà nhà hoặc gõ trực tiếp ở ô bên trái.)
-          </p>
-        ) : (
-          bodyBlocks.map((b, i) => {
-            if (b.kind === "blank") return <div key={i} style={{ height: 6 }} />;
-            if (b.kind === "heading") {
-              return (
-                <div
-                  key={i}
-                  style={{
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    marginTop: i === 0 ? 0 : 10,
-                    marginBottom: 4,
-                    color: "#ffd47a",
-                  }}
-                >
-                  {b.text}
-                </div>
-              );
-            }
-            return (
-              <div key={i} style={{ fontSize: 12.5 }}>
-                {b.text}
+      {groups.map((g, gi) => {
+        const bodyBlocks = parseTemplateBody(g.body);
+        return (
+          <div key={g.buildingId} style={{ marginTop: gi === 0 ? 16 : 22 }}>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{g.title}</div>
+              <div style={{ fontSize: 12.5, opacity: 0.9 }}>{g.address}</div>
+            </div>
+
+            {/* Rooms — stacked cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {g.rooms.map((r) => {
+                const rentVND = r.rent ? formatVND(parseVNDInput(r.rent)) : "";
+                return (
+                  <div
+                    key={r.id}
+                    style={{
+                      padding: "10px 14px",
+                      background: "rgba(255,255,255,0.07)",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>Phòng {r.number}</div>
+                      {rentVND && (
+                        <div style={{ fontWeight: 700, fontSize: 14.5, color: "#ffd47a" }}>{rentVND}/tháng</div>
+                      )}
+                    </div>
+                    {r.info && (
+                      <div style={{ marginTop: 4, fontSize: 12.5, opacity: 0.92, whiteSpace: "pre-line" }}>{r.info}</div>
+                    )}
+                    {r.notes && (
+                      <div style={{ marginTop: 4, fontSize: 12, fontStyle: "italic", color: "#ffd47a" }}>{r.notes}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Body — building info */}
+            {bodyBlocks.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                {bodyBlocks.map((b, i) => {
+                  if (b.kind === "blank") return <div key={i} style={{ height: 6 }} />;
+                  if (b.kind === "heading") {
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 13.5,
+                          marginTop: i === 0 ? 0 : 10,
+                          marginBottom: 4,
+                          color: "#ffd47a",
+                        }}
+                      >
+                        {b.text}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} style={{ fontSize: 12.5 }}>{b.text}</div>
+                  );
+                })}
               </div>
-            );
-          })
-        )}
-      </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

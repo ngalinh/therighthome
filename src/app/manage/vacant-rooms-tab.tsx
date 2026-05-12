@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DoorOpen, Megaphone, Loader2 } from "lucide-react";
+import { DoorOpen, Megaphone, Loader2, Save, Check } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatRoomNumber } from "@/lib/utils";
 import { VacancyNoticeDialog } from "./vacancy-notice-dialog";
@@ -31,7 +31,8 @@ type VacantRoom = {
 
 export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; rooms: VacantRoom[] }) {
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
-  const [notice, setNotice] = useState<{ building: Building; room: VacantRoom } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [noticeOpen, setNoticeOpen] = useState(false);
   const buildingById = useMemo(() => new Map(buildings.map((b) => [b.id, b])), [buildings]);
 
   const filteredRooms = useMemo(
@@ -39,19 +40,63 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
     [rooms, buildingFilter],
   );
 
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === filteredRooms.length) setSelected(new Set());
+    else setSelected(new Set(filteredRooms.map((r) => r.id)));
+  }
+
+  const selectedRooms = useMemo(
+    () => rooms.filter((r) => selected.has(r.id)),
+    [rooms, selected],
+  );
+
+  // Group selected rooms by building for the notice dialog.
+  const noticeGroups = useMemo(() => {
+    const groups = new Map<string, { building: Building; rooms: VacantRoom[] }>();
+    for (const r of selectedRooms) {
+      const b = buildingById.get(r.buildingId);
+      if (!b) continue;
+      const g = groups.get(b.id) ?? { building: b, rooms: [] };
+      g.rooms.push(r);
+      groups.set(b.id, g);
+    }
+    return Array.from(groups.values());
+  }, [selectedRooms, buildingById]);
+
+  const allSelected = filteredRooms.length > 0 && selected.size === filteredRooms.length;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <DoorOpen className="h-4 w-4" /> {filteredRooms.length} phòng trống
         </h2>
-        <Select value={buildingFilter} onValueChange={setBuildingFilter}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toà nhà" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Tất cả toà nhà</SelectItem>
-            {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Toà nhà" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả toà nhà</SelectItem>
+              {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="gradient"
+            size="sm"
+            onClick={() => setNoticeOpen(true)}
+            disabled={selected.size === 0}
+          >
+            <Megaphone className="h-4 w-4" /> Thông báo {selected.size > 0 && `(${selected.size})`}
+          </Button>
+        </div>
       </div>
 
       {filteredRooms.length === 0 ? (
@@ -68,7 +113,8 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
                   key={r.id}
                   building={b}
                   room={r}
-                  onNotice={() => setNotice({ building: b, room: r })}
+                  selected={selected.has(r.id)}
+                  onToggle={() => toggle(r.id)}
                 />
               );
             })}
@@ -79,14 +125,22 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                 <tr>
+                  <th className="px-3 py-2.5 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Chọn tất cả"
+                      className="rounded"
+                    />
+                  </th>
                   <th className="text-left px-3 py-2.5">Toà nhà</th>
                   <th className="text-left px-3 py-2.5">Thông tin toà nhà</th>
                   <th className="text-left px-3 py-2.5">Số phòng</th>
                   <th className="text-left px-3 py-2.5 min-w-[180px]">Thông tin phòng</th>
                   <th className="text-right px-3 py-2.5 whitespace-nowrap">Giá thuê trước</th>
                   <th className="text-right px-3 py-2.5 whitespace-nowrap">Giá thuê dự kiến</th>
-                  <th className="text-left px-3 py-2.5 min-w-[160px]">Ghi chú</th>
-                  <th className="text-right px-3 py-2.5">Thông báo</th>
+                  <th className="text-left px-3 py-2.5 min-w-[180px]">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,7 +152,8 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
                       key={r.id}
                       building={b}
                       room={r}
-                      onNotice={() => setNotice({ building: b, room: r })}
+                      selected={selected.has(r.id)}
+                      onToggle={() => toggle(r.id)}
                     />
                   );
                 })}
@@ -108,26 +163,32 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
         </>
       )}
 
-      {notice && (
-        <VacancyNoticeDialog
-          building={notice.building}
-          room={notice.room}
-          onClose={() => setNotice(null)}
-        />
+      {noticeOpen && noticeGroups.length > 0 && (
+        <VacancyNoticeDialog groups={noticeGroups} onClose={() => setNoticeOpen(false)} />
       )}
     </div>
   );
 }
 
 function VacantRoomRow({
-  building, room, onNotice,
+  building, room, selected, onToggle,
 }: {
   building: Building;
   room: VacantRoom;
-  onNotice: () => void;
+  selected: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <tr className="border-t border-slate-100 hover:bg-slate-50/60 align-top">
+    <tr className={`border-t border-slate-100 align-top ${selected ? "bg-amber-50/60" : "hover:bg-slate-50/60"}`}>
+      <td className="px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          aria-label={`Chọn phòng ${room.number}`}
+          className="rounded"
+        />
+      </td>
       <td className="px-3 py-2.5 whitespace-nowrap font-medium">{building.name}</td>
       <td className="px-3 py-2.5 text-xs text-slate-600 max-w-[200px]">
         <div className="line-clamp-3 whitespace-pre-line">{building.info || <span className="text-slate-400">—</span>}</div>
@@ -145,33 +206,35 @@ function VacantRoomRow({
       <td className="px-3 py-2.5">
         <VacancyNotesInput roomId={room.id} buildingId={building.id} value={room.vacancyNotes} />
       </td>
-      <td className="px-3 py-2.5 text-right">
-        <Button size="sm" variant="outline" onClick={onNotice}>
-          <Megaphone className="h-3.5 w-3.5" /> Thông báo
-        </Button>
-      </td>
     </tr>
   );
 }
 
 function VacantRoomCard({
-  building, room, onNotice,
+  building, room, selected, onToggle,
 }: {
   building: Building;
   room: VacantRoom;
-  onNotice: () => void;
+  selected: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <Card>
+    <Card className={selected ? "ring-2 ring-amber-300" : undefined}>
       <CardContent className="p-4 space-y-2.5">
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="font-semibold text-sm">{building.name} · Phòng {room.number}</div>
-            <div className="text-xs text-slate-500">{building.address}</div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Chọn phòng ${room.number}`}
+              className="rounded"
+            />
+            <div className="min-w-0">
+              <div className="font-semibold text-sm">{building.name} · Phòng {room.number}</div>
+              <div className="text-xs text-slate-500">{building.address}</div>
+            </div>
           </div>
-          <Button size="sm" variant="outline" onClick={onNotice}>
-            <Megaphone className="h-3.5 w-3.5" />
-          </Button>
         </div>
         {room.info && <p className="text-xs text-slate-600 whitespace-pre-line line-clamp-4">{room.info}</p>}
         <div className="grid grid-cols-2 gap-2">
@@ -197,10 +260,12 @@ function ExpectedRentInput({ roomId, buildingId, value }: { roomId: string; buil
   const router = useRouter();
   const [raw, setRaw] = useState<string>(value ?? "");
   const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const initial = value ?? "";
+  const dirty = raw !== initial;
 
   async function save() {
-    if (raw === initial) return;
+    if (!dirty) return;
     setSaving(true);
     const parsed = raw.trim() === "" ? null : parseVNDInput(raw).toString();
     const res = await fetch(`/api/buildings/${buildingId}/rooms/${roomId}`, {
@@ -211,9 +276,10 @@ function ExpectedRentInput({ roomId, buildingId, value }: { roomId: string; buil
     setSaving(false);
     if (!res.ok) {
       toast.error("Lưu thất bại");
-      setRaw(initial);
       return;
     }
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1500);
     router.refresh();
   }
 
@@ -224,11 +290,18 @@ function ExpectedRentInput({ roomId, buildingId, value }: { roomId: string; buil
         inputMode="numeric"
         value={display}
         onChange={(e) => setRaw(e.target.value)}
-        onBlur={save}
         className="h-8 w-28 text-right tabular-nums"
         placeholder="—"
       />
-      {saving && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
+      <button
+        type="button"
+        onClick={save}
+        disabled={!dirty || saving}
+        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        aria-label="Lưu"
+      >
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedFlash ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
+      </button>
     </div>
   );
 }
@@ -237,10 +310,12 @@ function VacancyNotesInput({ roomId, buildingId, value }: { roomId: string; buil
   const router = useRouter();
   const [raw, setRaw] = useState<string>(value ?? "");
   const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const initial = value ?? "";
+  const dirty = raw !== initial;
 
   async function save() {
-    if (raw === initial) return;
+    if (!dirty) return;
     setSaving(true);
     const res = await fetch(`/api/buildings/${buildingId}/rooms/${roomId}`, {
       method: "PATCH",
@@ -250,9 +325,10 @@ function VacancyNotesInput({ roomId, buildingId, value }: { roomId: string; buil
     setSaving(false);
     if (!res.ok) {
       toast.error("Lưu thất bại");
-      setRaw(initial);
       return;
     }
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1500);
     router.refresh();
   }
 
@@ -261,11 +337,18 @@ function VacancyNotesInput({ roomId, buildingId, value }: { roomId: string; buil
       <Input
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        onBlur={save}
         className="h-8 w-full text-xs"
         placeholder="vd: ưu tiên người thuê dài hạn"
       />
-      {saving && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
+      <button
+        type="button"
+        onClick={save}
+        disabled={!dirty || saving}
+        className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        aria-label="Lưu"
+      >
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedFlash ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
+      </button>
     </div>
   );
 }
