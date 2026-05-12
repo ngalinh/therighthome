@@ -7,7 +7,7 @@ import {
   ChevronRight, ChevronDown, ClipboardList, KeyRound, Search, Calendar,
   Bell, Moon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: typeof Home; activePrefix?: string; badge?: string };
@@ -525,27 +525,7 @@ function DesktopTopbar() {
         borderBottom: "1px solid var(--line)",
       }}
     >
-      <div
-        className="flex items-center gap-2.5 flex-1 max-w-[460px] px-3.5 py-2 rounded-xl transition-all focus-within:shadow-design-md"
-        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
-      >
-        <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-3)" }} />
-        <input
-          placeholder="Tìm kiếm hoá đơn, khách thuê, toà nhà..."
-          className="flex-1 border-none outline-none bg-transparent text-[13.5px] placeholder:opacity-70"
-          style={{ color: "var(--text)" }}
-        />
-        <span
-          className="text-[11px] px-2 py-px rounded font-mono"
-          style={{
-            color: "var(--text-3)",
-            border: "1px solid var(--line)",
-            background: "var(--bg-2)",
-          }}
-        >
-          ⌘K
-        </span>
-      </div>
+      <GlobalSearch />
       <div className="flex-1" />
       <div
         className="hidden xl:inline-flex items-center gap-2 px-3 py-2 rounded-full text-[12.5px] font-semibold"
@@ -568,6 +548,240 @@ function DesktopTopbar() {
       </IconBtn>
     </div>
   );
+}
+
+type SearchResults = {
+  buildings: { id: string; name: string; address: string; type: "CHDV" | "VP" }[];
+  customers: { id: string; buildingId: string; buildingName: string; type: "INDIVIDUAL" | "COMPANY"; name: string; phone: string }[];
+  contracts: { id: string; buildingId: string; buildingName: string; code: string; status: string; roomNumber: string }[];
+  invoices: { id: string; buildingId: string; buildingName: string; code: string; status: string; month: number; year: number }[];
+};
+
+const EMPTY_RESULTS: SearchResults = { buildings: [], customers: [], contracts: [], invoices: [] };
+
+function GlobalSearch() {
+  const [q, setQ] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Debounce input — fetch 200ms after user stops typing.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // ⌘K / Ctrl+K focuses input. Esc clears & blurs.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      } else if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        setOpen(false);
+        inputRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Click outside closes the dropdown.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  // Fetch when debounced query changes.
+  useEffect(() => {
+    if (!debounced) {
+      setResults(EMPTY_RESULTS);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/search?q=${encodeURIComponent(debounced)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: SearchResults | null) => {
+        if (cancelled) return;
+        setResults(data ?? EMPTY_RESULTS);
+      })
+      .catch(() => { if (!cancelled) setResults(EMPTY_RESULTS); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [debounced]);
+
+  const total = useMemo(
+    () => results.buildings.length + results.customers.length + results.contracts.length + results.invoices.length,
+    [results],
+  );
+  const showDropdown = open && q.trim().length > 0;
+
+  function closeOnNav() { setOpen(false); }
+
+  return (
+    <div ref={rootRef} className="relative flex-1 max-w-[460px]">
+      <div
+        className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all focus-within:shadow-design-md"
+        style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+      >
+        <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-3)" }} />
+        <input
+          ref={inputRef}
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Tìm kiếm hoá đơn, khách thuê, toà nhà..."
+          className="flex-1 border-none outline-none bg-transparent text-[13.5px] placeholder:opacity-70"
+          style={{ color: "var(--text)" }}
+        />
+        <span
+          className="text-[11px] px-2 py-px rounded font-mono"
+          style={{
+            color: "var(--text-3)",
+            border: "1px solid var(--line)",
+            background: "var(--bg-2)",
+          }}
+        >
+          ⌘K
+        </span>
+      </div>
+
+      {showDropdown && (
+        <div
+          className="absolute left-0 right-0 top-[calc(100%+6px)] rounded-xl overflow-hidden shadow-design-lg max-h-[70vh] overflow-y-auto"
+          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}
+        >
+          {loading && total === 0 && (
+            <div className="px-4 py-6 text-center text-xs" style={{ color: "var(--text-3)" }}>Đang tìm…</div>
+          )}
+          {!loading && total === 0 && (
+            <div className="px-4 py-6 text-center text-xs" style={{ color: "var(--text-3)" }}>
+              Không có kết quả cho "{q.trim()}"
+            </div>
+          )}
+
+          {results.buildings.length > 0 && (
+            <SearchGroup label="Toà nhà">
+              {results.buildings.map((b) => (
+                <SearchItem key={b.id} href={`/buildings/${b.id}`} onNavigate={closeOnNav}>
+                  <div className="font-medium">{b.name}</div>
+                  <div className="text-[11px] truncate" style={{ color: "var(--text-3)" }}>
+                    {b.type === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"} · {b.address}
+                  </div>
+                </SearchItem>
+              ))}
+            </SearchGroup>
+          )}
+
+          {results.customers.length > 0 && (
+            <SearchGroup label="Khách thuê">
+              {results.customers.map((c) => (
+                <SearchItem key={c.id} href={`/buildings/${c.buildingId}/contracts`} onNavigate={closeOnNav}>
+                  <div className="font-medium">{c.name || "—"}</div>
+                  <div className="text-[11px] truncate" style={{ color: "var(--text-3)" }}>
+                    {c.buildingName}
+                    {c.phone ? ` · ${c.phone}` : ""}
+                    {c.type === "COMPANY" ? " · Công ty" : ""}
+                  </div>
+                </SearchItem>
+              ))}
+            </SearchGroup>
+          )}
+
+          {results.contracts.length > 0 && (
+            <SearchGroup label="Hợp đồng">
+              {results.contracts.map((c) => (
+                <SearchItem key={c.id} href={`/buildings/${c.buildingId}/contracts/${c.id}`} onNavigate={closeOnNav}>
+                  <div className="font-mono text-[12.5px] font-semibold">{c.code}</div>
+                  <div className="text-[11px] truncate" style={{ color: "var(--text-3)" }}>
+                    {c.buildingName}
+                    {c.roomNumber ? ` · Phòng ${c.roomNumber}` : ""}
+                    {` · ${contractStatusLabel(c.status)}`}
+                  </div>
+                </SearchItem>
+              ))}
+            </SearchGroup>
+          )}
+
+          {results.invoices.length > 0 && (
+            <SearchGroup label="Hoá đơn">
+              {results.invoices.map((i) => (
+                <SearchItem key={i.id} href={`/buildings/${i.buildingId}/invoices/${i.id}`} onNavigate={closeOnNav}>
+                  <div className="font-mono text-[12.5px] font-semibold">{i.code}</div>
+                  <div className="text-[11px] truncate" style={{ color: "var(--text-3)" }}>
+                    {i.buildingName} · {String(i.month).padStart(2, "0")}/{i.year} · {invoiceStatusLabel(i.status)}
+                  </div>
+                </SearchItem>
+              ))}
+            </SearchGroup>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div
+        className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: "var(--text-3)", background: "var(--bg-2)" }}
+      >
+        {label}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function SearchItem({
+  href, onNavigate, children,
+}: {
+  href: string;
+  onNavigate: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className="block px-4 py-2.5 text-[13px] hover:bg-[var(--bg-2)] transition-colors"
+      style={{ color: "var(--text)", borderTop: "1px solid var(--line)" }}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function contractStatusLabel(s: string): string {
+  switch (s) {
+    case "ACTIVE": return "Đang hoạt động";
+    case "EXPIRED": return "Hết hạn";
+    case "TERMINATED": return "Đã dừng";
+    case "TERMINATED_LOST_DEPOSIT": return "Mất cọc";
+    default: return s;
+  }
+}
+
+function invoiceStatusLabel(s: string): string {
+  switch (s) {
+    case "PAID": return "Đã thanh toán";
+    case "PARTIAL": return "Thanh toán một phần";
+    case "PENDING": return "Chờ thanh toán";
+    case "OVERDUE": return "Quá hạn";
+    case "CANCELLED": return "Đã huỷ";
+    default: return s;
+  }
 }
 
 function IconBtn({ children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {

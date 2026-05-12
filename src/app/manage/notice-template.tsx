@@ -632,8 +632,8 @@ const NOTICE_CSS = `
   font-size: 24px; font-style: italic; margin-left: 2px;
 }
 .notice-root .c-divider {
-  width: 1px; height: 60px;
-  background: linear-gradient(180deg, transparent, var(--nc-accent-soft) 30%, var(--nc-accent-soft) 70%, transparent);
+  width: 1.5px; height: 72px;
+  background: linear-gradient(180deg, transparent, var(--nc-accent) 25%, var(--nc-accent) 75%, transparent);
   justify-self: center;
 }
 .notice-root .c-sub {
