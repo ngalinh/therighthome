@@ -185,17 +185,24 @@ function applySaved(base: NoticeData, saved: SavedTemplate | null): NoticeData {
     }),
     policy: saved.policy ? { ...base.policy, ...saved.policy } : base.policy,
     footer: saved.footer ? { ...base.footer, ...saved.footer } : base.footer,
-    buildings: base.buildings.map((b) => {
-      const sb = saved.buildingsById?.[b.id];
-      const rooms = b.rooms.map((r) => {
+    // Buildings/rooms: DB-derived fields (name, address, info, expectedRent,
+    // vacancyNotes, etc.) must always come from `base` so that DB edits flow
+    // into the notice immediately. Only notice-specific customizations
+    // (tag, tagLabel, title, featured) are restored from saved template.
+    buildings: base.buildings.map((b) => ({
+      ...b,
+      rooms: b.rooms.map((r) => {
         const sr = saved.roomsById?.[r.id];
         if (!sr) return r;
-        // Keep the price (auto from data) but accept other overrides if set.
-        return { ...r, ...sr, price: sr.price ?? r.price, priceUnit: sr.priceUnit ?? r.priceUnit };
-      });
-      if (!sb) return { ...b, rooms };
-      return { ...b, ...sb, id: b.id, rooms };
-    }),
+        return {
+          ...r,
+          tag: sr.tag ?? r.tag,
+          tagLabel: sr.tagLabel ?? r.tagLabel,
+          title: sr.title ?? r.title,
+          featured: sr.featured ?? r.featured,
+        };
+      }),
+    })),
   };
 }
 
@@ -272,11 +279,11 @@ export function VacancyNoticeDialog({
       summary: data.summary,
       policy: data.policy,
       footer: data.footer,
-      buildingsById: Object.fromEntries(
-        data.buildings.map((b) => [b.id, { name: b.name, metaParts: b.metaParts, countLabel: b.countLabel, info: b.info }]),
-      ),
+      // DB-derived data (names, addresses, info, rents, notes) is intentionally
+      // omitted — it flows live from DB on every dialog open so edits show up.
+      // Only notice-specific customizations are persisted.
       roomsById: Object.fromEntries(
-        data.buildings.flatMap((b) => b.rooms.map((r) => [r.id, { floor: r.floor, number: r.number, tag: r.tag, tagLabel: r.tagLabel, title: r.title, features: r.features, desc: r.desc, price: r.price, priceUnit: r.priceUnit, featured: r.featured }])),
+        data.buildings.flatMap((b) => b.rooms.map((r) => [r.id, { tag: r.tag, tagLabel: r.tagLabel, title: r.title, featured: r.featured }])),
       ),
     };
     setSaving(true);
