@@ -566,6 +566,7 @@ model AppSetting {
   defaultContractTemplateChdv         String?
   defaultContractTemplateVpIndividual String?
   defaultContractTemplateVpCompany    String?
+  vacancyNoticeTemplate               Json?
   updatedAt                           DateTime @updatedAt
 }
 

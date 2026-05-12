@@ -20,6 +20,7 @@ export type NoticeBuilding = {
   name: string;
   metaParts: string[];  // separator dots between
   countLabel: string;   // "N phòng"
+  info: string;         // free-form building description shown under meta
   rooms: NoticeRoom[];
 };
 
@@ -180,6 +181,7 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
                       </span>
                     ))}
                   </div>
+                  {b.info && <div className="bld-group-info-line">{b.info}</div>}
                 </div>
                 <div className="bld-group-count">{b.countLabel}</div>
               </div>
@@ -452,6 +454,10 @@ const NOTICE_CSS = `
 }
 .notice-root .bld-group-meta .dot {
   width: 3px; height: 3px; border-radius: 50%; background: var(--nc-text-3);
+}
+.notice-root .bld-group-info-line {
+  font-size: 12px; color: var(--nc-text-2); margin-top: 4px;
+  line-height: 1.5; white-space: pre-wrap;
 }
 .notice-root .bld-group-count {
   font-family: var(--font-mono), ui-monospace, monospace;
