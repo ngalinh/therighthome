@@ -304,15 +304,49 @@ export function VacancyNoticeDialog({
     if (document.fonts?.ready) {
       try { await document.fonts.ready; } catch { /* ignore */ }
     }
-    const { default: html2canvas } = await import("html2canvas-pro");
-    const canvas = await html2canvas(previewRef.current, {
-      backgroundColor: "#faf7f3",
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-    });
-    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+
+    // Clone the preview into an off-screen container at a fixed desktop width.
+    // html2canvas-pro otherwise computes layout against `windowWidth` (= the
+    // device viewport on mobile, ~390px), so the captured PNG ends up cramped
+    // even though the preview looks correct on screen. Cloning + explicit
+    // `width` + `windowWidth` makes the capture deterministic.
+    const CAPTURE_WIDTH = 960;
+    const node = previewRef.current;
+    const offscreen = document.createElement("div");
+    offscreen.style.cssText = [
+      "position: fixed",
+      "left: -10000px",
+      "top: 0",
+      `width: ${CAPTURE_WIDTH}px`,
+      "background: #faf7f3",
+      "pointer-events: none",
+      "z-index: -1",
+    ].join("; ");
+    const clone = node.cloneNode(true) as HTMLElement;
+    clone.style.width = `${CAPTURE_WIDTH}px`;
+    offscreen.appendChild(clone);
+    document.body.appendChild(offscreen);
+
+    try {
+      const { default: html2canvas } = await import("html2canvas-pro");
+      const canvas = await html2canvas(clone, {
+        backgroundColor: "#faf7f3",
+        scale: 2,
+        width: CAPTURE_WIDTH,
+        windowWidth: CAPTURE_WIDTH,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+      });
+      return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+    } finally {
+      document.body.removeChild(offscreen);
+    }
+  }
+
+  function isIOS(): boolean {
+    if (typeof navigator === "undefined") return false;
+    return /iPad|iPhone|iPod/i.test(navigator.userAgent) && !("MSStream" in window);
   }
 
   const fileLabel = useMemo(() => {
@@ -325,6 +359,16 @@ export function VacancyNoticeDialog({
     try {
       const blob = await generateBlob();
       if (!blob) throw new Error("Không tạo được hình");
+      const file = new File([blob], fileLabel, { type: "image/png" });
+
+      // On iOS, <a download> always saves to Files (no Photos route from JS).
+      // The only way into Photos is the native share sheet — user taps
+      // "Lưu Ảnh" → Photos. So on iOS we route "Tải hình" through Web Share.
+      if (isIOS() && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Thông báo phòng trống" });
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -335,6 +379,7 @@ export function VacancyNoticeDialog({
       URL.revokeObjectURL(url);
       toast.success("Đã tải hình ảnh");
     } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
       toast.error(e instanceof Error ? e.message : "Lỗi xuất hình");
     } finally {
       setExporting(false);
