@@ -90,10 +90,11 @@ export async function AggregatedCashbookTab({
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
-  const [transactions, openings, contractList, invoiceList] = await Promise.all([
+  const sharedPMIds = sharedPMs.map((pm) => pm.id);
+  const [transactions, allOpenings, priorTxs, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
       where: {
-        paymentMethodId: { in: sharedPMs.map((pm) => pm.id) },
+        paymentMethodId: { in: sharedPMIds },
         buildingId: { in: targetBuildingIds },
         date: { gte: start, lte: end },
       },
@@ -111,9 +112,20 @@ export async function AggregatedCashbookTab({
       where: {
         buildingId: { in: targetBuildingIds },
         kind: "CASHBOOK",
-        asOfMonth: month,
-        asOfYear: year,
+        OR: [
+          { asOfYear: { lt: year } },
+          { asOfYear: year, asOfMonth: { lte: month } },
+        ],
       },
+      orderBy: [{ asOfYear: "desc" }, { asOfMonth: "desc" }],
+    }),
+    prisma.transaction.findMany({
+      where: {
+        buildingId: { in: targetBuildingIds },
+        paymentMethodId: { in: sharedPMIds },
+        date: { lt: start },
+      },
+      select: { type: true, amount: true, paymentMethodId: true, buildingId: true, date: true },
     }),
     prisma.contract.findMany({
       where: { buildingId: { in: targetBuildingIds } },
@@ -126,16 +138,37 @@ export async function AggregatedCashbookTab({
   ]);
   const contractMap = new Map(contractList.map((c) => [c.code, c.id]));
   const invoiceMap = new Map(invoiceList.map((i) => [i.code, i.id]));
-  // Opening balances are stored per (building, paymentMethodLabel). For the
-  // aggregated view we sum the openings of every accessible building that
-  // shares the PM, so the "Đầu kỳ" reflects the cross-building starting point.
+  // Mirror per-building Sổ quỹ logic: opening for each (building, PM) is the
+  // latest OB on/before this month, then accumulate prior-month txs from that
+  // OB's month forward. Sum across buildings to get the aggregated opening.
+  const latestOBByBldgPm = new Map<string, { amount: bigint; asOfMonth: number; asOfYear: number }>();
+  for (const ob of allOpenings) {
+    if (!ob.paymentMethodLabel) continue;
+    const key = `${ob.buildingId}::${ob.paymentMethodLabel}`;
+    if (!latestOBByBldgPm.has(key)) {
+      latestOBByBldgPm.set(key, { amount: ob.amount, asOfMonth: ob.asOfMonth, asOfYear: ob.asOfYear });
+    }
+  }
   const openingByPMLabel = new Map<string, bigint>();
-  for (const o of openings) {
-    if (!o.paymentMethodLabel) continue;
-    openingByPMLabel.set(
-      o.paymentMethodLabel,
-      (openingByPMLabel.get(o.paymentMethodLabel) ?? 0n) + o.amount,
-    );
+  for (const pm of sharedPMs) {
+    let sum = 0n;
+    for (const bId of targetBuildingIds) {
+      const ob = latestOBByBldgPm.get(`${bId}::${pm.name}`);
+      if (ob && ob.asOfMonth === month && ob.asOfYear === year) {
+        sum += ob.amount;
+        continue;
+      }
+      const obStart = ob ? new Date(ob.asOfYear, ob.asOfMonth - 1, 1) : new Date(0);
+      let bal = ob?.amount ?? 0n;
+      for (const t of priorTxs) {
+        if (t.buildingId !== bId) continue;
+        if (t.paymentMethodId !== pm.id) continue;
+        if (t.date < obStart) continue;
+        bal += t.type === "INCOME" ? t.amount : -t.amount;
+      }
+      sum += bal;
+    }
+    openingByPMLabel.set(pm.name, sum);
   }
 
   return (
