@@ -173,6 +173,20 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
         data: { invoiceId: null },
       });
       await tx.invoice.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "DELETE",
+          entityType: "Invoice",
+          entityId: id,
+          buildingId: inv.buildingId,
+          before: {
+            code: inv.code,
+            status: inv.status,
+            totalAmount: inv.totalAmount.toString(),
+          } as never,
+        },
+      });
     });
     return NextResponse.json({ ok: true });
   }
@@ -186,6 +200,20 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     await tx.invoice.update({
       where: { id },
       data: { status: "CANCELLED", paidAmount: 0n },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CANCEL",
+        entityType: "Invoice",
+        entityId: id,
+        buildingId: inv.buildingId,
+        before: {
+          code: inv.code,
+          status: inv.status,
+          paidAmount: inv.paidAmount.toString(),
+        } as never,
+      },
     });
   });
   return NextResponse.json({ ok: true });

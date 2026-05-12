@@ -124,16 +124,16 @@ export async function CashbookTab({
     const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
     const opening = computeOpening(pm.id, pm.name);
     let running = opening;
-    const rows: Record<string, unknown>[] = [
-      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
-    ];
+    // Accumulate running balance chronologically, then reverse to match the
+    // web view (closing on top, newest tx first, opening on bottom).
+    const txRows: Record<string, unknown>[] = [];
     for (const t of txs) {
       if (t.type === "INCOME") running += t.amount;
       else running -= t.amount;
       const partyLabel = t.customer
         ? customerDisplayName(t.customer)
         : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
-      rows.push({
+      txRows.push({
         "Ngày": formatDateVN(t.date),
         "Loại thu/chi": t.category?.name ?? "",
         "Đối tượng": partyLabel,
@@ -144,7 +144,12 @@ export async function CashbookTab({
         "Số dư": Number(running),
       });
     }
-    rows.push({ "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) });
+    txRows.reverse();
+    const rows: Record<string, unknown>[] = [
+      { "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) },
+      ...txRows,
+      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
+    ];
     return { name: pm.name, rows };
   });
 
