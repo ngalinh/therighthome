@@ -56,15 +56,22 @@ export function ManageTasksTab({
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
   const [partyFilter, setPartyFilter] = useState<string>("ALL");
   const [roomFilter, setRoomFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "DONE">("ALL");
 
   const filteredTasks = useMemo(
-    () =>
-      tasks.filter((t) =>
+    () => {
+      const list = tasks.filter((t) =>
         (buildingFilter === "ALL" || t.buildingId === buildingFilter) &&
         (partyFilter === "ALL" || t.partyKind === partyFilter) &&
-        (roomFilter === "ALL" || t.roomId === roomFilter),
-      ),
-    [tasks, buildingFilter, partyFilter, roomFilter],
+        (roomFilter === "ALL" || t.roomId === roomFilter) &&
+        (statusFilter === "ALL" || t.status === statusFilter),
+      );
+      return [...list].sort((a, b) => {
+        if (a.status !== b.status) return a.status === "PENDING" ? -1 : 1;
+        return b.date.localeCompare(a.date);
+      });
+    },
+    [tasks, buildingFilter, partyFilter, roomFilter, statusFilter],
   );
 
   const availableRooms = useMemo(
@@ -98,6 +105,14 @@ export function ManageTasksTab({
             <SelectContent>
               <SelectItem value="ALL">Tất cả đối tượng</SelectItem>
               {partyKindConfigs.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "ALL" | "PENDING" | "DONE")}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tình trạng" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả tình trạng</SelectItem>
+              <SelectItem value="PENDING">Chờ xử lý</SelectItem>
+              <SelectItem value="DONE">Hoàn thành</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="gradient" size="sm" onClick={() => setCreating(true)} disabled={buildings.length === 0}>

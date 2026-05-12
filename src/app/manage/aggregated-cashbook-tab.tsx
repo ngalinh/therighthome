@@ -169,6 +169,7 @@ export async function AggregatedCashbookTab({
           (categoryFilter === "ALL" || t.category?.name === categoryFilter) &&
           (partyFilter === "ALL" || t.partyKind === partyFilter),
         );
+        visible.reverse();
         const linkedNames = pm.buildings.map((b) => b.name).join(", ");
 
         return (
@@ -205,8 +206,8 @@ export async function AggregatedCashbookTab({
                 </thead>
                 <tbody>
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={7} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
-                    <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
+                    <td colSpan={7} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
+                    <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
                   </tr>
                   {visible.length === 0 && (
                     <tr><td colSpan={8} className="px-4 py-4 text-center text-slate-500 text-sm">
@@ -243,8 +244,8 @@ export async function AggregatedCashbookTab({
                     );
                   })}
                   <tr className="bg-slate-50/50 italic">
-                    <td colSpan={7} className="px-4 py-1.5 text-xs text-slate-500">Số dư cuối kỳ</td>
-                    <td className="px-4 py-1.5 text-right text-xs font-semibold">{formatVND(closing)}</td>
+                    <td colSpan={7} className="px-4 py-1.5 text-xs text-slate-500">Số dư đầu kỳ</td>
+                    <td className="px-4 py-1.5 text-right text-xs">{formatVND(opening)}</td>
                   </tr>
                 </tbody>
               </table>
