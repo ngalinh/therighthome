@@ -92,6 +92,7 @@ export async function PnLTab({
           serviceFee: true,
           overtimeFee: true,
           vatAmount: true,
+          contract: { select: { room: { select: { number: true } } } },
           lineItems: {
             select: {
               amount: true,
@@ -134,6 +135,7 @@ export async function PnLTab({
     const partyLabel = t.customer
       ? customerDisplayName(t.customer)
       : t.party?.name ?? "";
+    const roomNumber = t.room?.number ?? t.invoice?.contract?.room?.number ?? null;
 
     if (t.type === "INCOME" && t.invoice && t.invoice.totalAmount > 0n && !t.invoice.isManual) {
       const inv = t.invoice;
@@ -162,7 +164,7 @@ export async function PnLTab({
               amount: amt.toString(),
               content: t.content,
               partyLabel,
-              roomNumber: t.room?.number ?? null,
+              roomNumber,
               invoiceId: inv.id,
               invoiceCode: inv.code,
             });
@@ -182,7 +184,7 @@ export async function PnLTab({
         amount: t.amount.toString(),
         content: t.content,
         partyLabel,
-        roomNumber: t.room?.number ?? null,
+        roomNumber,
         invoiceId: inv.id,
         invoiceCode: inv.code,
       });
@@ -194,7 +196,7 @@ export async function PnLTab({
         amount: t.amount.toString(),
         content: t.content,
         partyLabel,
-        roomNumber: t.room?.number ?? null,
+        roomNumber,
         invoiceId: t.invoice?.id ?? null,
         invoiceCode: t.invoice?.code ?? null,
       });
