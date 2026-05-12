@@ -12,7 +12,6 @@ export type NoticeRoom = {
   desc: string;
   price: string;        // already formatted, or "Liên hệ"
   priceUnit: string;
-  pricePrev: string;    // "Trước: 5.950.000đ" or ""
   featured: boolean;
 };
 
@@ -35,9 +34,6 @@ export type NoticeData = {
   subtitle: string;
 
   summary: { label: string; value: string; unit: string }[];
-
-  sectionTitle: string;
-  sectionSubtitle: string;
 
   buildings: NoticeBuilding[];
 
@@ -170,14 +166,6 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
 
         {/* BODY */}
         <div className="tpl-body">
-          <div className="section-head">
-            <span className="num">01</span>
-            <div className="text">
-              <h2>{data.sectionTitle}</h2>
-              <p>{data.sectionSubtitle}</p>
-            </div>
-          </div>
-
           {data.buildings.map((b) => (
             <div key={b.id} className="bld-group">
               <div className="bld-group-head">
@@ -219,7 +207,6 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
                         {r.price === "Liên hệ" ? "Liên hệ" : <>{r.price}<small>đ</small></>}
                       </div>
                       <div className="price-unit">{r.priceUnit}</div>
-                      {r.pricePrev && <div className="price-prev">{r.pricePrev}</div>}
                     </div>
                   </div>
                 ))}
@@ -431,23 +418,15 @@ const NOTICE_CSS = `
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 13px; color: var(--nc-text-3); font-weight: 500; margin-left: 4px;
 }
-.notice-root .tpl-body { padding: 36px 48px 40px; }
-.notice-root .section-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
-.notice-root .section-head .num {
-  font-family: var(--font-serif), Georgia, serif;
-  font-style: italic; font-size: 32px; color: var(--nc-accent); line-height: 1;
-}
-.notice-root .section-head .text h2 {
-  font-family: var(--font-serif), Georgia, serif;
-  font-weight: 400; font-size: 22px; margin: 0; line-height: 1.1;
-  letter-spacing: -0.015em;
-}
-.notice-root .section-head .text p { font-size: 13px; color: var(--nc-text-3); margin: 4px 0 0; }
+.notice-root .tpl-body { padding: 32px 48px 40px; }
 .notice-root .bld-group { margin-bottom: 28px; }
 .notice-root .bld-group-head {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 20px;
-  background: linear-gradient(95deg, var(--nc-accent-tint) 0%, transparent 80%);
+  /* End the gradient at the surface color (white), not transparent —
+     html2canvas-pro renders transparent against its export buffer and the
+     PNG can show a dark stripe in some viewers. */
+  background: linear-gradient(95deg, var(--nc-accent-tint) 0%, var(--nc-surface) 80%);
   border-left: 3px solid var(--nc-accent);
   border-radius: 0 var(--nc-r-md) var(--nc-r-md) 0;
   margin-bottom: 14px;
@@ -545,11 +524,6 @@ const NOTICE_CSS = `
 }
 .notice-root .room-price .price-unit {
   font-size: 11px; color: var(--nc-text-3); margin-top: 4px; letter-spacing: 0.04em;
-}
-.notice-root .room-price .price-prev {
-  font-size: 11px; color: var(--nc-text-3);
-  text-decoration: line-through; margin-top: 6px;
-  font-family: var(--font-mono), ui-monospace, monospace;
 }
 .notice-root .room-price.no-price .price-val {
   font-size: 13px; font-style: normal;

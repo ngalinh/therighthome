@@ -115,8 +115,6 @@ function buildInitialData(groups: Group[]): NoticeData {
       { label: "Giá thuê từ", value: minRentLabel, unit: "triệu/tháng" },
       { label: "Sẵn sàng", value: "Ngay", unit: "hôm nay" },
     ],
-    sectionTitle: "Căn hộ & phòng sẵn sàng",
-    sectionSubtitle: `Nhóm theo toà nhà · Cập nhật ngày ${formatDate(new Date())}`,
     buildings: groups.map((g) => buildInitialBuilding(g)),
     policy: { ...DEFAULT_POLICY },
     footer: { ...DEFAULT_FOOTER },
@@ -150,11 +148,10 @@ function buildInitialRoom(r: VacantRoom): NoticeRoom {
     .map((s) => s.trim())
     .filter(Boolean);
   const price = r.expectedRent ? formatNumber(BigInt(r.expectedRent)) : "Liên hệ";
-  const pricePrev = r.previousRent ? `Trước: ${formatVND(BigInt(r.previousRent))}` : "";
   return {
     id: r.id,
     floor: floorLabel(r.number),
-    number: `P${formatRoomNumber(r.number)}`,
+    number: formatRoomNumber(r.number),
     tag: "",
     tagLabel: "",
     title: "",
@@ -162,7 +159,6 @@ function buildInitialRoom(r: VacantRoom): NoticeRoom {
     desc: r.vacancyNotes ?? "",
     price,
     priceUnit: r.expectedRent ? "VNĐ / tháng" : "Báo giá riêng",
-    pricePrev,
     featured: false,
   };
 }
@@ -307,11 +303,6 @@ export function VacancyNoticeDialog({
               ))}
             </Section>
 
-            <Section title="Section title">
-              <FieldText label="Tiêu đề section" value={data.sectionTitle} onChange={(v) => patch("sectionTitle", v)} />
-              <FieldText label="Subtitle" value={data.sectionSubtitle} onChange={(v) => patch("sectionSubtitle", v)} />
-            </Section>
-
             {data.buildings.map((b) => (
               <Section key={b.id} title={`Toà · ${b.name || "—"}`}>
                 <FieldText label="Tên toà" value={b.name} onChange={(v) => patchBuilding(b.id, { name: v })} />
@@ -336,10 +327,9 @@ export function VacancyNoticeDialog({
                         onChange={(v) => patchRoom(b.id, r.id, { features: v.split("\n").map((s) => s.trim()).filter(Boolean) })}
                       />
                       <FieldText label="Mô tả" value={r.desc} onChange={(v) => patchRoom(b.id, r.id, { desc: v })} />
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <FieldText label="Giá" value={r.price} onChange={(v) => patchRoom(b.id, r.id, { price: v })} />
                         <FieldText label="Đơn vị" value={r.priceUnit} onChange={(v) => patchRoom(b.id, r.id, { priceUnit: v })} />
-                        <FieldText label="Giá trước (gạch)" value={r.pricePrev} onChange={(v) => patchRoom(b.id, r.id, { pricePrev: v })} />
                       </div>
                       <div className="grid grid-cols-3 gap-2 items-end">
                         <FieldSelect
