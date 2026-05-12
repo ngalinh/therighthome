@@ -215,7 +215,7 @@ export function NewContractForm({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
+              <Field label={buildingType === "VP" ? "Giá thuê / tháng (sau VAT, đã gồm VAT)" : "Giá thuê / tháng"} required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
                 {(() => {
                   const r = parseVNDInput(monthlyRent);

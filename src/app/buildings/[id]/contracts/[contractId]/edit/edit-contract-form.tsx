@@ -495,7 +495,7 @@ export function EditContractForm({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Giá thuê / tháng (sau VAT, đã gồm VAT)" required>
+              <Field label={buildingType === "VP" ? "Giá thuê / tháng (sau VAT, đã gồm VAT)" : "Giá thuê / tháng"} required>
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
                 {vatRate > 0 && rentBigInt > 0n && (
                   <p className="text-[11px] text-slate-500 mt-1">
@@ -503,16 +503,18 @@ export function EditContractForm({
                   </p>
                 )}
               </Field>
-              <Field label="VAT (%)">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.1"
-                  value={vatRate}
-                  onChange={(e) => setVatRate(Number(e.target.value))}
-                />
-              </Field>
+              {buildingType === "VP" && (
+                <Field label="VAT (%)">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={vatRate}
+                    onChange={(e) => setVatRate(Number(e.target.value))}
+                  />
+                </Field>
+              )}
               <Field label="Tiền cọc (₫)">
                 <VNDInput value={deposit} onChange={setDeposit} />
               </Field>
