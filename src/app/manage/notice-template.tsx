@@ -28,7 +28,6 @@ export type NoticeData = {
   brand: string;
   brandSub: string;
   date: string;
-  ref: string;
   eyebrow: string;
   titleBefore: string;
   titleEm: string;
@@ -143,7 +142,6 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
             </div>
             <div className="tpl-meta">
               <div className="date">{data.date}</div>
-              <div className="ref">Tham chiếu · {data.ref}</div>
             </div>
           </div>
           <div className="tpl-headline">
@@ -368,7 +366,6 @@ const NOTICE_CSS = `
   font-family: var(--font-mono), ui-monospace, monospace;
   letter-spacing: 0.04em; font-size: 13px; color: #fff2dc;
 }
-.notice-root .tpl-meta .ref { font-size: 11px; margin-top: 2px; opacity: 0.7; }
 .notice-root .tpl-headline { margin-top: 32px; }
 .notice-root .tpl-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;

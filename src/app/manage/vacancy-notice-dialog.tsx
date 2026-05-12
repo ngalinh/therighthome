@@ -80,14 +80,6 @@ function todayVN(): string {
   return `${String(d.getDate()).padStart(2, "0")} · ${String(d.getMonth() + 1).padStart(2, "0")} · ${d.getFullYear()}`;
 }
 
-function defaultRef(): string {
-  const d = new Date();
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  return `TRH-VAC-${yy}${mm}-${seq}`;
-}
-
 function floorLabel(roomNumber: string): string {
   const f = roomFloor(roomNumber);
   if (f === "G") return "Trệt";
@@ -104,7 +96,6 @@ function buildInitialData(groups: Group[]): NoticeData {
     brand: "The Right Home",
     brandSub: "Quản lý CHDV & Văn phòng",
     date: todayVN(),
-    ref: defaultRef(),
     eyebrow: "Thông báo · Phòng trống",
     titleBefore: `${totalRooms} phòng sẵn sàng`,
     titleEm: "cho thuê",
@@ -150,7 +141,6 @@ type SavedTemplate = {
   brand?: string;
   brandSub?: string;
   date?: string;
-  ref?: string;
   eyebrow?: string;
   titleBefore?: string;
   titleEm?: string;
@@ -179,11 +169,12 @@ function applySaved(base: NoticeData, saved: SavedTemplate | null): NoticeData {
     ...base,
     brand: saved.brand ?? base.brand,
     brandSub: saved.brandSub ?? base.brandSub,
-    // Don't restore date/ref — these are time-sensitive defaults.
+    // Don't restore date — time-sensitive default.
     date: base.date,
-    ref: base.ref,
     eyebrow: saved.eyebrow ?? base.eyebrow,
-    titleBefore: saved.titleBefore ?? base.titleBefore,
+    // Don't restore titleBefore — it embeds room count ("N phòng sẵn sàng")
+    // which must reflect the current selection, not what was saved earlier.
+    titleBefore: base.titleBefore,
     titleEm: saved.titleEm ?? base.titleEm,
     subtitle: saved.subtitle ?? base.subtitle,
     // Summary: restore labels/units but keep computed values (count, etc.).
@@ -240,7 +231,12 @@ export function VacancyNoticeDialog({
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // iOS detection runs in effect to avoid SSR hydration mismatch — server
+  // doesn't know the UA so we start with false and flip on the client.
+  const [isIos, setIsIos] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setIsIos(isIOS()); }, []);
 
   // Fetch shared template from server on mount. Server is authoritative — if
   // it has a template, override the localStorage-derived state. Stays silent
@@ -469,7 +465,6 @@ export function VacancyNoticeDialog({
                 <FieldText label="Brand" value={data.brand} onChange={(v) => patch("brand", v)} />
                 <FieldText label="Sub-brand" value={data.brandSub} onChange={(v) => patch("brandSub", v)} />
                 <FieldText label="Ngày" value={data.date} onChange={(v) => patch("date", v)} />
-                <FieldText label="Mã tham chiếu" value={data.ref} onChange={(v) => patch("ref", v)} />
                 <FieldText label="Eyebrow" value={data.eyebrow} onChange={(v) => patch("eyebrow", v)} />
                 <FieldText label="Title em (nghiêng)" value={data.titleEm} onChange={(v) => patch("titleEm", v)} />
               </div>
@@ -617,12 +612,23 @@ export function VacancyNoticeDialog({
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "Đang lưu…" : savedFlash ? "Đã lưu" : "Lưu mẫu"}
           </Button>
-          <Button variant="outline" onClick={share} disabled={exporting}>
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
-          </Button>
-          <Button variant="gradient" onClick={download} disabled={exporting}>
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Tải hình
-          </Button>
+          {/* On iOS, <a download> can't save to Photos — both Chia sẻ and Tải
+              hình route through the same share sheet, so we drop the duplicate
+              and keep only Chia sẻ as the primary gradient action. */}
+          {isIos ? (
+            <Button variant="gradient" onClick={share} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={share} disabled={exporting}>
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
+              </Button>
+              <Button variant="gradient" onClick={download} disabled={exporting}>
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Tải hình
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
