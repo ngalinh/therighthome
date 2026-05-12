@@ -286,7 +286,7 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
             <div className="contact-item">{MAIL_ICON}<span>{data.footer.email}</span></div>
             <div className="contact-item">{GLOBE_ICON}<span>{data.footer.website}</span></div>
           </div>
-          <div className="tpl-footer-note">{inlineMarkup(data.footer.note)}</div>
+          <div className="tpl-footer-note" style={{ whiteSpace: "pre-line" }}>{inlineMarkup(data.footer.note)}</div>
         </footer>
       </div>
     </div>
