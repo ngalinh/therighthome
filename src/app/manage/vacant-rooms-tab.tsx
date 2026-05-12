@@ -106,6 +106,16 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
         <>
           {/* Mobile cards */}
           <div className="space-y-2 lg:hidden">
+            <label className="flex items-center gap-2 px-1 py-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                aria-label="Chọn tất cả phòng trống"
+                className="rounded h-4 w-4"
+              />
+              <span>{allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"} ({filteredRooms.length})</span>
+            </label>
             {filteredRooms.map((r) => {
               const b = buildingById.get(r.buildingId);
               if (!b) return null;

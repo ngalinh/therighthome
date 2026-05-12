@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -138,10 +138,12 @@ function buildInitialBuilding(g: Group): NoticeBuilding {
     name: g.building.name,
     metaParts: [g.building.address, g.building.type === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng", ""],
     countLabel: `${g.rooms.length} phòng`,
+    info: g.building.info ?? "",
     rooms: g.rooms.map((r) => buildInitialRoom(r)),
   };
 }
 
+// Local cache key — server is authoritative, this is just an offline / first-paint fallback.
 const STORAGE_KEY = "vacancy-notice-template:v1";
 
 type SavedTemplate = {
@@ -160,7 +162,7 @@ type SavedTemplate = {
   roomsById?: Record<string, Partial<NoticeRoom>>;
 };
 
-function loadSaved(): SavedTemplate | null {
+function loadLocal(): SavedTemplate | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -233,13 +235,37 @@ export function VacancyNoticeDialog({
   groups: Group[];
   onClose: () => void;
 }) {
-  const [data, setData] = useState<NoticeData>(() => applySaved(buildInitialData(groups), loadSaved()));
+  // First-paint uses localStorage cache; server template overrides once fetched.
+  const [data, setData] = useState<NoticeData>(() => applySaved(buildInitialData(groups), loadLocal()));
   const [exporting, setExporting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  function saveTemplate() {
-    if (typeof window === "undefined") return;
+  // Fetch shared template from server on mount. Server is authoritative — if
+  // it has a template, override the localStorage-derived state. Stays silent
+  // on network errors so the dialog still works offline.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/app-settings/vacancy-notice", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json() as { template: SavedTemplate | null };
+        if (cancelled || !json.template) return;
+        setData((prev) => applySaved(buildInitialData(groups), json.template));
+        // Mirror to localStorage so next open is instant.
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(json.template));
+        } catch { /* ignore quota */ }
+      } catch { /* offline — keep local */ }
+    })();
+    return () => { cancelled = true; };
+    // groups is stable for the dialog's lifetime (parent rebuilds on open).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function saveTemplate() {
     const payload: SavedTemplate = {
       brand: data.brand,
       brandSub: data.brandSub,
@@ -251,19 +277,31 @@ export function VacancyNoticeDialog({
       policy: data.policy,
       footer: data.footer,
       buildingsById: Object.fromEntries(
-        data.buildings.map((b) => [b.id, { name: b.name, metaParts: b.metaParts, countLabel: b.countLabel }]),
+        data.buildings.map((b) => [b.id, { name: b.name, metaParts: b.metaParts, countLabel: b.countLabel, info: b.info }]),
       ),
       roomsById: Object.fromEntries(
         data.buildings.flatMap((b) => b.rooms.map((r) => [r.id, { floor: r.floor, number: r.number, tag: r.tag, tagLabel: r.tagLabel, title: r.title, features: r.features, desc: r.desc, price: r.price, priceUnit: r.priceUnit, featured: r.featured }])),
       ),
     };
+    setSaving(true);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      toast.success("Đã lưu mẫu thông báo");
+      const res = await fetch("/api/app-settings/vacancy-notice", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(err?.error ?? "Lưu thất bại");
+      }
+      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch { /* ignore quota */ }
+      toast.success("Đã lưu mẫu (đồng bộ giữa các thiết bị)");
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
-    } catch {
-      toast.error("Không lưu được — bộ nhớ trình duyệt đầy?");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lưu thất bại");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -327,11 +365,18 @@ export function VacancyNoticeDialog({
     offscreen.appendChild(clone);
     document.body.appendChild(offscreen);
 
+    // scale 3 gives a noticeably sharper PNG when zoomed, but the resulting
+    // canvas pixel count (CAPTURE_WIDTH * height * scale^2) can exceed iOS
+    // Safari's ~16M-pixel hard limit on busy notices. Drop back to 2 when the
+    // notice has many rooms to avoid a blank/crashed export on iPhone.
+    const totalRooms = data.buildings.reduce((s, b) => s + b.rooms.length, 0);
+    const scale = totalRooms > 20 ? 2 : 3;
+
     try {
       const { default: html2canvas } = await import("html2canvas-pro");
       const canvas = await html2canvas(clone, {
         backgroundColor: "#faf7f3",
-        scale: 2,
+        scale,
         width: CAPTURE_WIDTH,
         windowWidth: CAPTURE_WIDTH,
         useCORS: true,
@@ -450,6 +495,12 @@ export function VacancyNoticeDialog({
                   value={b.metaParts.join(" | ")}
                   onChange={(v) => patchBuilding(b.id, { metaParts: v.split("|").map((s) => s.trim()) })}
                 />
+                <FieldArea
+                  label="Thông tin toà nhà (hiển thị dưới địa chỉ)"
+                  value={b.info}
+                  rows={3}
+                  onChange={(v) => patchBuilding(b.id, { info: v })}
+                />
                 <FieldText label="Nhãn số phòng" value={b.countLabel} onChange={(v) => patchBuilding(b.id, { countLabel: v })} />
                 <div className="space-y-2 mt-2">
                   {b.rooms.map((r) => (
@@ -562,8 +613,9 @@ export function VacancyNoticeDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Đóng</Button>
-          <Button variant="outline" onClick={saveTemplate}>
-            <Save className="h-4 w-4" /> {savedFlash ? "Đã lưu" : "Lưu mẫu"}
+          <Button variant="outline" onClick={saveTemplate} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Đang lưu…" : savedFlash ? "Đã lưu" : "Lưu mẫu"}
           </Button>
           <Button variant="outline" onClick={share} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
