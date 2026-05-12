@@ -29,6 +29,9 @@ export async function DebtTab({
   partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
 }) {
+  const partyKindLabel: Record<string, string> = Object.fromEntries(
+    partyKindConfigs.map((p) => [p.code, p.label]),
+  );
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
@@ -114,6 +117,7 @@ export async function DebtTab({
   type Row = {
     key: string;
     date: string;
+    sortKey: string;
     roomId: string | null;
     roomNumber: string | null;
     category: string;
@@ -159,12 +163,14 @@ export async function DebtTab({
     const closing = opening + payable - paid;
 
     const customer = c.customers[0]?.customer ?? null;
+    const anchorDate = (isStartMonth ? c.startDate : (isTerminationMonth && t ? t : monthStart)).toISOString();
     rows.push({
       key: `dep-${c.id}`,
       // Anchor the row to the relevant date for that month: start in start
       // month, termination in termination month, otherwise the 1st of the
       // current month.
-      date: (isStartMonth ? c.startDate : (isTerminationMonth && t ? t : monthStart)).toISOString(),
+      date: anchorDate,
+      sortKey: anchorDate,
       roomId: c.room.id,
       roomNumber: c.room.number,
       category: "Hoàn tiền cọc",
@@ -183,10 +189,11 @@ export async function DebtTab({
   for (const e of manualExpenses) {
     const partyLabel = e.customer
       ? customerDisplayName(e.customer)
-      : e.party?.name ?? "";
+      : e.party?.name ?? (e.partyKind ? partyKindLabel[e.partyKind] ?? "" : "");
     rows.push({
       key: `tx-${e.id}`,
       date: e.date.toISOString(),
+      sortKey: e.createdAt.toISOString(),
       roomId: e.roomId ?? null,
       roomNumber: e.room?.number ?? null,
       category: e.category?.name ?? "",
@@ -215,7 +222,11 @@ export async function DebtTab({
     });
   }
 
-  rows.sort((a, b) => b.date.localeCompare(a.date));
+  rows.sort((a, b) => {
+    const byDate = b.date.localeCompare(a.date);
+    if (byDate !== 0) return byDate;
+    return b.sortKey.localeCompare(a.sortKey);
+  });
 
   const flatRooms = rooms.map((r) => ({
     id: r.id,

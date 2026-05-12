@@ -19,6 +19,7 @@ type PartyKindConfig = { code: string; label: string; forRevenue: boolean; forEx
 type Row = {
   key: string;
   date: string;
+  sortKey: string;
   roomId: string | null;
   roomNumber: string | null;
   category: string;
