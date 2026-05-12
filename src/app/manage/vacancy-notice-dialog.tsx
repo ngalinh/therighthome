@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Share2, ChevronDown } from "lucide-react";
+import { Download, Loader2, Share2, ChevronDown, Save } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatRoomNumber, roomFloor } from "@/lib/utils";
 import { NoticeTemplate, type NoticeData, type NoticeBuilding, type NoticeRoom } from "./notice-template";
@@ -142,6 +142,70 @@ function buildInitialBuilding(g: Group): NoticeBuilding {
   };
 }
 
+const STORAGE_KEY = "vacancy-notice-template:v1";
+
+type SavedTemplate = {
+  brand?: string;
+  brandSub?: string;
+  date?: string;
+  ref?: string;
+  eyebrow?: string;
+  titleBefore?: string;
+  titleEm?: string;
+  subtitle?: string;
+  summary?: NoticeData["summary"];
+  policy?: NoticeData["policy"];
+  footer?: NoticeData["footer"];
+  buildingsById?: Record<string, Partial<NoticeBuilding>>;
+  roomsById?: Record<string, Partial<NoticeRoom>>;
+};
+
+function loadSaved(): SavedTemplate | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedTemplate;
+  } catch {
+    return null;
+  }
+}
+
+function applySaved(base: NoticeData, saved: SavedTemplate | null): NoticeData {
+  if (!saved) return base;
+  return {
+    ...base,
+    brand: saved.brand ?? base.brand,
+    brandSub: saved.brandSub ?? base.brandSub,
+    // Don't restore date/ref — these are time-sensitive defaults.
+    date: base.date,
+    ref: base.ref,
+    eyebrow: saved.eyebrow ?? base.eyebrow,
+    titleBefore: saved.titleBefore ?? base.titleBefore,
+    titleEm: saved.titleEm ?? base.titleEm,
+    subtitle: saved.subtitle ?? base.subtitle,
+    // Summary: restore labels/units but keep computed values (count, etc.).
+    summary: base.summary.map((s, i) => {
+      const ss = saved.summary?.[i];
+      if (!ss) return s;
+      return { label: ss.label ?? s.label, value: s.value, unit: ss.unit ?? s.unit };
+    }),
+    policy: saved.policy ? { ...base.policy, ...saved.policy } : base.policy,
+    footer: saved.footer ? { ...base.footer, ...saved.footer } : base.footer,
+    buildings: base.buildings.map((b) => {
+      const sb = saved.buildingsById?.[b.id];
+      const rooms = b.rooms.map((r) => {
+        const sr = saved.roomsById?.[r.id];
+        if (!sr) return r;
+        // Keep the price (auto from data) but accept other overrides if set.
+        return { ...r, ...sr, price: sr.price ?? r.price, priceUnit: sr.priceUnit ?? r.priceUnit };
+      });
+      if (!sb) return { ...b, rooms };
+      return { ...b, ...sb, id: b.id, rooms };
+    }),
+  };
+}
+
 function buildInitialRoom(r: VacantRoom): NoticeRoom {
   const features = (r.info ?? "")
     .split("\n")
@@ -169,9 +233,39 @@ export function VacancyNoticeDialog({
   groups: Group[];
   onClose: () => void;
 }) {
-  const [data, setData] = useState<NoticeData>(() => buildInitialData(groups));
+  const [data, setData] = useState<NoticeData>(() => applySaved(buildInitialData(groups), loadSaved()));
   const [exporting, setExporting] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  function saveTemplate() {
+    if (typeof window === "undefined") return;
+    const payload: SavedTemplate = {
+      brand: data.brand,
+      brandSub: data.brandSub,
+      eyebrow: data.eyebrow,
+      titleBefore: data.titleBefore,
+      titleEm: data.titleEm,
+      subtitle: data.subtitle,
+      summary: data.summary,
+      policy: data.policy,
+      footer: data.footer,
+      buildingsById: Object.fromEntries(
+        data.buildings.map((b) => [b.id, { name: b.name, metaParts: b.metaParts, countLabel: b.countLabel }]),
+      ),
+      roomsById: Object.fromEntries(
+        data.buildings.flatMap((b) => b.rooms.map((r) => [r.id, { floor: r.floor, number: r.number, tag: r.tag, tagLabel: r.tagLabel, title: r.title, features: r.features, desc: r.desc, price: r.price, priceUnit: r.priceUnit, featured: r.featured }])),
+      ),
+    };
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      toast.success("Đã lưu mẫu thông báo");
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
+    } catch {
+      toast.error("Không lưu được — bộ nhớ trình duyệt đầy?");
+    }
+  }
 
   function patch<K extends keyof NoticeData>(key: K, value: NoticeData[K]) {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -406,7 +500,7 @@ export function VacancyNoticeDialog({
                 <FieldText label="Email" value={data.footer.email} onChange={(v) => patchFooter("email", v)} />
                 <FieldText label="Website" value={data.footer.website} onChange={(v) => patchFooter("website", v)} />
               </div>
-              <FieldText label="Footer note" value={data.footer.note} onChange={(v) => patchFooter("note", v)} />
+              <FieldArea label="Footer note" value={data.footer.note} rows={3} onChange={(v) => patchFooter("note", v)} />
             </Section>
           </div>
 
@@ -423,6 +517,9 @@ export function VacancyNoticeDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Đóng</Button>
+          <Button variant="outline" onClick={saveTemplate}>
+            <Save className="h-4 w-4" /> {savedFlash ? "Đã lưu" : "Lưu mẫu"}
+          </Button>
           <Button variant="outline" onClick={share} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
           </Button>

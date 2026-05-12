@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DoorOpen, Megaphone, Loader2, Save, Check } from "lucide-react";
@@ -190,11 +191,11 @@ function VacantRoomRow({
         />
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap font-medium">{building.name}</td>
-      <td className="px-3 py-2.5 text-xs text-slate-600 max-w-[200px]">
+      <td className="px-3 py-2.5 text-xs text-slate-600 max-w-[200px]" title={building.info ?? undefined}>
         <div className="line-clamp-3 whitespace-pre-line">{building.info || <span className="text-slate-400">—</span>}</div>
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap font-semibold">{formatRoomNumber(room.number)}</td>
-      <td className="px-3 py-2.5 text-xs text-slate-600">
+      <td className="px-3 py-2.5 text-xs text-slate-600" title={room.info ?? undefined}>
         <div className="line-clamp-3 whitespace-pre-line">{room.info || <span className="text-slate-400">—</span>}</div>
       </td>
       <td className="px-3 py-2.5 text-right whitespace-nowrap text-slate-600">
@@ -285,19 +286,19 @@ function ExpectedRentInput({ roomId, buildingId, value }: { roomId: string; buil
 
   const display = raw ? formatNumber(parseVNDInput(raw)) : "";
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="relative inline-block">
       <Input
         inputMode="numeric"
         value={display}
         onChange={(e) => setRaw(e.target.value)}
-        className="h-8 w-28 text-right tabular-nums"
+        className="h-8 w-32 pr-8 text-right tabular-nums"
         placeholder="—"
       />
       <button
         type="button"
         onClick={save}
         disabled={!dirty || saving}
-        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
         aria-label="Lưu"
       >
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedFlash ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
@@ -333,18 +334,19 @@ function VacancyNotesInput({ roomId, buildingId, value }: { roomId: string; buil
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Input
+    <div className="relative">
+      <Textarea
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        className="h-8 w-full text-xs"
-        placeholder="vd: ưu tiên người thuê dài hạn"
+        rows={2}
+        title={raw || undefined}
+        className="text-xs pr-8 resize-none min-h-[52px]"
       />
       <button
         type="button"
         onClick={save}
         disabled={!dirty || saving}
-        className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        className="absolute right-1 top-1 h-6 w-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-primary hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
         aria-label="Lưu"
       >
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedFlash ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
