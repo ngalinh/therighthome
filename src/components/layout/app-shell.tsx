@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 import {
   Home, Building2, FileText, Receipt, Wallet, Settings, LogOut, Menu, X,
   ChevronRight, ChevronDown, ClipboardList, KeyRound, Search, Calendar,
-  Bell, Moon, BookOpen,
+  Bell, Moon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,6 @@ const MANAGE_GROUP: NavGroup = {
   ],
 };
 
-const GUIDE_NAV: NavItem = { href: "/guide", label: "Hướng dẫn", icon: BookOpen };
 const SETTINGS_NAV: NavItem = { href: "/settings", label: "Cài đặt chung", icon: Settings };
 
 const VI_MONTHS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
@@ -96,7 +95,6 @@ export function AppShell({
             isBuildingsActive={isBuildingsActive}
           />
           <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} />
-          <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} />
         </nav>
         <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
       </aside>
@@ -163,7 +161,6 @@ export function AppShell({
                 onChildClick={() => setMobileOpen(false)}
               />
               <NavItemRow {...SETTINGS_NAV} active={isActive(SETTINGS_NAV.href)} onClick={() => setMobileOpen(false)} />
-              <NavItemRow {...GUIDE_NAV} active={isActive(GUIDE_NAV.href)} onClick={() => setMobileOpen(false)} />
             </nav>
             <UserCard user={user} onSignOut={() => signOut({ callbackUrl: "/login" })} />
           </aside>
