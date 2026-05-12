@@ -8,6 +8,7 @@ const updateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   address: z.string().min(1).max(300).optional(),
   type: z.enum(["CHDV", "VP"]).optional(),
+  info: z.string().max(5000).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

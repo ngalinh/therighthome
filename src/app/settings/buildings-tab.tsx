@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +19,7 @@ type Building = {
   name: string;
   address: string;
   type: "CHDV" | "VP";
+  info: string | null;
 };
 
 type AppSettingLite = {
@@ -105,6 +107,7 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
   const [name, setName] = useState(building?.name ?? "");
   const [address, setAddress] = useState(building?.address ?? "");
   const [type, setType] = useState<"CHDV" | "VP">(building?.type ?? "CHDV");
+  const [info, setInfo] = useState(building?.info ?? "");
   const [loading, setLoading] = useState(false);
 
   if (!building) return null;
@@ -112,7 +115,7 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
   async function submit() {
     if (!name.trim() || !address.trim()) return toast.error("Tên + địa chỉ không được để trống");
     setLoading(true);
-    const payload: Record<string, string> = { name, address };
+    const payload: Record<string, string | null> = { name, address, info: info.trim() || null };
     if (type !== building!.type) payload.type = type;
     const res = await fetch(`/api/buildings/${building!.id}`, {
       method: "PATCH",
@@ -165,6 +168,16 @@ function EditDialog({ building, onClose }: { building: Building | null; onClose:
           <div className="space-y-1.5">
             <Label className="text-xs">Địa chỉ</Label>
             <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Thông tin chung</Label>
+            <Textarea
+              value={info}
+              onChange={(e) => setInfo(e.target.value)}
+              rows={10}
+              placeholder="Nhập thông tin chung dùng cho mẫu Thông báo phòng trống (nội thất, điện/nước, cọc, hoa hồng, lưu ý, STK ngân hàng, liên hệ…)"
+            />
+            <p className="text-[11px] text-slate-500">Mỗi dòng hiện riêng. Bắt đầu dòng bằng <code>**</code>{`<heading>`}<code>**</code> để hiện in đậm trong mẫu Thông báo.</p>
           </div>
         </div>
         <DialogFooter>

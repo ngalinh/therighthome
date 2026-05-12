@@ -174,6 +174,7 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
                     id: r.id,
                     number: r.number,
                     status: r.status,
+                    info: r.info,
                     customerName: primary?.fullName || primary?.companyName || null,
                     daysLeft,
                     contractId: c?.id ?? null,

@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 
 const createSchema = z.object({
   numbers: z.array(z.string().min(1).max(20)).min(1),
+  info: z.string().max(5000).optional(),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -18,11 +19,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
+  const info = parsed.data.info?.trim() || null;
   const created = await prisma.$transaction(
     parsed.data.numbers.map((n) =>
       prisma.room.upsert({
         where: { buildingId_number: { buildingId: id, number: n } },
-        create: { buildingId: id, number: n },
+        create: { buildingId: id, number: n, info },
         update: {},
       }),
     ),

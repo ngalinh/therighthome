@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ type Room = {
   id: string;
   number: string;
   status: "AVAILABLE" | "OCCUPIED" | "MAINTENANCE";
+  info: string | null;
   customerName: string | null;
   daysLeft: number | null;
   contractId: string | null;
@@ -31,6 +33,8 @@ export function RoomsManager({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [addInfo, setAddInfo] = useState("");
+  const [editing, setEditing] = useState<Room | null>(null);
 
   async function addRooms(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,7 +50,7 @@ export function RoomsManager({
     const res = await fetch(`/api/buildings/${buildingId}/rooms`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ numbers }),
+      body: JSON.stringify({ numbers, info: addInfo.trim() || undefined }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -55,6 +59,7 @@ export function RoomsManager({
     }
     const { count } = await res.json();
     toast.success(`Đã thêm ${count} phòng`);
+    setAddInfo("");
     setOpen(false);
     router.refresh();
   }
@@ -90,6 +95,16 @@ export function RoomsManager({
                 <Input id="numbers" name="numbers" placeholder="vd: 101, 102, 103" />
                 <p className="text-xs text-slate-500">Cách nhau bằng dấu phẩy hoặc xuống dòng. Phòng trùng sẽ bị bỏ qua.</p>
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="info">Thông tin (tuỳ chọn)</Label>
+                <Textarea
+                  id="info"
+                  value={addInfo}
+                  onChange={(e) => setAddInfo(e.target.value)}
+                  rows={4}
+                  placeholder="Mô tả phòng, nội thất, ghi chú… Áp dụng cho tất cả phòng vừa thêm."
+                />
+              </div>
               <DialogFooter>
                 <Button type="submit" variant="gradient" disabled={loading}>
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -109,19 +124,28 @@ export function RoomsManager({
           buildingId={buildingId}
           canWrite={canWrite}
           onDelete={(r) => deleteRoom(r.id, r.number)}
+          onEdit={(r) => setEditing(r)}
         />
       )}
+
+      <EditRoomDialog
+        key={editing?.id ?? "none"}
+        room={editing}
+        buildingId={buildingId}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
 
 function FloorGroupedRooms({
-  rooms, buildingId, canWrite, onDelete,
+  rooms, buildingId, canWrite, onDelete, onEdit,
 }: {
   rooms: Room[];
   buildingId: string;
   canWrite: boolean;
   onDelete: (r: Room) => void;
+  onEdit: (r: Room) => void;
 }) {
   // Bucket rooms by floor; floor "G" first, then numeric ascending.
   const byFloor = new Map<string, Room[]>();
@@ -146,7 +170,14 @@ function FloorGroupedRooms({
           </div>
           <div className="flex-1 grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
             {byFloor.get(f)!.map((r) => (
-              <RoomTile key={r.id} room={r} buildingId={buildingId} canWrite={canWrite} onDelete={() => onDelete(r)} />
+              <RoomTile
+                key={r.id}
+                room={r}
+                buildingId={buildingId}
+                canWrite={canWrite}
+                onDelete={() => onDelete(r)}
+                onEdit={() => onEdit(r)}
+              />
             ))}
           </div>
         </div>
@@ -156,9 +187,9 @@ function FloorGroupedRooms({
 }
 
 function RoomTile({
-  room, buildingId, canWrite, onDelete,
+  room, buildingId, canWrite, onDelete, onEdit,
 }: {
-  room: Room; buildingId: string; canWrite: boolean; onDelete: () => void;
+  room: Room; buildingId: string; canWrite: boolean; onDelete: () => void; onEdit: () => void;
 }) {
   const isExpiring = room.daysLeft !== null && room.daysLeft <= 30;
 
@@ -194,15 +225,91 @@ function RoomTile({
           </div>
         )}
       </Link>
-      {canWrite && room.status !== "OCCUPIED" && (
-        <button
-          onClick={onDelete}
-          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-white shadow border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-          aria-label="Xoá phòng"
-        >
-          <Trash2 className="h-3 w-3 text-slate-500" />
-        </button>
+      {canWrite && (
+        <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onEdit}
+            className="h-5 w-5 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center"
+            aria-label="Sửa phòng"
+          >
+            <Pencil className="h-2.5 w-2.5 text-slate-500" />
+          </button>
+          {room.status !== "OCCUPIED" && (
+            <button
+              onClick={onDelete}
+              className="h-5 w-5 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center"
+              aria-label="Xoá phòng"
+            >
+              <Trash2 className="h-3 w-3 text-slate-500" />
+            </button>
+          )}
+        </div>
       )}
     </div>
+  );
+}
+
+function EditRoomDialog({
+  room, buildingId, onClose,
+}: {
+  room: Room | null;
+  buildingId: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [number, setNumber] = useState(room?.number ?? "");
+  const [info, setInfo] = useState(room?.info ?? "");
+  const [loading, setLoading] = useState(false);
+
+  if (!room) return null;
+
+  async function submit() {
+    if (!number.trim()) return toast.error("Số phòng không được để trống");
+    setLoading(true);
+    const res = await fetch(`/api/buildings/${buildingId}/rooms/${room!.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number: number.trim(), info: info.trim() || null }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success("Đã lưu");
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={!!room} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Sửa phòng {room.number}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Số phòng</Label>
+            <Input value={number} onChange={(e) => setNumber(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Thông tin phòng</Label>
+            <Textarea
+              value={info}
+              onChange={(e) => setInfo(e.target.value)}
+              rows={6}
+              placeholder="Mô tả nội thất, diện tích, hướng ban công, ghi chú…"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Lưu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
