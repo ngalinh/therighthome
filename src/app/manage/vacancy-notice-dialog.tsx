@@ -30,6 +30,39 @@ type VacantRoom = {
 
 type Group = { building: Building; rooms: VacantRoom[] };
 
+// Two independent templates: one for serviced apartments (CHDV), one for
+// offices (VP). The dialog picks `kind` from the selected groups — all-VP
+// edits the VP template, anything else (all-CHDV or mixed) edits the CHDV
+// template — so saving the office template never overwrites the apartment
+// template and vice versa.
+type TemplateKind = "chdv" | "vp";
+
+function pickKind(groups: Group[]): TemplateKind {
+  return groups.length > 0 && groups.every((g) => g.building.type === "VP") ? "vp" : "chdv";
+}
+
+const BRAND_DEFAULTS: Record<TemplateKind, {
+  brand: string; brandSub: string; subtitle: string; footerNote: string;
+}> = {
+  chdv: {
+    brand: "The Right Home",
+    brandSub: "Quản lý CHDV & Văn phòng",
+    subtitle: "Kính gửi Quý đối tác môi giới, dưới đây là danh sách phòng đang trống tại các toà nhà do The Right Home quản lý. Vui lòng liên hệ để xem trực tiếp hoặc nhận tư liệu chi tiết.",
+    footerNote: "**The Right Home** · Thông tin có thể thay đổi không cần báo trước.",
+  },
+  vp: {
+    brand: "K300 Office",
+    brandSub: "Văn phòng cho thuê",
+    subtitle: "Kính gửi Quý đối tác môi giới, dưới đây là danh sách văn phòng đang trống tại các toà nhà do K300 Office quản lý. Vui lòng liên hệ để xem trực tiếp hoặc nhận tư liệu chi tiết.",
+    footerNote: "**K300 Office** · Thông tin có thể thay đổi không cần báo trước.",
+  },
+};
+
+const KIND_LABEL: Record<TemplateKind, string> = {
+  chdv: "Căn hộ dịch vụ",
+  vp: "Văn phòng",
+};
+
 const DEFAULT_POLICY = {
   thongTin: [
     "**Nội thất:** Full nội thất như hình — sàn gỗ, tủ lạnh, giường, tủ, nệm, bếp, bàn ghế, máy giặt, máy lạnh.",
@@ -72,7 +105,7 @@ const DEFAULT_FOOTER = {
   phone: "0988 020 319",
   email: "info@therighthome.vn",
   website: "therighthome.vn",
-  note: "**The Right Home** · Thông tin có thể thay đổi không cần báo trước.",
+  note: BRAND_DEFAULTS.chdv.footerNote,
 };
 
 function todayVN(): string {
@@ -86,20 +119,21 @@ function floorLabel(roomNumber: string): string {
   return `Lầu ${f}`;
 }
 
-function buildInitialData(groups: Group[]): NoticeData {
+function buildInitialData(groups: Group[], kind: TemplateKind): NoticeData {
   const totalRooms = groups.reduce((s, g) => s + g.rooms.length, 0);
   const allRents = groups.flatMap((g) => g.rooms.map((r) => r.expectedRent).filter(Boolean) as string[]);
   const minRent = allRents.length > 0 ? allRents.reduce((m, r) => (BigInt(r) < BigInt(m) ? r : m)) : "";
   const minRentLabel = minRent ? formatRentShort(BigInt(minRent)) : "—";
+  const brand = BRAND_DEFAULTS[kind];
 
   return {
-    brand: "The Right Home",
-    brandSub: "Quản lý CHDV & Văn phòng",
+    brand: brand.brand,
+    brandSub: brand.brandSub,
     date: todayVN(),
     eyebrow: "Thông báo · Phòng trống",
     titleBefore: `${totalRooms} phòng sẵn sàng`,
     titleEm: "cho thuê",
-    subtitle: "Kính gửi Quý đối tác môi giới, dưới đây là danh sách phòng đang trống tại các toà nhà do The Right Home quản lý. Vui lòng liên hệ để xem trực tiếp hoặc nhận tư liệu chi tiết.",
+    subtitle: brand.subtitle,
     summary: [
       { label: "Tổng phòng trống", value: String(totalRooms), unit: "phòng" },
       { label: "Toà nhà", value: String(groups.length), unit: "địa điểm" },
@@ -108,7 +142,7 @@ function buildInitialData(groups: Group[]): NoticeData {
     ],
     buildings: groups.map((g) => buildInitialBuilding(g)),
     policy: { ...DEFAULT_POLICY },
-    footer: { ...DEFAULT_FOOTER },
+    footer: { ...DEFAULT_FOOTER, note: brand.footerNote },
   };
 }
 
@@ -135,7 +169,9 @@ function buildInitialBuilding(g: Group): NoticeBuilding {
 }
 
 // Local cache key — server is authoritative, this is just an offline / first-paint fallback.
-const STORAGE_KEY = "vacancy-notice-template:v1";
+// Keyed by kind so CHDV and VP templates don't share a slot.
+const STORAGE_KEY_PREFIX = "vacancy-notice-template:v1";
+const storageKey = (kind: TemplateKind) => `${STORAGE_KEY_PREFIX}:${kind}`;
 
 type SavedTemplate = {
   brand?: string;
@@ -152,10 +188,10 @@ type SavedTemplate = {
   roomsById?: Record<string, Partial<NoticeRoom>>;
 };
 
-function loadLocal(): SavedTemplate | null {
+function loadLocal(kind: TemplateKind): SavedTemplate | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey(kind));
     if (!raw) return null;
     return JSON.parse(raw) as SavedTemplate;
   } catch {
@@ -233,8 +269,11 @@ export function VacancyNoticeDialog({
   groups: Group[];
   onClose: () => void;
 }) {
+  // Pick once per dialog open — groups don't change for the lifetime of the
+  // dialog, and we don't want the kind flipping mid-edit.
+  const kind = useMemo(() => pickKind(groups), [groups]);
   // First-paint uses localStorage cache; server template overrides once fetched.
-  const [data, setData] = useState<NoticeData>(() => applySaved(buildInitialData(groups), loadLocal()));
+  const [data, setData] = useState<NoticeData>(() => applySaved(buildInitialData(groups, kind), loadLocal(kind)));
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -252,14 +291,14 @@ export function VacancyNoticeDialog({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/app-settings/vacancy-notice", { cache: "no-store" });
+        const res = await fetch(`/api/app-settings/vacancy-notice?kind=${kind}`, { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json() as { template: SavedTemplate | null };
         if (cancelled || !json.template) return;
-        setData((prev) => applySaved(buildInitialData(groups), json.template));
+        setData(() => applySaved(buildInitialData(groups, kind), json.template));
         // Mirror to localStorage so next open is instant.
         try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(json.template));
+          window.localStorage.setItem(storageKey(kind), JSON.stringify(json.template));
         } catch { /* ignore quota */ }
       } catch { /* offline — keep local */ }
     })();
@@ -288,7 +327,7 @@ export function VacancyNoticeDialog({
     };
     setSaving(true);
     try {
-      const res = await fetch("/api/app-settings/vacancy-notice", {
+      const res = await fetch(`/api/app-settings/vacancy-notice?kind=${kind}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -297,8 +336,8 @@ export function VacancyNoticeDialog({
         const err = await res.json().catch(() => null) as { error?: string } | null;
         throw new Error(err?.error ?? "Lưu thất bại");
       }
-      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch { /* ignore quota */ }
-      toast.success("Đã lưu mẫu (đồng bộ giữa các thiết bị)");
+      try { window.localStorage.setItem(storageKey(kind), JSON.stringify(payload)); } catch { /* ignore quota */ }
+      toast.success(`Đã lưu mẫu ${KIND_LABEL[kind]} (đồng bộ giữa các thiết bị)`);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
     } catch (e) {
@@ -457,7 +496,15 @@ export function VacancyNoticeDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-7xl max-h-[94vh] overflow-y-auto sm:p-5">
         <DialogHeader>
-          <DialogTitle>Thông báo phòng trống</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <span>Thông báo phòng trống</span>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800"
+              title={`Mẫu được lưu riêng cho ${KIND_LABEL[kind]}`}
+            >
+              Mẫu · {KIND_LABEL[kind]}
+            </span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-5">
