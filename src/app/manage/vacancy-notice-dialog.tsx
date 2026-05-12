@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Share2 } from "lucide-react";
+import { Download, Loader2, Share2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { formatVND, formatNumber, parseVNDInput, formatRoomNumber } from "@/lib/utils";
+import { formatVND, formatNumber, parseVNDInput, formatRoomNumber, roomFloor } from "@/lib/utils";
+import { NoticeTemplate, type NoticeData, type NoticeBuilding, type NoticeRoom } from "./notice-template";
 
 type Building = {
   id: string;
@@ -29,21 +30,142 @@ type VacantRoom = {
 
 type Group = { building: Building; rooms: VacantRoom[] };
 
-type EditableRoom = {
-  id: string;
-  number: string;
-  rent: string;        // raw input (digits or empty)
-  info: string;
-  notes: string;
+const DEFAULT_POLICY = {
+  thongTin: [
+    "**Nội thất:** Full nội thất như hình — sàn gỗ, tủ lạnh, giường, tủ, nệm, bếp, bàn ghế, máy giặt, máy lạnh.",
+    "**Tiền điện:** 4.000đ/số",
+    "**Nước:** 100.000đ/người",
+    "**Phí dịch vụ:** 150.000đ/phòng",
+    "**Xe máy/đạp:** Free 1 xe/khách",
+    "**Đăng ký tạm trú:** 200k/người",
+    "**Thú cưng:** chỉ cho phép nuôi MÈO (tối đa 2 con) có cam kết.",
+  ].join("\n"),
+  thongTinNoteTag: "",
+  thongTinNote: "",
+  coc: [
+    "**HĐ 6 tháng:** cọc 1 tháng",
+    "**HĐ 1 năm:** cọc 1.5 tháng · thanh toán 1 tháng/lần",
+    "Cọc giữ phòng 2 triệu giữ 3 ngày, cọc đủ giữ tối đa 7 ngày",
+    "Khách vào thanh toán đủ tiền cọc và tiền nhà tháng đầu tiên",
+  ].join("\n"),
+  hoaHongTerm1: "HĐ 6 tháng",
+  hoaHongPct1: "50",
+  hoaHongTerm2: "HĐ 12 tháng",
+  hoaHongPct2: "80",
+  hoaHongSub: "Hoa hồng tính trên giá thuê tháng đầu · thanh toán sau khi khách ký HĐ & đóng đủ cọc",
+  luuY: [
+    "**Không nhận khách sử dụng xe điện.**",
+    "Trường hợp khách huỷ cọc: chia 50/50 cho chủ và môi giới, sau khi trừ tiền số ngày giữ phòng.",
+    "Giao dịch thành công khi khách đóng đủ tiền cọc và tiền nhà tháng đầu tiên.",
+    "Giá thuê và tiền đặt cọc dành cho số lượng 2 ng/phòng. Nếu số lượng > 2 người ở vui lòng liên hệ trao đổi.",
+  ].join("\n"),
+  thanhToanIntro: "Tiền mặt hoặc chuyển khoản",
+  bankName: "TPBank",
+  bankAccountName: "Bùi Thuỳ Linh",
+  bankAccountNumber: "0000 5078 297",
+  guideName: "Linh",
+  guidePhone: "0988 020 319",
+  guideSub: "Sẵn sàng sắp xếp lịch xem phòng trong ngày",
 };
 
-type EditableGroup = {
-  buildingId: string;
-  title: string;       // building name (editable)
-  address: string;
-  body: string;        // building.info-derived multiline text
-  rooms: EditableRoom[];
+const DEFAULT_FOOTER = {
+  phone: "0988 020 319",
+  email: "info@therighthome.vn",
+  website: "therighthome.vn",
+  note: "**The Right Home** · Thông tin có thể thay đổi không cần báo trước.",
 };
+
+function todayVN(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")} · ${String(d.getMonth() + 1).padStart(2, "0")} · ${d.getFullYear()}`;
+}
+
+function defaultRef(): string {
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `TRH-VAC-${yy}${mm}-${seq}`;
+}
+
+function floorLabel(roomNumber: string): string {
+  const f = roomFloor(roomNumber);
+  if (f === "G") return "Trệt";
+  return `Lầu ${f}`;
+}
+
+function buildInitialData(groups: Group[]): NoticeData {
+  const totalRooms = groups.reduce((s, g) => s + g.rooms.length, 0);
+  const allRents = groups.flatMap((g) => g.rooms.map((r) => r.expectedRent).filter(Boolean) as string[]);
+  const minRent = allRents.length > 0 ? allRents.reduce((m, r) => (BigInt(r) < BigInt(m) ? r : m)) : "";
+  const minRentLabel = minRent ? formatRentShort(BigInt(minRent)) : "—";
+
+  return {
+    brand: "The Right Home",
+    brandSub: "Quản lý CHDV & Văn phòng",
+    date: todayVN(),
+    ref: defaultRef(),
+    eyebrow: "Thông báo · Phòng trống",
+    titleBefore: `${totalRooms} phòng sẵn sàng`,
+    titleEm: "cho thuê",
+    subtitle: "Kính gửi Quý đối tác môi giới, dưới đây là danh sách phòng đang trống tại các toà nhà do The Right Home quản lý. Vui lòng liên hệ để xem trực tiếp hoặc nhận tư liệu chi tiết.",
+    summary: [
+      { label: "Tổng phòng trống", value: String(totalRooms), unit: "phòng" },
+      { label: "Toà nhà", value: String(groups.length), unit: "địa điểm" },
+      { label: "Giá thuê từ", value: minRentLabel, unit: "triệu/tháng" },
+      { label: "Sẵn sàng", value: "Ngay", unit: "hôm nay" },
+    ],
+    sectionTitle: "Căn hộ & phòng sẵn sàng",
+    sectionSubtitle: `Nhóm theo toà nhà · Cập nhật ngày ${formatDate(new Date())}`,
+    buildings: groups.map((g) => buildInitialBuilding(g)),
+    policy: { ...DEFAULT_POLICY },
+    footer: { ...DEFAULT_FOOTER },
+  };
+}
+
+function formatRentShort(amount: bigint): string {
+  // 5800000 → "5.8"; 12000000 → "12"
+  const n = Number(amount) / 1_000_000;
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(1);
+}
+
+function formatDate(d: Date): string {
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function buildInitialBuilding(g: Group): NoticeBuilding {
+  return {
+    id: g.building.id,
+    name: g.building.name,
+    metaParts: [g.building.address, g.building.type === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng", ""],
+    countLabel: `${g.rooms.length} phòng`,
+    rooms: g.rooms.map((r) => buildInitialRoom(r)),
+  };
+}
+
+function buildInitialRoom(r: VacantRoom): NoticeRoom {
+  const features = (r.info ?? "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const price = r.expectedRent ? formatNumber(BigInt(r.expectedRent)) : "Liên hệ";
+  const pricePrev = r.previousRent ? `Trước: ${formatVND(BigInt(r.previousRent))}` : "";
+  return {
+    id: r.id,
+    floor: floorLabel(r.number),
+    number: `P${formatRoomNumber(r.number)}`,
+    tag: "",
+    tagLabel: "",
+    title: "",
+    features,
+    desc: r.vacancyNotes ?? "",
+    price,
+    priceUnit: r.expectedRent ? "VNĐ / tháng" : "Báo giá riêng",
+    pricePrev,
+    featured: false,
+  };
+}
 
 export function VacancyNoticeDialog({
   groups, onClose,
@@ -51,43 +173,52 @@ export function VacancyNoticeDialog({
   groups: Group[];
   onClose: () => void;
 }) {
-  const [brand, setBrand] = useState("THE RIGHT HOME");
-  const [editable, setEditable] = useState<EditableGroup[]>(
-    () => groups.map((g) => ({
-      buildingId: g.building.id,
-      title: g.building.name,
-      address: g.building.address,
-      body: g.building.info ?? "",
-      rooms: g.rooms.map((r) => ({
-        id: r.id,
-        number: formatRoomNumber(r.number),
-        rent: r.expectedRent ?? "",
-        info: r.info ?? "",
-        notes: r.vacancyNotes ?? "",
-      })),
-    })),
-  );
+  const [data, setData] = useState<NoticeData>(() => buildInitialData(groups));
   const [exporting, setExporting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  function patchGroup(buildingId: string, patch: Partial<EditableGroup>) {
-    setEditable((prev) => prev.map((g) => (g.buildingId === buildingId ? { ...g, ...patch } : g)));
+  function patch<K extends keyof NoticeData>(key: K, value: NoticeData[K]) {
+    setData((prev) => ({ ...prev, [key]: value }));
   }
-  function patchRoom(buildingId: string, roomId: string, patch: Partial<EditableRoom>) {
-    setEditable((prev) => prev.map((g) =>
-      g.buildingId === buildingId
-        ? { ...g, rooms: g.rooms.map((r) => (r.id === roomId ? { ...r, ...patch } : r)) }
-        : g,
-    ));
+  function patchPolicy<K extends keyof NoticeData["policy"]>(key: K, value: NoticeData["policy"][K]) {
+    setData((prev) => ({ ...prev, policy: { ...prev.policy, [key]: value } }));
+  }
+  function patchFooter<K extends keyof NoticeData["footer"]>(key: K, value: NoticeData["footer"][K]) {
+    setData((prev) => ({ ...prev, footer: { ...prev.footer, [key]: value } }));
+  }
+  function patchSummary(i: number, patchObj: Partial<NoticeData["summary"][number]>) {
+    setData((prev) => ({
+      ...prev,
+      summary: prev.summary.map((s, idx) => (idx === i ? { ...s, ...patchObj } : s)),
+    }));
+  }
+  function patchBuilding(bid: string, patchObj: Partial<NoticeBuilding>) {
+    setData((prev) => ({
+      ...prev,
+      buildings: prev.buildings.map((b) => (b.id === bid ? { ...b, ...patchObj } : b)),
+    }));
+  }
+  function patchRoom(bid: string, rid: string, patchObj: Partial<NoticeRoom>) {
+    setData((prev) => ({
+      ...prev,
+      buildings: prev.buildings.map((b) =>
+        b.id === bid
+          ? { ...b, rooms: b.rooms.map((r) => (r.id === rid ? { ...r, ...patchObj } : r)) }
+          : b,
+      ),
+    }));
   }
 
   async function generateBlob(): Promise<Blob | null> {
     if (!previewRef.current) return null;
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready; } catch { /* ignore */ }
+    }
     const { default: html2canvas } = await import("html2canvas-pro");
     const canvas = await html2canvas(previewRef.current, {
-      backgroundColor: "#1f3a4d",
+      backgroundColor: "#faf7f3",
       scale: 2,
-      useCORS: false,
+      useCORS: true,
       allowTaint: false,
       logging: false,
     });
@@ -95,11 +226,9 @@ export function VacancyNoticeDialog({
   }
 
   const fileLabel = useMemo(() => {
-    if (editable.length === 1) {
-      return `thong-bao-${editable[0].title}-${editable[0].rooms.map((r) => r.number).join("-")}.png`;
-    }
-    return `thong-bao-phong-trong.png`;
-  }, [editable]);
+    const parts = data.buildings.map((b) => b.name.replace(/[^\w-]+/g, "-")).join("_");
+    return `thong-bao-phong-trong-${parts || "TRH"}.png`;
+  }, [data.buildings]);
 
   async function download() {
     setExporting(true);
@@ -141,99 +270,162 @@ export function VacancyNoticeDialog({
     }
   }
 
-  const totalRooms = editable.reduce((s, g) => s + g.rooms.length, 0);
-
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[94vh] overflow-y-auto sm:p-5">
         <DialogHeader>
-          <DialogTitle>
-            Thông báo phòng trống — {totalRooms} phòng / {editable.length} toà
-          </DialogTitle>
+          <DialogTitle>Thông báo phòng trống</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-5">
           {/* Editor */}
-          <div className="space-y-4 text-sm">
+          <div className="space-y-3 text-sm">
             <p className="text-xs text-slate-500">
-              Chỉnh nội dung bên dưới rồi bấm "Tải hình" để xuất ảnh gửi môi giới. Mỗi dòng bắt đầu bằng <code>**Heading**</code> sẽ in đậm trong mẫu.
+              Chỉnh nội dung bên dưới rồi bấm "Tải hình" để xuất ảnh gửi môi giới. Trong textarea, gói chữ trong <code>**...**</code> để in đậm.
             </p>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tiêu đề thương hiệu</Label>
-              <Input value={brand} onChange={(e) => setBrand(e.target.value)} />
-            </div>
-            {editable.map((g) => (
-              <div key={g.buildingId} className="rounded-xl border border-slate-200 p-3 space-y-3 bg-slate-50/40">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tên toà</Label>
-                    <Input value={g.title} onChange={(e) => patchGroup(g.buildingId, { title: e.target.value })} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Địa chỉ</Label>
-                    <Input value={g.address} onChange={(e) => patchGroup(g.buildingId, { address: e.target.value })} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {g.rooms.map((r) => {
-                    const rentDisplay = r.rent ? formatNumber(parseVNDInput(r.rent)) : "";
-                    return (
-                      <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-[11px]">Phòng</Label>
-                            <Input value={r.number} onChange={(e) => patchRoom(g.buildingId, r.id, { number: e.target.value })} />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px]">Giá thuê dự kiến (₫)</Label>
-                            <Input
-                              inputMode="numeric"
-                              value={rentDisplay}
-                              onChange={(e) => patchRoom(g.buildingId, r.id, { rent: e.target.value })}
-                              placeholder="—"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">Thông tin phòng</Label>
-                          <Textarea
-                            value={r.info}
-                            onChange={(e) => patchRoom(g.buildingId, r.id, { info: e.target.value })}
-                            rows={2}
-                            placeholder="vd: 25m², ban công, hướng Đông Nam"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">Ghi chú</Label>
-                          <Input
-                            value={r.notes}
-                            onChange={(e) => patchRoom(g.buildingId, r.id, { notes: e.target.value })}
-                            placeholder="vd: dọn vào tháng 6"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Nội dung chung của toà</Label>
-                  <Textarea
-                    value={g.body}
-                    onChange={(e) => patchGroup(g.buildingId, { body: e.target.value })}
-                    rows={10}
-                    className="font-mono text-[12px]"
-                  />
-                </div>
+
+            <Section title="Header" defaultOpen>
+              <div className="grid grid-cols-2 gap-2">
+                <FieldText label="Brand" value={data.brand} onChange={(v) => patch("brand", v)} />
+                <FieldText label="Sub-brand" value={data.brandSub} onChange={(v) => patch("brandSub", v)} />
+                <FieldText label="Ngày" value={data.date} onChange={(v) => patch("date", v)} />
+                <FieldText label="Mã tham chiếu" value={data.ref} onChange={(v) => patch("ref", v)} />
+                <FieldText label="Eyebrow" value={data.eyebrow} onChange={(v) => patch("eyebrow", v)} />
+                <FieldText label="Title em (nghiêng)" value={data.titleEm} onChange={(v) => patch("titleEm", v)} />
               </div>
+              <FieldText label="Title (trước em)" value={data.titleBefore} onChange={(v) => patch("titleBefore", v)} />
+              <FieldArea label="Subtitle" value={data.subtitle} rows={3} onChange={(v) => patch("subtitle", v)} />
+            </Section>
+
+            <Section title="Tóm tắt (4 ô)">
+              {data.summary.map((s, i) => (
+                <div key={i} className="grid grid-cols-3 gap-2">
+                  <FieldText label="Nhãn" value={s.label} onChange={(v) => patchSummary(i, { label: v })} />
+                  <FieldText label="Giá trị" value={s.value} onChange={(v) => patchSummary(i, { value: v })} />
+                  <FieldText label="Đơn vị" value={s.unit} onChange={(v) => patchSummary(i, { unit: v })} />
+                </div>
+              ))}
+            </Section>
+
+            <Section title="Section title">
+              <FieldText label="Tiêu đề section" value={data.sectionTitle} onChange={(v) => patch("sectionTitle", v)} />
+              <FieldText label="Subtitle" value={data.sectionSubtitle} onChange={(v) => patch("sectionSubtitle", v)} />
+            </Section>
+
+            {data.buildings.map((b) => (
+              <Section key={b.id} title={`Toà · ${b.name || "—"}`}>
+                <FieldText label="Tên toà" value={b.name} onChange={(v) => patchBuilding(b.id, { name: v })} />
+                <FieldText
+                  label="Meta (cách nhau bằng |)"
+                  value={b.metaParts.join(" | ")}
+                  onChange={(v) => patchBuilding(b.id, { metaParts: v.split("|").map((s) => s.trim()) })}
+                />
+                <FieldText label="Nhãn số phòng" value={b.countLabel} onChange={(v) => patchBuilding(b.id, { countLabel: v })} />
+                <div className="space-y-2 mt-2">
+                  {b.rooms.map((r) => (
+                    <div key={r.id} className="rounded-lg border border-slate-200 bg-slate-50/40 p-2.5 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <FieldText label="Lầu" value={r.floor} onChange={(v) => patchRoom(b.id, r.id, { floor: v })} />
+                        <FieldText label="Số phòng" value={r.number} onChange={(v) => patchRoom(b.id, r.id, { number: v })} />
+                      </div>
+                      <FieldText label="Tiêu đề phòng" value={r.title} onChange={(v) => patchRoom(b.id, r.id, { title: v })} />
+                      <FieldArea
+                        label="Đặc điểm (mỗi dòng 1 thẻ, dùng **...** để in đậm)"
+                        value={r.features.join("\n")}
+                        rows={3}
+                        onChange={(v) => patchRoom(b.id, r.id, { features: v.split("\n").map((s) => s.trim()).filter(Boolean) })}
+                      />
+                      <FieldText label="Mô tả" value={r.desc} onChange={(v) => patchRoom(b.id, r.id, { desc: v })} />
+                      <div className="grid grid-cols-3 gap-2">
+                        <FieldText label="Giá" value={r.price} onChange={(v) => patchRoom(b.id, r.id, { price: v })} />
+                        <FieldText label="Đơn vị" value={r.priceUnit} onChange={(v) => patchRoom(b.id, r.id, { priceUnit: v })} />
+                        <FieldText label="Giá trước (gạch)" value={r.pricePrev} onChange={(v) => patchRoom(b.id, r.id, { pricePrev: v })} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 items-end">
+                        <FieldSelect
+                          label="Tag"
+                          value={r.tag}
+                          onChange={(v) => patchRoom(b.id, r.id, { tag: v as NoticeRoom["tag"] })}
+                          options={[
+                            { value: "", label: "— Không —" },
+                            { value: "new", label: "Mới (xanh)" },
+                            { value: "hot", label: "Ưu đãi (cam)" },
+                          ]}
+                        />
+                        <FieldText label="Tag label" value={r.tagLabel} onChange={(v) => patchRoom(b.id, r.id, { tagLabel: v })} />
+                        <label className="text-xs flex items-center gap-2 mt-5">
+                          <input
+                            type="checkbox"
+                            checked={r.featured}
+                            onChange={(e) => patchRoom(b.id, r.id, { featured: e.target.checked })}
+                            className="rounded"
+                          />
+                          <span>Featured (nền sáng hơn)</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
             ))}
+
+            <Section title="Chính sách · Thông tin chung">
+              <FieldArea label="Nội dung" value={data.policy.thongTin} rows={8} onChange={(v) => patchPolicy("thongTin", v)} />
+              <FieldText label="Note tag (vd: Riêng G01 & G02…)" value={data.policy.thongTinNoteTag} onChange={(v) => patchPolicy("thongTinNoteTag", v)} />
+              <FieldArea label="Nội dung note" value={data.policy.thongTinNote} rows={3} onChange={(v) => patchPolicy("thongTinNote", v)} />
+            </Section>
+
+            <Section title="Chính sách · Cọc & thanh toán">
+              <FieldArea label="Nội dung" value={data.policy.coc} rows={5} onChange={(v) => patchPolicy("coc", v)} />
+            </Section>
+
+            <Section title="Chính sách · Hoa hồng">
+              <div className="grid grid-cols-2 gap-2">
+                <FieldText label="Term 1" value={data.policy.hoaHongTerm1} onChange={(v) => patchPolicy("hoaHongTerm1", v)} />
+                <FieldText label="% Term 1" value={data.policy.hoaHongPct1} onChange={(v) => patchPolicy("hoaHongPct1", v)} />
+                <FieldText label="Term 2" value={data.policy.hoaHongTerm2} onChange={(v) => patchPolicy("hoaHongTerm2", v)} />
+                <FieldText label="% Term 2" value={data.policy.hoaHongPct2} onChange={(v) => patchPolicy("hoaHongPct2", v)} />
+              </div>
+              <FieldArea label="Ghi chú dưới" value={data.policy.hoaHongSub} rows={2} onChange={(v) => patchPolicy("hoaHongSub", v)} />
+            </Section>
+
+            <Section title="Chính sách · Lưu ý">
+              <FieldArea label="Nội dung" value={data.policy.luuY} rows={6} onChange={(v) => patchPolicy("luuY", v)} />
+            </Section>
+
+            <Section title="Chính sách · Thanh toán & STK">
+              <FieldArea label="Mô tả" value={data.policy.thanhToanIntro} rows={2} onChange={(v) => patchPolicy("thanhToanIntro", v)} />
+              <div className="grid grid-cols-3 gap-2">
+                <FieldText label="Ngân hàng" value={data.policy.bankName} onChange={(v) => patchPolicy("bankName", v)} />
+                <FieldText label="Chủ tài khoản" value={data.policy.bankAccountName} onChange={(v) => patchPolicy("bankAccountName", v)} />
+                <FieldText label="Số tài khoản" value={data.policy.bankAccountNumber} onChange={(v) => patchPolicy("bankAccountNumber", v)} />
+              </div>
+            </Section>
+
+            <Section title="Chính sách · Dẫn khách liên hệ">
+              <div className="grid grid-cols-2 gap-2">
+                <FieldText label="Tên người dẫn" value={data.policy.guideName} onChange={(v) => patchPolicy("guideName", v)} />
+                <FieldText label="Số điện thoại" value={data.policy.guidePhone} onChange={(v) => patchPolicy("guidePhone", v)} />
+              </div>
+              <FieldText label="Ghi chú" value={data.policy.guideSub} onChange={(v) => patchPolicy("guideSub", v)} />
+            </Section>
+
+            <Section title="Footer">
+              <div className="grid grid-cols-3 gap-2">
+                <FieldText label="Điện thoại" value={data.footer.phone} onChange={(v) => patchFooter("phone", v)} />
+                <FieldText label="Email" value={data.footer.email} onChange={(v) => patchFooter("email", v)} />
+                <FieldText label="Website" value={data.footer.website} onChange={(v) => patchFooter("website", v)} />
+              </div>
+              <FieldText label="Footer note" value={data.footer.note} onChange={(v) => patchFooter("note", v)} />
+            </Section>
           </div>
 
-          {/* Preview (export target) */}
-          <div className="lg:sticky lg:top-0 lg:self-start">
-            <div className="text-[11px] text-slate-500 mb-1.5">Xem trước · Tỷ lệ thật khi xuất hình</div>
-            <div className="overflow-x-auto -mx-1 px-1">
-              <div className="inline-block min-w-[640px]">
-                <NoticePreview ref={previewRef} brand={brand} groups={editable} />
+          {/* Preview */}
+          <div className="lg:sticky lg:top-0 lg:self-start space-y-2">
+            <div className="text-[11px] text-slate-500">Xem trước · Tỷ lệ thật khi xuất hình</div>
+            <div className="overflow-x-auto -mx-1 px-1 rounded-xl border border-slate-200" style={{ maxHeight: "78vh" }}>
+              <div style={{ minWidth: 960 }}>
+                <NoticeTemplate refProp={previewRef} data={data} />
               </div>
             </div>
           </div>
@@ -253,120 +445,50 @@ export function VacancyNoticeDialog({
   );
 }
 
-type BodyBlock =
-  | { kind: "heading"; text: string }
-  | { kind: "para"; text: string }
-  | { kind: "blank" };
-
-function parseTemplateBody(text: string): BodyBlock[] {
-  if (!text.trim()) return [];
-  return text.split("\n").map((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return { kind: "blank" } as const;
-    const headingMatch = /^\*\*(.+?)\*\*\s*:?\s*$/.exec(trimmed);
-    if (headingMatch) return { kind: "heading", text: headingMatch[1].trim() };
-    return { kind: "para", text: line };
-  });
+function Section({ title, children, defaultOpen }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  return (
+    <details open={defaultOpen} className="rounded-xl border border-slate-200 bg-white">
+      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+        <ChevronDown className="h-3 w-3 transition-transform [details[open]>summary>&]:rotate-180" />
+        {title}
+      </summary>
+      <div className="px-3 pb-3 space-y-2">{children}</div>
+    </details>
+  );
 }
 
-function NoticePreview({
-  ref, brand, groups,
-}: {
-  ref?: React.Ref<HTMLDivElement>;
-  brand: string;
-  groups: EditableGroup[];
-}) {
+function FieldText({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div
-      ref={ref}
-      style={{
-        width: 640,
-        background: "linear-gradient(180deg, #1f3a4d 0%, #163040 100%)",
-        color: "#fefcf7",
-        padding: "28px 28px 24px",
-        fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
-        fontSize: 13.5,
-        lineHeight: 1.55,
-        borderRadius: 12,
-      }}
-    >
-      <div style={{ textAlign: "center", paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.18)" }}>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1.5 }}>{brand}</div>
-        <div style={{ marginTop: 4, fontSize: 12.5, opacity: 0.85 }}>
-          THÔNG BÁO PHÒNG TRỐNG
-        </div>
-      </div>
-
-      {groups.map((g, gi) => {
-        const bodyBlocks = parseTemplateBody(g.body);
-        return (
-          <div key={g.buildingId} style={{ marginTop: gi === 0 ? 16 : 22 }}>
-            <div style={{ textAlign: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{g.title}</div>
-              <div style={{ fontSize: 12.5, opacity: 0.9 }}>{g.address}</div>
-            </div>
-
-            {/* Rooms — stacked cards */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {g.rooms.map((r) => {
-                const rentVND = r.rent ? formatVND(parseVNDInput(r.rent)) : "";
-                return (
-                  <div
-                    key={r.id}
-                    style={{
-                      padding: "10px 14px",
-                      background: "rgba(255,255,255,0.07)",
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      borderRadius: 8,
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>Phòng {r.number}</div>
-                      {rentVND && (
-                        <div style={{ fontWeight: 700, fontSize: 14.5, color: "#ffd47a" }}>{rentVND}/tháng</div>
-                      )}
-                    </div>
-                    {r.info && (
-                      <div style={{ marginTop: 4, fontSize: 12.5, opacity: 0.92, whiteSpace: "pre-line" }}>{r.info}</div>
-                    )}
-                    {r.notes && (
-                      <div style={{ marginTop: 4, fontSize: 12, fontStyle: "italic", color: "#ffd47a" }}>{r.notes}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Body — building info */}
-            {bodyBlocks.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                {bodyBlocks.map((b, i) => {
-                  if (b.kind === "blank") return <div key={i} style={{ height: 6 }} />;
-                  if (b.kind === "heading") {
-                    return (
-                      <div
-                        key={i}
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 13.5,
-                          marginTop: i === 0 ? 0 : 10,
-                          marginBottom: 4,
-                          color: "#ffd47a",
-                        }}
-                      >
-                        {b.text}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={i} style={{ fontSize: 12.5 }}>{b.text}</div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div className="space-y-1">
+      <Label className="text-[11px]">{label}</Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" />
     </div>
   );
 }
+
+function FieldArea({ label, value, rows, onChange }: { label: string; value: string; rows: number; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px]">{label}</Label>
+      <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows} className="text-xs font-mono" />
+    </div>
+  );
+}
+
+function FieldSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px]">{label}</Label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs"
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+// Re-export for VacantRoomsTab to keep its existing imports — it passes the
+// same { groups, onClose } shape we accept above.
