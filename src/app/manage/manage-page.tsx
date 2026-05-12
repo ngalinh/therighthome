@@ -12,6 +12,7 @@ import { ManageOvertimeTab } from "./overtime-tab";
 import { AggregatedInvoicesView } from "./aggregated-invoices-view";
 import { AggregatedCashbookTab } from "./aggregated-cashbook-tab";
 import { ExpiringContractsTab } from "./expiring-contracts-tab";
+import { VacantRoomsTab } from "./vacant-rooms-tab";
 import { generateMonthlyInvoices } from "@/lib/invoice-service";
 
 export async function ManageTypePage({
@@ -94,6 +95,46 @@ export async function ManageTypePage({
     buildingId: r.buildingId,
     number: r.number,
     primaryCustomerId: r.contracts[0]?.customers[0]?.customerId ?? null,
+  }));
+
+  // Vacant rooms (no active contract). Pull each room's most recent ended
+  // contract to surface the previous monthly rent.
+  const vacantRoomsRaw = await prisma.room.findMany({
+    where: {
+      buildingId: { in: buildingIds },
+      contracts: { none: { status: "ACTIVE" } },
+    },
+    orderBy: [{ buildingId: "asc" }, { number: "asc" }],
+    select: {
+      id: true,
+      buildingId: true,
+      number: true,
+      info: true,
+      expectedRent: true,
+      vacancyNotes: true,
+      contracts: {
+        where: { status: { in: ["TERMINATED", "EXPIRED", "TERMINATED_LOST_DEPOSIT"] } },
+        orderBy: { endDate: "desc" },
+        take: 1,
+        select: { monthlyRent: true },
+      },
+    },
+  });
+  const vacantRooms = vacantRoomsRaw.map((r) => ({
+    id: r.id,
+    buildingId: r.buildingId,
+    number: r.number,
+    info: r.info,
+    expectedRent: r.expectedRent?.toString() ?? null,
+    vacancyNotes: r.vacancyNotes,
+    previousRent: r.contracts[0]?.monthlyRent.toString() ?? null,
+  }));
+  const buildingsForVacant = buildings.map((b) => ({
+    id: b.id,
+    name: b.name,
+    address: b.address,
+    type: b.type as "CHDV" | "VP",
+    info: b.info,
   }));
 
   // Tasks (always loaded — small).
@@ -228,6 +269,7 @@ export async function ManageTypePage({
               <TabsTrigger value="invoices">Hoá đơn</TabsTrigger>
               <TabsTrigger value="tasks">Công việc</TabsTrigger>
               <TabsTrigger value="contracts">HĐ sắp hết hạn</TabsTrigger>
+              <TabsTrigger value="vacant">Phòng trống</TabsTrigger>
               <TabsTrigger value="cashbook">Sổ quỹ tổng</TabsTrigger>
               {kind === "VP" && <TabsTrigger value="overtime">Làm ngoài giờ</TabsTrigger>}
             </TabsList>
@@ -250,6 +292,9 @@ export async function ManageTypePage({
               contracts={expiringContractsS}
               daysThreshold={expiringDaysThreshold}
             />
+          </TabsContent>
+          <TabsContent value="vacant">
+            <VacantRoomsTab buildings={buildingsForVacant} rooms={vacantRooms} />
           </TabsContent>
           <TabsContent value="invoices">
             <AggregatedInvoicesView

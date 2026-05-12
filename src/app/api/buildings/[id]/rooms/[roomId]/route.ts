@@ -1,7 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
+
+const updateSchema = z.object({
+  number: z.string().min(1).max(20).optional(),
+  info: z.string().max(5000).nullable().optional(),
+  expectedRent: z.string().nullable().optional(),
+  vacancyNotes: z.string().max(2000).nullable().optional(),
+});
+
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string; roomId: string }> },
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id, roomId } = await ctx.params;
+  if (!(await can(session.user.id, session.user.role, id, "building.write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const parsed = updateSchema.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  const data: {
+    number?: string;
+    info?: string | null;
+    expectedRent?: bigint | null;
+    vacancyNotes?: string | null;
+  } = {};
+  if (parsed.data.number !== undefined) data.number = parsed.data.number;
+  if (parsed.data.info !== undefined) data.info = parsed.data.info;
+  if (parsed.data.vacancyNotes !== undefined) data.vacancyNotes = parsed.data.vacancyNotes;
+  if (parsed.data.expectedRent !== undefined) {
+    data.expectedRent = parsed.data.expectedRent === null || parsed.data.expectedRent === ""
+      ? null
+      : BigInt(parsed.data.expectedRent);
+  }
+
+  try {
+    await prisma.room.update({ where: { id: roomId }, data });
+  } catch (e) {
+    const isUnique = typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "P2002";
+    if (isUnique) return NextResponse.json({ error: "Số phòng đã tồn tại" }, { status: 400 });
+    throw e;
+  }
+  return NextResponse.json({ ok: true });
+}
 
 export async function DELETE(
   _req: NextRequest,

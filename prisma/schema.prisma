@@ -15,15 +15,15 @@ datasource db {
 // ============================================================
 
 enum UserRole {
-  ADMIN     // Full access, can manage users
-  STAFF     // Limited to assigned buildings
+  ADMIN // Full access, can manage users
+  STAFF // Limited to assigned buildings
 }
 
 enum BuildingPermission {
-  OWNER     // Full access to this building
-  MANAGER   // Manage contracts, invoices, finance
+  OWNER // Full access to this building
+  MANAGER // Manage contracts, invoices, finance
   ACCOUNTANT // Finance only
-  VIEWER    // Read-only
+  VIEWER // Read-only
 }
 
 model User {
@@ -63,8 +63,8 @@ model UserBuildingPermission {
 // ============================================================
 
 enum BuildingType {
-  CHDV   // Căn hộ dịch vụ (serviced apartment)
-  VP     // Văn phòng (office)
+  CHDV // Căn hộ dịch vụ (serviced apartment)
+  VP // Văn phòng (office)
 }
 
 enum RoomStatus {
@@ -78,6 +78,7 @@ model Building {
   name      String
   address   String
   type      BuildingType
+  info      String? // Thông tin chung dùng cho mẫu Thông báo phòng trống
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -91,18 +92,21 @@ model Building {
   openingBalances  OpeningBalance[]
   maintenanceTasks MaintenanceTask[]
   overtimeRequests OvertimeRequest[]
-  paymentMethods   PaymentMethod[] @relation("BuildingPaymentMethods")
+  paymentMethods   PaymentMethod[]          @relation("BuildingPaymentMethods")
 }
 
 model Room {
-  id         String     @id @default(cuid())
-  buildingId String
-  number     String
-  status     RoomStatus @default(AVAILABLE)
-  area       Int?       // m²
-  notes      String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  buildingId   String
+  number       String
+  status       RoomStatus @default(AVAILABLE)
+  area         Int? // m²
+  notes        String?
+  info         String? // Thông tin phòng (mô tả nội thất, ghi chú riêng…)
+  expectedRent BigInt? // Giá thuê dự kiến khi phòng đang trống
+  vacancyNotes String? // Ghi chú listing phòng trống
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   building         Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contracts        Contract[]
@@ -134,25 +138,25 @@ model Customer {
   notes String?
 
   // Individual
-  fullName          String?
-  idNumber          String? // CCCD
-  idIssuedDate      DateTime?  // Ngày cấp CCCD (mặt sau)
-  licensePlate      String?
-  idCardFrontUrl    String?
-  idCardBackUrl     String?
-  dateOfBirth       DateTime?
-  hometown          String?
-  permanentAddress  String?   // Nơi thường trú (CCCD)
+  fullName         String?
+  idNumber         String? // CCCD
+  idIssuedDate     DateTime? // Ngày cấp CCCD (mặt sau)
+  licensePlate     String?
+  idCardFrontUrl   String?
+  idCardBackUrl    String?
+  dateOfBirth      DateTime?
+  hometown         String?
+  permanentAddress String? // Nơi thường trú (CCCD)
 
   // Company
-  companyName          String?
-  taxNumber            String?
-  businessLicenseUrls  String[] @default([])
+  companyName         String?
+  taxNumber           String?
+  businessLicenseUrls String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  building          Building            @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  building          Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contractCustomers ContractCustomer[]
   openingBalances   OpeningBalance[]
   transactions      Transaction[]
@@ -169,33 +173,33 @@ enum ContractStatus {
   ACTIVE
   EXPIRED
   TERMINATED_LOST_DEPOSIT // Mất cọc
-  TERMINATED              // Dừng thuê bình thường
+  TERMINATED // Dừng thuê bình thường
 }
 
 enum TemporaryResidenceStatus {
   NOT_REGISTERED // Chưa đăng ký
-  SUBMITTED      // Đã gửi hồ sơ
-  REGISTERED     // Đã đăng ký
+  SUBMITTED // Đã gửi hồ sơ
+  REGISTERED // Đã đăng ký
 }
 
 model Contract {
-  id         String         @id @default(cuid())
+  id         String @id @default(cuid())
   buildingId String
   roomId     String
-  code       String         @unique // HD-YYMM-NNN
+  code       String @unique // HD-YYMM-NNN
 
   startDate  DateTime
   endDate    DateTime
-  termMonths Int            // 3, 6, 12, 24, 36
-  paymentDay Int            // ngày thanh toán hàng tháng (1-28)
+  termMonths Int // 3, 6, 12, 24, 36
+  paymentDay Int // ngày thanh toán hàng tháng (1-28)
 
-  monthlyRent  BigInt       // VND
-  vatRate      Float        @default(0) // 0 for CHDV, 0.1 for VP usually
-  depositAmount BigInt      @default(0)
+  monthlyRent   BigInt // VND
+  vatRate       Float  @default(0) // 0 for CHDV, 0.1 for VP usually
+  depositAmount BigInt @default(0)
 
   // Open-ended contract: stays ACTIVE until manually terminated, regardless
   // of endDate. Used for rolling/indefinite leases.
-  isOpenEnded  Boolean      @default(false)
+  isOpenEnded Boolean @default(false)
 
   // Snapshot from settings at contract creation (for invoice generation)
   electricityPricePerKwh BigInt @default(0)
@@ -204,44 +208,44 @@ model Contract {
   serviceFeeAmount       BigInt @default(0) // monthly service fee
   waterPricePerPerson    BigInt @default(0) // monthly water fee per occupant
 
-  status            ContractStatus @default(ACTIVE)
+  status ContractStatus @default(ACTIVE)
 
   // Tạm trú (CHDV only) — registration of temporary residence with police
   temporaryResidenceStatus       TemporaryResidenceStatus @default(NOT_REGISTERED)
   temporaryResidenceExpiresAt    DateTime?
   temporaryResidenceIsIndefinite Boolean                  @default(false)
 
-  notes             String?
+  notes            String?
   // Independent note for the "Hợp đồng sắp hết hạn" dashboard tab. Decoupled
   // from `notes` so contract-renewal follow-ups don't pollute the main HĐ
   // notes (and vice versa).
-  expiringNote      String?
-  contractFileUrl   String?  // user-uploaded signed contract
-  generatedDocxUrl  String?  // auto-generated from template
+  expiringNote     String?
+  contractFileUrl  String? // user-uploaded signed contract
+  generatedDocxUrl String? // auto-generated from template
 
   // Termination
-  terminatedAt   DateTime?
-  depositRefund  BigInt?   // amount refunded; if status=TERMINATED_LOST_DEPOSIT, deposit goes to revenue
+  terminatedAt  DateTime?
+  depositRefund BigInt? // amount refunded; if status=TERMINATED_LOST_DEPOSIT, deposit goes to revenue
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  building     Building          @relation(fields: [buildingId], references: [id])
-  room         Room              @relation(fields: [roomId], references: [id])
-  customers    ContractCustomer[]
-  yearlyRents  ContractYearlyRent[]
-  invoices     Invoice[]
+  building    Building             @relation(fields: [buildingId], references: [id])
+  room        Room                 @relation(fields: [roomId], references: [id])
+  customers   ContractCustomer[]
+  yearlyRents ContractYearlyRent[]
+  invoices    Invoice[]
 
   @@index([buildingId, status])
   @@index([roomId])
 }
 
 model ContractCustomer {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   contractId String
   customerId String
-  isPrimary  Boolean  @default(false)
-  orderIdx   Int      @default(0)
+  isPrimary  Boolean @default(false)
+  orderIdx   Int     @default(0)
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -254,7 +258,7 @@ model ContractCustomer {
 model ContractYearlyRent {
   id         String @id @default(cuid())
   contractId String
-  yearIndex  Int    // 1, 2, 3
+  yearIndex  Int // 1, 2, 3
   rent       BigInt
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
@@ -267,20 +271,20 @@ model ContractYearlyRent {
 // ============================================================
 
 enum InvoiceStatus {
-  PENDING    // Chờ thanh toán
-  PARTIAL    // Một phần
-  PAID       // Đã thanh toán
-  OVERDUE    // Quá hạn (computed by cron)
-  CANCELLED  // Đã huỷ
+  PENDING // Chờ thanh toán
+  PARTIAL // Một phần
+  PAID // Đã thanh toán
+  OVERDUE // Quá hạn (computed by cron)
+  CANCELLED // Đã huỷ
 }
 
 model Invoice {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   contractId String
   buildingId String
-  code       String   @unique // HD-YYMM-NNN
+  code       String @unique // HD-YYMM-NNN
 
-  month   Int       // 1-12
+  month   Int // 1-12
   year    Int
   dueDate DateTime
 
@@ -293,13 +297,13 @@ model Invoice {
   electricityEnd         Int?
   electricityStartPhoto  String?
   electricityEndPhoto    String?
-  electricityPricePerKwh BigInt @default(0)
-  electricityFee         BigInt @default(0)
+  electricityPricePerKwh BigInt  @default(0)
+  electricityFee         BigInt  @default(0)
 
   // Parking
-  parkingCount           Int    @default(0)
-  parkingFeePerVehicle   BigInt @default(0)
-  parkingFee             BigInt @default(0)
+  parkingCount         Int    @default(0)
+  parkingFeePerVehicle BigInt @default(0)
+  parkingFee           BigInt @default(0)
 
   // Office only
   overtimeFee BigInt @default(0)
@@ -339,14 +343,14 @@ model Invoice {
 }
 
 model InvoiceLineItem {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   invoiceId  String
   categoryId String?
   content    String
   amount     BigInt
   // false = excluded from BCKD (e.g. Tiền cọc — collected but not revenue)
-  countInBR  Boolean  @default(true)
-  sortOrder  Int      @default(0)
+  countInBR  Boolean @default(true)
+  sortOrder  Int     @default(0)
 
   invoice  Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   category TransactionCategory? @relation(fields: [categoryId], references: [id])
@@ -372,8 +376,8 @@ model InvoicePayment {
 // ============================================================
 
 enum TransactionType {
-  INCOME   // Phiếu thu
-  EXPENSE  // Phiếu chi
+  INCOME // Phiếu thu
+  EXPENSE // Phiếu chi
 }
 
 enum PartyKind {
@@ -394,40 +398,40 @@ enum PartyKind {
 // new entries can use any unique string. `forRevenue`/`forExpense` control
 // which transaction type the kind appears in.
 model PartyKindConfig {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  label       String
-  forRevenue  Boolean  @default(true)
-  forExpense  Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  code       String   @unique
+  label      String
+  forRevenue Boolean  @default(true)
+  forExpense Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Transaction {
-  id          String          @id @default(cuid())
-  buildingId  String
-  code        String          @unique // PT-YYMM-NNN or PC-YYMM-NNN
-  date        DateTime
-  type        TransactionType
-  amount      BigInt
-  content     String          // Nội dung
-  notes       String?
+  id         String          @id @default(cuid())
+  buildingId String
+  code       String          @unique // PT-YYMM-NNN or PC-YYMM-NNN
+  date       DateTime
+  type       TransactionType
+  amount     BigInt
+  content    String // Nội dung
+  notes      String?
 
   categoryId      String?
   paymentMethodId String?
 
-  partyKind  String?    // PartyKindConfig.code (legacy values from PartyKind enum still valid)
-  customerId String?    // if partyKind = CUSTOMER
-  partyId    String?    // if not customer
+  partyKind  String? // PartyKindConfig.code (legacy values from PartyKind enum still valid)
+  customerId String? // if partyKind = CUSTOMER
+  partyId    String? // if not customer
 
   // Optional room link (for per-room expenses/income tracking)
   roomId String?
 
   // Hạch toán vào BCKD
-  countInBR        Boolean   @default(true)
-  accountingMonth  Int?
-  accountingYear   Int?
+  countInBR       Boolean @default(true)
+  accountingMonth Int?
+  accountingYear  Int?
 
   invoiceId String?
 
@@ -452,12 +456,12 @@ model Transaction {
 
 // Non-customer counterparties (workers, suppliers, govt)
 model Party {
-  id         String    @id @default(cuid())
-  kind       String    // PartyKindConfig.code
-  name       String
-  phone      String?
-  notes      String?
-  createdAt  DateTime  @default(now())
+  id        String   @id @default(cuid())
+  kind      String // PartyKindConfig.code
+  name      String
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
 
   transactions     Transaction[]
   openingBalances  OpeningBalance[]
@@ -466,7 +470,7 @@ model Party {
 
 model TransactionCategory {
   id           String          @id @default(cuid())
-  buildingType BuildingType?   // null = applies to both
+  buildingType BuildingType? // null = applies to both
   name         String
   type         TransactionType
 
@@ -485,7 +489,7 @@ model PaymentMethod {
   // Bank details shown to tenants on the invoice receipt
   qrCodeUrl     String?
   bankName      String?
-  bankBin       String?  // VN bank BIN (e.g. 970422 for MB) — used to build VietQR
+  bankBin       String? // VN bank BIN (e.g. 970422 for MB) — used to build VietQR
   accountHolder String?
   accountNumber String?
 
@@ -501,21 +505,21 @@ model PaymentMethod {
 // ============================================================
 
 enum OpeningKind {
-  CUSTOMER_REVENUE  // số dư đầu doanh thu của 1 khách
-  PARTY_DEBT        // số dư đầu công nợ với 1 đối tượng
-  CASHBOOK          // số dư đầu kỳ quỹ tiền theo PTTT
+  CUSTOMER_REVENUE // số dư đầu doanh thu của 1 khách
+  PARTY_DEBT // số dư đầu công nợ với 1 đối tượng
+  CASHBOOK // số dư đầu kỳ quỹ tiền theo PTTT
 }
 
 model OpeningBalance {
-  id          String      @id @default(cuid())
-  buildingId  String
-  kind        OpeningKind
-  customerId  String?
-  partyId     String?
+  id                 String      @id @default(cuid())
+  buildingId         String
+  kind               OpeningKind
+  customerId         String?
+  partyId            String?
   paymentMethodLabel String? // for cashbook
-  amount      BigInt
-  asOfMonth   Int
-  asOfYear    Int
+  amount             BigInt
+  asOfMonth          Int
+  asOfYear           Int
 
   building Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id])
@@ -534,23 +538,23 @@ enum ServiceFeeType {
 }
 
 model BuildingSetting {
-  id         String   @id @default(cuid())
-  buildingId String   @unique
+  id         String @id @default(cuid())
+  buildingId String @unique
 
-  electricityPricePerKwh BigInt @default(3500) // VND/kWh
-  parkingFeePerVehicle   BigInt @default(0)    // VND/xe/tháng
+  electricityPricePerKwh BigInt         @default(3500) // VND/kWh
+  parkingFeePerVehicle   BigInt         @default(0) // VND/xe/tháng
   serviceFeeType         ServiceFeeType @default(PER_ROOM)
-  serviceFeeAmount       BigInt @default(0)
-  waterPricePerPerson    BigInt @default(0)    // VND/người/tháng
-  overtimeFeePerHour     BigInt @default(0)    // VP only: VND per hour of overtime
+  serviceFeeAmount       BigInt         @default(0)
+  waterPricePerPerson    BigInt         @default(0) // VND/người/tháng
+  overtimeFeePerHour     BigInt         @default(0) // VP only: VND per hour of overtime
 
   // Contract templates per kind. CHDV uses contractTemplateUrl. VP uses
   // contractTemplateUrl for individual customers and contractTemplateUrlCompany
   // for company customers. Empty fields fall back to AppSetting defaults.
   contractTemplateUrl        String?
   contractTemplateUrlCompany String?
-  autoGenerateInvoiceDay Int @default(1)
-  defaultDueDay          Int @default(5)
+  autoGenerateInvoiceDay     Int     @default(1)
+  defaultDueDay              Int     @default(5)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 }
@@ -558,11 +562,11 @@ model BuildingSetting {
 // Singleton row that stores app-wide defaults that aren't tied to a specific
 // building. Currently used for default contract templates per kind.
 model AppSetting {
-  id                                   Int      @id @default(1)
-  defaultContractTemplateChdv          String?
-  defaultContractTemplateVpIndividual  String?
-  defaultContractTemplateVpCompany     String?
-  updatedAt                            DateTime @updatedAt
+  id                                  Int      @id @default(1)
+  defaultContractTemplateChdv         String?
+  defaultContractTemplateVpIndividual String?
+  defaultContractTemplateVpCompany    String?
+  updatedAt                           DateTime @updatedAt
 }
 
 // ============================================================
@@ -594,9 +598,9 @@ model MaintenanceTask {
   buildingId      String
   roomId          String?
   date            DateTime
-  partyKind       String?           // PartyKindConfig.code
-  partyId         String?           // non-customer party (Thợ sửa, …)
-  customerId      String?           // if "Đối tượng" is the renter
+  partyKind       String? // PartyKindConfig.code
+  partyId         String? // non-customer party (Thợ sửa, …)
+  customerId      String? // if "Đối tượng" is the renter
   taskName        String
   status          MaintenanceStatus @default(PENDING)
   cost            BigInt            @default(0)
@@ -621,16 +625,16 @@ model MaintenanceTask {
 }
 
 model OvertimeRequest {
-  id          String   @id @default(cuid())
-  buildingId  String
-  roomId      String?
-  date        DateTime
-  startTime   String   // "HH:MM"
-  endTime     String   // "HH:MM"
-  fee         BigInt   @default(0)
-  notes       String?
+  id         String   @id @default(cuid())
+  buildingId String
+  roomId     String?
+  date       DateTime
+  startTime  String // "HH:MM"
+  endTime    String // "HH:MM"
+  fee        BigInt   @default(0)
+  notes      String?
 
-  invoiceId   String?  // set after $ folds it into the invoice
+  invoiceId String? // set after $ folds it into the invoice
 
   createdById String?
   createdAt   DateTime @default(now())
@@ -651,8 +655,8 @@ model OvertimeRequest {
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
-  action     String   // CREATE / UPDATE / DELETE / LOGIN / EXPORT / SEND
-  entityType String   // Building, Contract, Invoice, ...
+  action     String // CREATE / UPDATE / DELETE / LOGIN / EXPORT / SEND
+  entityType String // Building, Contract, Invoice, ...
   entityId   String?
   buildingId String?
   before     Json?

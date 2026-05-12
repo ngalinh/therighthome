@@ -120,7 +120,7 @@ export default async function GlobalSettingsPage({
               </TabsContent>
               <TabsContent value="buildings">
                 <BuildingsTab
-                  buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type }))}
+                  buildings={buildings.map((b) => ({ id: b.id, name: b.name, address: b.address, type: b.type, info: b.info }))}
                   appSetting={appSetting ? {
                     defaultContractTemplateChdv: appSetting.defaultContractTemplateChdv,
                     defaultContractTemplateVpIndividual: appSetting.defaultContractTemplateVpIndividual,
