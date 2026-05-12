@@ -177,16 +177,16 @@ export async function AggregatedCashbookTab({
     const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
     const opening = openingByPMLabel.get(pm.name) ?? 0n;
     let running = opening;
-    const rows: Record<string, unknown>[] = [
-      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
-    ];
+    // Accumulate running balance chronologically, then reverse to match the
+    // web view (closing on top, newest tx first, opening on bottom).
+    const txRows: Record<string, unknown>[] = [];
     for (const t of txs) {
       if (t.type === "INCOME") running += t.amount;
       else running -= t.amount;
       const partyLabel = t.customer
         ? customerDisplayName(t.customer)
         : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
-      rows.push({
+      txRows.push({
         "Ngày": formatDateVN(t.date),
         "Toà nhà": buildingNameById.get(t.buildingId) ?? t.building?.name ?? "",
         "Loại thu/chi": t.category?.name ?? "",
@@ -198,8 +198,17 @@ export async function AggregatedCashbookTab({
         "Số dư": Number(running),
       });
     }
-    rows.push({ "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) });
-    return { name: pm.name, rows };
+    txRows.reverse();
+    const rows: Record<string, unknown>[] = [
+      { "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) },
+      ...txRows,
+      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
+    ];
+    return {
+      name: pm.name,
+      rows,
+      header: ["Ngày", "Toà nhà", "Loại thu/chi", "Đối tượng", "Phòng", "Nội dung", "Thu", "Chi", "Số dư"],
+    };
   });
 
   return (
