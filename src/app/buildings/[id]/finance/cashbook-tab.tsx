@@ -44,7 +44,7 @@ export async function CashbookTab({
         party: { select: { name: true } },
         room: { select: { number: true } },
       },
-      orderBy: { date: "asc" },
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     }),
     prisma.openingBalance.findMany({
       where: {

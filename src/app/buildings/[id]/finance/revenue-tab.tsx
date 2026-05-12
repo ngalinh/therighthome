@@ -139,6 +139,7 @@ export async function RevenueTab({
   type Row = {
     key: string;
     date: string;
+    sortKey: string;
     roomId: string | null;
     roomNumber: string | null;
     category: string;
@@ -174,6 +175,7 @@ export async function RevenueTab({
       // Auto rent invoices keep the dueDate so monthly receivables sort by
       // payment day, not by when the cron happened to run.
       date: (inv.isManual ? inv.createdAt : inv.dueDate).toISOString(),
+      sortKey: inv.createdAt.toISOString(),
       roomId: inv.contract.room.id,
       roomNumber: inv.contract.room.number,
       category: "Tiền thuê phòng",
@@ -196,6 +198,7 @@ export async function RevenueTab({
     rows.push({
       key: `tx-${t.id}`,
       date: t.date.toISOString(),
+      sortKey: t.createdAt.toISOString(),
       roomId: t.roomId ?? null,
       roomNumber: t.room?.number ?? null,
       category: t.category?.name ?? "",
@@ -224,7 +227,11 @@ export async function RevenueTab({
     });
   }
 
-  rows.sort((a, b) => b.date.localeCompare(a.date));
+  rows.sort((a, b) => {
+    const byDate = b.date.localeCompare(a.date);
+    if (byDate !== 0) return byDate;
+    return b.sortKey.localeCompare(a.sortKey);
+  });
 
   const flatRooms = rooms.map((r) => ({
     id: r.id,
