@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatVND, formatDateVN, customerDisplayName, formatRoomNumber } from "@/lib/utils";
 import { renderContentWithLinks } from "@/app/buildings/[id]/finance/render-content";
+import { FinanceExportButton } from "@/app/buildings/[id]/finance/finance-export-button";
+import type { ExportSheet } from "@/lib/export-xlsx";
 import { AggregatedCashbookFilter } from "./aggregated-cashbook-filter";
 
 /**
@@ -171,19 +173,53 @@ export async function AggregatedCashbookTab({
     openingByPMLabel.set(pm.name, sum);
   }
 
+  const exportSheets: ExportSheet[] = sharedPMs.map((pm) => {
+    const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
+    const opening = openingByPMLabel.get(pm.name) ?? 0n;
+    let running = opening;
+    const rows: Record<string, unknown>[] = [
+      { "Ngày": "Số dư đầu kỳ", "Số dư": Number(opening) },
+    ];
+    for (const t of txs) {
+      if (t.type === "INCOME") running += t.amount;
+      else running -= t.amount;
+      const partyLabel = t.customer
+        ? customerDisplayName(t.customer)
+        : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
+      rows.push({
+        "Ngày": formatDateVN(t.date),
+        "Toà nhà": buildingNameById.get(t.buildingId) ?? t.building?.name ?? "",
+        "Loại thu/chi": t.category?.name ?? "",
+        "Đối tượng": partyLabel,
+        "Phòng": t.room ? formatRoomNumber(t.room.number) : "",
+        "Nội dung": t.content,
+        "Thu": t.type === "INCOME" ? Number(t.amount) : "",
+        "Chi": t.type === "EXPENSE" ? Number(t.amount) : "",
+        "Số dư": Number(running),
+      });
+    }
+    rows.push({ "Ngày": "Số dư cuối kỳ", "Số dư": Number(running) });
+    return { name: pm.name, rows };
+  });
+
   return (
     <div className="space-y-4">
-      <AggregatedCashbookFilter
-        kind={kind}
-        buildings={buildings}
-        month={month}
-        year={year}
-        buildingFilter={buildingFilter}
-        categories={categories}
-        partyKindConfigs={partyKindConfigs}
-        categoryFilter={categoryFilter}
-        partyFilter={partyFilter}
-      />
+      <div className="flex flex-wrap gap-2 items-center">
+        <AggregatedCashbookFilter
+          kind={kind}
+          buildings={buildings}
+          month={month}
+          year={year}
+          buildingFilter={buildingFilter}
+          categories={categories}
+          partyKindConfigs={partyKindConfigs}
+          categoryFilter={categoryFilter}
+          partyFilter={partyFilter}
+        />
+        <div className="ml-auto">
+          <FinanceExportButton filename={`so-quy-tong-${month}-${year}.xlsx`} sheets={exportSheets} />
+        </div>
+      </div>
 
       {sharedPMs.map((pm) => {
         const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
