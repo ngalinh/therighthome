@@ -53,6 +53,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = (user as { id: string }).id;
         token.role = (user as { role: UserRole }).role;
         token.name = (user as { name: string | null }).name;
+      } else if (token.id && token.name == null) {
+        // Backfill name for legacy JWTs issued before token.name was stored.
+        // Without this, session.user.name falls back to email's prefix and
+        // shows e.g. "admin" instead of the real name on stale devices.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { name: true },
+        });
+        if (dbUser) token.name = dbUser.name;
       }
       return token;
     },
