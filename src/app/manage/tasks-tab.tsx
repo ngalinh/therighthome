@@ -133,7 +133,7 @@ export function ManageTasksTab({
           </div>
 
           {/* Desktop table */}
-          <div className="hidden lg:block rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="hidden lg:block rounded-2xl border border-slate-200 bg-white overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                 <tr>
