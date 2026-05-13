@@ -139,7 +139,6 @@ export function EditContractForm({
   const [uploading, setUploading] = useState(false);
   const [removingFile, setRemovingFile] = useState(false);
   const [contractFileZoom, setContractFileZoom] = useState(false);
-  const [contractFileFullscreen, setContractFileFullscreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -377,15 +376,26 @@ export function EditContractForm({
                     <FileText className="h-4 w-4" /> Mở file
                   </a>
                 )}
-                {(isPdf || isImage) && (
+                {isImage && (
                   <button
                     type="button"
-                    onClick={() => (isImage ? setContractFileZoom(true) : setContractFileFullscreen(true))}
+                    onClick={() => setContractFileZoom(true)}
                     className="absolute top-2 right-10 inline-flex items-center gap-1 h-7 px-2 rounded-md bg-black/60 hover:bg-black/75 text-white text-[11px] font-medium"
                     aria-label="Mở rộng"
                   >
                     <Maximize2 className="h-3 w-3" /> Mở rộng
                   </button>
+                )}
+                {isPdf && (
+                  <a
+                    href={contractFileUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="absolute top-2 right-10 inline-flex items-center gap-1 h-7 px-2 rounded-md bg-black/60 hover:bg-black/75 text-white text-[11px] font-medium"
+                    aria-label="Mở tab mới"
+                  >
+                    <Maximize2 className="h-3 w-3" /> Xem đủ trang
+                  </a>
                 )}
                 <button
                   type="button"
@@ -402,22 +412,6 @@ export function EditContractForm({
               <p className="text-xs text-slate-500">Chưa có file. Upload PDF hoặc ảnh HĐ đã ký.</p>
             )}
             <ImageLightbox src={contractFileZoom && isImage ? contractFileUrl : null} alt="Hợp đồng" onClose={() => setContractFileZoom(false)} />
-            <Dialog open={contractFileFullscreen} onOpenChange={(o) => !o && setContractFileFullscreen(false)}>
-              <DialogContent className="max-w-4xl p-0 overflow-hidden h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between pl-4 pr-12 py-2.5 border-b bg-white shrink-0">
-                  <h3 className="text-sm font-semibold">File hợp đồng</h3>
-                </div>
-                <div className="flex-1 bg-slate-100">
-                  {contractFileUrl && isPdf && (
-                    <iframe
-                      src={contractFileUrl}
-                      className="w-full h-full border-0 bg-white"
-                      title="File hợp đồng (toàn màn hình)"
-                    />
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
             <input
               ref={fileInputRef}
               type="file"
@@ -1361,9 +1355,7 @@ function GeneratedContractCard({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const [fullscreen, setFullscreen] = useState(false);
   const inlineFrameRef = useRef<HTMLIFrameElement>(null);
-  const fullscreenFrameRef = useRef<HTMLIFrameElement>(null);
 
   // Lazily load the converted PDF the first time the card is shown with a
   // generated DOCX. The endpoint caches the conversion on disk so subsequent
@@ -1412,15 +1404,14 @@ function GeneratedContractCard({
   }
 
   function print() {
-    // Print via the visible iframe's contentWindow so we never navigate the
+    // Print via the inline iframe's contentWindow so we never navigate the
     // PWA itself to a /api/files/*.pdf URL (which leaves users stranded
     // without a back button in standalone PWA mode).
-    const frame = fullscreen ? fullscreenFrameRef.current : inlineFrameRef.current;
     try {
-      frame?.contentWindow?.focus();
-      frame?.contentWindow?.print();
+      inlineFrameRef.current?.contentWindow?.focus();
+      inlineFrameRef.current?.contentWindow?.print();
     } catch {
-      toast.error("Không in được. Hãy mở rộng và thử lại.");
+      toast.error("Không in được.");
     }
   }
 
@@ -1458,14 +1449,15 @@ function GeneratedContractCard({
                   className="w-full h-72 rounded-lg border bg-white"
                   title="Hợp đồng PDF"
                 />
-                <button
-                  type="button"
-                  onClick={() => setFullscreen(true)}
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener"
                   className="absolute top-2 right-2 inline-flex items-center gap-1 h-7 px-2 rounded-md bg-black/60 hover:bg-black/75 text-white text-[11px] font-medium"
-                  aria-label="Mở rộng"
+                  aria-label="Xem đủ trang"
                 >
-                  <Maximize2 className="h-3 w-3" /> Mở rộng
-                </button>
+                  <Maximize2 className="h-3 w-3" /> Xem đủ trang
+                </a>
               </div>
             ) : pdfError ? (
               <p className="text-xs text-rose-600 break-words">{pdfError}</p>
@@ -1502,42 +1494,6 @@ function GeneratedContractCard({
           </>
         )}
       </CardContent>
-
-      <Dialog open={fullscreen} onOpenChange={(o) => !o && setFullscreen(false)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden h-[90vh] flex flex-col">
-          {/* Header. The right side leaves room for the built-in DialogContent
-              close X (positioned absolute right-4 top-4) — pr-12 keeps the
-              .docx button from sitting under it. */}
-          <div className="flex items-center justify-between pl-4 pr-12 py-2.5 border-b bg-white shrink-0">
-            <h3 className="text-sm font-semibold">Hợp đồng đã tạo</h3>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={print} disabled={!pdfUrl}>
-                <Printer className="h-3.5 w-3.5" /> In
-              </Button>
-              {docxUrl && (
-                <a
-                  href={docxUrl}
-                  rel="noopener"
-                  download
-                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Download className="h-3.5 w-3.5" /> .docx
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 bg-slate-100">
-            {pdfUrl && (
-              <iframe
-                ref={fullscreenFrameRef}
-                src={pdfUrl}
-                className="w-full h-full border-0 bg-white"
-                title="Hợp đồng PDF (toàn màn hình)"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
