@@ -139,6 +139,7 @@ export function EditContractForm({
   const [uploading, setUploading] = useState(false);
   const [removingFile, setRemovingFile] = useState(false);
   const [contractFileZoom, setContractFileZoom] = useState(false);
+  const [contractFileFullscreen, setContractFileFullscreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -376,6 +377,16 @@ export function EditContractForm({
                     <FileText className="h-4 w-4" /> Mở file
                   </a>
                 )}
+                {(isPdf || isImage) && (
+                  <button
+                    type="button"
+                    onClick={() => (isImage ? setContractFileZoom(true) : setContractFileFullscreen(true))}
+                    className="absolute top-2 right-10 inline-flex items-center gap-1 h-7 px-2 rounded-md bg-black/60 hover:bg-black/75 text-white text-[11px] font-medium"
+                    aria-label="Mở rộng"
+                  >
+                    <Maximize2 className="h-3 w-3" /> Mở rộng
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={removeFile}
@@ -391,6 +402,22 @@ export function EditContractForm({
               <p className="text-xs text-slate-500">Chưa có file. Upload PDF hoặc ảnh HĐ đã ký.</p>
             )}
             <ImageLightbox src={contractFileZoom && isImage ? contractFileUrl : null} alt="Hợp đồng" onClose={() => setContractFileZoom(false)} />
+            <Dialog open={contractFileFullscreen} onOpenChange={(o) => !o && setContractFileFullscreen(false)}>
+              <DialogContent className="max-w-4xl p-0 overflow-hidden h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between pl-4 pr-12 py-2.5 border-b bg-white shrink-0">
+                  <h3 className="text-sm font-semibold">File hợp đồng</h3>
+                </div>
+                <div className="flex-1 bg-slate-100">
+                  {contractFileUrl && isPdf && (
+                    <iframe
+                      src={contractFileUrl}
+                      className="w-full h-full border-0 bg-white"
+                      title="File hợp đồng (toàn màn hình)"
+                    />
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
             <input
               ref={fileInputRef}
               type="file"
