@@ -200,43 +200,45 @@ export function NewContractForm({
                 </Select>
               </Field>
               <Field label="Thời hạn HĐ">
-                <Select
-                  value={useCustomTerm ? "custom" : String(termMonths)}
-                  onValueChange={(v) => {
-                    if (v === "custom") {
-                      setUseCustomTerm(true);
-                      setCustomTermInput("");
-                    } else {
-                      setUseCustomTerm(false);
-                      setCustomTermInput("");
-                      setTermMonths(Number(v));
-                    }
-                  }}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36, 60]).map((m) => (
-                      <SelectItem key={m} value={String(m)}>
-                        {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom">Khác…</SelectItem>
-                  </SelectContent>
-                </Select>
-                {useCustomTerm && (
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="Nhập số tháng"
-                    value={customTermInput}
-                    onChange={(e) => {
-                      setCustomTermInput(e.target.value);
-                      const n = Number(e.target.value);
-                      if (n > 0) setTermMonths(n);
+                <div className="flex gap-2">
+                  <Select
+                    value={useCustomTerm ? "custom" : String(termMonths)}
+                    onValueChange={(v) => {
+                      if (v === "custom") {
+                        setUseCustomTerm(true);
+                        setCustomTermInput("");
+                      } else {
+                        setUseCustomTerm(false);
+                        setCustomTermInput("");
+                        setTermMonths(Number(v));
+                      }
                     }}
-                    className="mt-2"
-                  />
-                )}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36, 60]).map((m) => (
+                        <SelectItem key={m} value={String(m)}>
+                          {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Khác…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {useCustomTerm && (
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="Số tháng"
+                      value={customTermInput}
+                      onChange={(e) => {
+                        setCustomTermInput(e.target.value);
+                        const n = Number(e.target.value);
+                        if (n > 0) setTermMonths(n);
+                      }}
+                      className="w-28 shrink-0"
+                    />
+                  )}
+                </div>
               </Field>
               <Field label="Ngày bắt đầu" required>
                 <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
