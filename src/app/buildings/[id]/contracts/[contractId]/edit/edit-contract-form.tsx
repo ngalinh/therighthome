@@ -17,6 +17,8 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { PdfViewer } from "@/components/contract/pdf-viewer";
 
+type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+
 type ContractCustomer = {
   id: string;
   isPrimary: boolean;
@@ -34,6 +36,8 @@ type ContractCustomer = {
     idCardFrontUrl: string | null;
     idCardBackUrl: string | null;
     businessLicenseUrls: string[];
+    representativeName: string | null;
+    representativeTitle: string | null;
   };
 };
 
@@ -49,6 +53,7 @@ type Contract = {
   paymentDay: number;
   monthlyRent: string;
   vatRate: number;
+  vatApplicableFees: string[];
   depositAmount: string;
   electricityPricePerKwh: string;
   parkingCount: number;
@@ -102,6 +107,9 @@ export function EditContractForm({
   const [monthlyRent, setMonthlyRent] = useState(contract.monthlyRent);
   const [vatRate, setVatRate] = useState(contract.vatRate * 100); // store as percent in UI
   const [deposit, setDeposit] = useState(contract.depositAmount);
+  const [vatApplicableFees, setVatApplicableFees] = useState<VatFeeKey[]>(
+    (contract.vatApplicableFees ?? []) as VatFeeKey[],
+  );
   const [parkingCount, setParkingCount] = useState(contract.parkingCount);
   // Default elec/parking from building setting (shows current toà values).
   // If contract has its own override (non-zero), keep that; else use building setting.
@@ -254,6 +262,7 @@ export function EditContractForm({
       paymentDay,
       monthlyRent: rentBigInt.toString(),
       vatRate: vatRate / 100,
+      vatApplicableFees,
       depositAmount: parseVNDInput(deposit).toString(),
       parkingCount,
       parkingFeePerVehicle: parseVNDInput(parkingFeePerVehicle).toString(),
@@ -550,6 +559,15 @@ export function EditContractForm({
               <Field label="Tiền cọc (₫)">
                 <VNDInput value={deposit} onChange={setDeposit} />
               </Field>
+              {buildingType === "VP" && (
+                <Field label={`Chi phí lấy VAT${vatRate > 0 ? ` (${vatRate}%)` : ""}`}>
+                  <VatFeesPicker
+                    value={vatApplicableFees}
+                    onChange={setVatApplicableFees}
+                    disabled={vatRate <= 0}
+                  />
+                </Field>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -994,8 +1012,16 @@ function CustomerItem({
   const c = cc.customer;
   const name = customerDisplayName(c);
   const sub: string[] = [];
-  // For company customers, surface the contact person on the sub-line.
-  if (c.type === "COMPANY" && c.fullName) sub.push(`Đại diện: ${c.fullName}`);
+  // For company customers, surface the legal representative + role and the
+  // contact person on the sub-line.
+  if (c.type === "COMPANY" && c.representativeName) {
+    sub.push(
+      c.representativeTitle
+        ? `Đại diện: ${c.representativeName} (${c.representativeTitle})`
+        : `Đại diện: ${c.representativeName}`,
+    );
+  }
+  if (c.type === "COMPANY" && c.fullName) sub.push(`Liên hệ: ${c.fullName}`);
   if (c.idNumber) sub.push(`CCCD ${c.idNumber}`);
   if (c.taxNumber) sub.push(`MST ${c.taxNumber}`);
   if (c.phone) sub.push(c.phone);
@@ -1103,11 +1129,16 @@ function EditCustomerDialog({
   const [phone, setPhone] = useState(customer.phone ?? "");
   const [email, setEmail] = useState(customer.email ?? "");
   const [licensePlate, setLicensePlate] = useState(customer.licensePlate ?? "");
+  const [representativeName, setRepresentativeName] = useState(customer.representativeName ?? "");
+  const [representativeTitle, setRepresentativeTitle] = useState(customer.representativeTitle ?? "");
   const [saving, setSaving] = useState(false);
 
   async function submit() {
     if (type === "INDIVIDUAL" && !fullName.trim()) return toast.error("Nhập Họ và tên");
     if (type === "COMPANY" && !companyName.trim()) return toast.error("Nhập Tên công ty");
+    if (type === "COMPANY" && (!representativeName.trim() || !representativeTitle.trim())) {
+      return toast.error("Cần Người đại diện và Chức vụ");
+    }
     setSaving(true);
     const res = await fetch(`/api/customers/${customer.id}`, {
       method: "PATCH",
@@ -1118,6 +1149,8 @@ function EditCustomerDialog({
         idNumber: idNumber.trim() || null,
         companyName: companyName.trim() || null,
         taxNumber: taxNumber.trim() || null,
+        representativeName: type === "COMPANY" ? representativeName.trim() || null : null,
+        representativeTitle: type === "COMPANY" ? representativeTitle.trim() || null : null,
         phone: phone.trim() || null,
         email: email.trim() || null,
         licensePlate: licensePlate.trim() || null,
@@ -1176,9 +1209,17 @@ function EditCustomerDialog({
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Người đại diện <span className="text-rose-500">*</span></Label>
+                <Input value={representativeName} onChange={(e) => setRepresentativeName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chức vụ <span className="text-rose-500">*</span></Label>
+                <Input value={representativeTitle} onChange={(e) => setRepresentativeTitle(e.target.value)} />
+              </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Người đại diện</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người đại diện" />
+                <Label className="text-xs">Người liên hệ</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Tên người liên hệ" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">MST</Label>
@@ -1224,12 +1265,15 @@ function AddCustomerDialog({
   const [companyName, setCompanyName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [contactName, setContactName] = useState("");
+  const [representativeName, setRepresentativeName] = useState("");
+  const [representativeTitle, setRepresentativeTitle] = useState("");
   const [saving, setSaving] = useState(false);
 
   function reset() {
     setType(defaultType);
     setPhone(""); setEmail(""); setLicensePlate("");
     setCompanyName(""); setTaxNumber(""); setContactName("");
+    setRepresentativeName(""); setRepresentativeTitle("");
   }
 
   async function submitIndividual(d: CCCDData) {
@@ -1265,6 +1309,9 @@ function AddCustomerDialog({
 
   async function submitCompany() {
     if (!companyName.trim()) return toast.error("Nhập Tên công ty");
+    if (!representativeName.trim() || !representativeTitle.trim()) {
+      return toast.error("Cần Người đại diện và Chức vụ");
+    }
     setSaving(true);
     const res = await fetch(`/api/contracts/${contractId}/customers`, {
       method: "POST",
@@ -1273,8 +1320,10 @@ function AddCustomerDialog({
         type: "COMPANY",
         companyName: companyName.trim(),
         taxNumber: taxNumber.trim() || undefined,
-        // For COMPANY: fullName is the contact person ("Người đại diện").
+        // For COMPANY: fullName is the contact person ("Người liên hệ").
         fullName: contactName.trim() || undefined,
+        representativeName: representativeName.trim(),
+        representativeTitle: representativeTitle.trim(),
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
       }),
@@ -1330,9 +1379,17 @@ function AddCustomerDialog({
                 <Label className="text-xs">Tên công ty</Label>
                 <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Người đại diện <span className="text-rose-500">*</span></Label>
+                <Input value={representativeName} onChange={(e) => setRepresentativeName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chức vụ <span className="text-rose-500">*</span></Label>
+                <Input value={representativeTitle} onChange={(e) => setRepresentativeTitle(e.target.value)} />
+              </div>
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Người đại diện</Label>
-                <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Tên người đại diện" />
+                <Label className="text-xs">Người liên hệ</Label>
+                <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Tên người liên hệ" />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">MST</Label>
@@ -1566,6 +1623,45 @@ function VNDInput({ value, onChange, disabled }: { value: string; onChange: (v: 
       placeholder="0"
       disabled={disabled}
     />
+  );
+}
+
+const VAT_FEE_OPTIONS: { key: VatFeeKey; label: string }[] = [
+  { key: "electricity", label: "Tiền điện" },
+  { key: "parking", label: "Phí gửi xe" },
+  { key: "overtime", label: "Phí ngoài giờ" },
+  { key: "repair", label: "Phí sửa chữa" },
+  { key: "extraParking", label: "Phí xe lẻ" },
+];
+
+function VatFeesPicker({
+  value, onChange, disabled,
+}: {
+  value: VatFeeKey[];
+  onChange: (v: VatFeeKey[]) => void;
+  disabled?: boolean;
+}) {
+  const set = new Set(value);
+  function toggle(key: VatFeeKey, checked: boolean) {
+    const next = new Set(set);
+    if (checked) next.add(key); else next.delete(key);
+    onChange(VAT_FEE_OPTIONS.map((o) => o.key).filter((k) => next.has(k)));
+  }
+  return (
+    <div className={`flex flex-wrap gap-x-3 gap-y-1.5 ${disabled ? "opacity-50" : ""}`}>
+      {VAT_FEE_OPTIONS.map((o) => (
+        <label key={o.key} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            disabled={disabled}
+            className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+            checked={set.has(o.key)}
+            onChange={(e) => toggle(o.key, e.target.checked)}
+          />
+          {o.label}
+        </label>
+      ))}
+    </div>
   );
 }
 

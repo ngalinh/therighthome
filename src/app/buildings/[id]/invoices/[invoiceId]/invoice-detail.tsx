@@ -25,6 +25,8 @@ type LineItem = {
   category: { id: string; name: string } | null;
 };
 
+type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+
 type Invoice = {
   id: string;
   code: string;
@@ -45,6 +47,8 @@ type Invoice = {
   parkingFeePerVehicle: string;
   parkingFee: string;
   overtimeFee: string;
+  repairFee: string;
+  extraParkingFee: string;
   serviceFee: string;
   waterPricePerPerson: string;
   waterOccupants: number;
@@ -56,6 +60,8 @@ type Invoice = {
   contract: {
     startDate: string;
     paymentDay: number;
+    vatRate: number;
+    vatApplicableFees: string[];
     room: { number: string };
     customers: { isPrimary: boolean; customer: { type: string; fullName: string | null; companyName: string | null; email: string | null; phone: string | null } }[];
   };
@@ -115,6 +121,8 @@ export function InvoiceDetail({
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
   const [parkingCount, setParkingCount] = useState<number>(invoice.parkingCount);
   const [overtime, setOvertime] = useState(invoice.overtimeFee);
+  const [repairFee, setRepairFee] = useState(invoice.repairFee);
+  const [extraParkingFee, setExtraParkingFee] = useState(invoice.extraParkingFee);
   const [serviceFee, setServiceFee] = useState(invoice.serviceFee);
   const [waterPricePerPerson, setWaterPricePerPerson] = useState(invoice.waterPricePerPerson);
   const [waterOccupants, setWaterOccupants] = useState<number>(invoice.waterOccupants);
@@ -154,9 +162,24 @@ export function InvoiceDetail({
   const elecFee = BigInt(kwh) * effectiveElectricityPrice;
   const parkingFee = BigInt(parkingCount) * effectiveParkingFeePerVehicle;
   const waterFee = BigInt(waterOccupants) * parseVNDInput(waterPricePerPerson);
+  const overtimeBN = parseVNDInput(overtime);
+  const repairBN = parseVNDInput(repairFee);
+  const extraParkingBN = parseVNDInput(extraParkingFee);
+  const vatRate = invoice.contract.vatRate ?? 0;
+  const vatApplicable = new Set<string>(invoice.contract.vatApplicableFees ?? []);
+  const vatOf = (n: bigint) => BigInt(Math.round(Number(n) * vatRate));
+  const elecVat = vatApplicable.has("electricity") ? vatOf(elecFee) : 0n;
+  const parkingVat = vatApplicable.has("parking") ? vatOf(parkingFee) : 0n;
+  const overtimeVat = vatApplicable.has("overtime") ? vatOf(overtimeBN) : 0n;
+  const repairVat = vatApplicable.has("repair") ? vatOf(repairBN) : 0n;
+  const extraParkingVat = vatApplicable.has("extraParking") ? vatOf(extraParkingBN) : 0n;
+  const feeVatTotal = elecVat + parkingVat + overtimeVat + repairVat + extraParkingVat;
   // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
   const totalPreview =
-    BigInt(invoice.rentAmount) + elecFee + parkingFee + parseVNDInput(overtime) + parseVNDInput(serviceFee) + waterFee;
+    BigInt(invoice.rentAmount) +
+    elecFee + parkingFee + overtimeBN + repairBN + extraParkingBN +
+    parseVNDInput(serviceFee) + waterFee +
+    feeVatTotal;
   const remaining = BigInt(invoice.totalAmount) - BigInt(invoice.paidAmount);
 
   // Month labels: rent = current month (anchored to contract start day),
@@ -216,6 +239,8 @@ export function InvoiceDetail({
         parkingFeePerVehicle: effectiveParkingFeePerVehicle.toString(),
         electricityPricePerKwh: effectiveElectricityPrice.toString(),
         overtimeFee: parseVNDInput(overtime).toString(),
+        repairFee: parseVNDInput(repairFee).toString(),
+        extraParkingFee: parseVNDInput(extraParkingFee).toString(),
         serviceFee: parseVNDInput(serviceFee).toString(),
         waterPricePerPerson: parseVNDInput(waterPricePerPerson).toString(),
         waterOccupants,
@@ -297,7 +322,11 @@ export function InvoiceDetail({
     parkingCount: invoice.parkingCount,
     parkingFee: BigInt(invoice.parkingFee),
     overtimeFee: BigInt(invoice.overtimeFee),
+    repairFee: BigInt(invoice.repairFee),
+    extraParkingFee: BigInt(invoice.extraParkingFee),
     serviceFee: BigInt(invoice.serviceFee),
+    vatRate: invoice.contract.vatRate ?? 0,
+    vatApplicableFees: (invoice.contract.vatApplicableFees ?? []) as VatFeeKey[],
     waterOccupants: invoice.waterOccupants,
     waterPricePerPerson: BigInt(invoice.waterPricePerPerson),
     waterFee: BigInt(invoice.waterFee),
@@ -411,13 +440,25 @@ export function InvoiceDetail({
                   }
                   value={formatVND(BigInt(invoice.rentAmount))}
                 />
-                <Row label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`} value={formatVND(elecFee)} />
+                <FeeRow
+                  label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
+                  base={elecFee}
+                  vat={elecVat}
+                />
                 {buildingType === "CHDV" && waterFee > 0n && (
                   <Row label={`Tiền nước (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
                 )}
-                {parkingFee > 0n && <Row label={`Phí xe (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
-                {buildingType === "VP" && parseVNDInput(overtime) > 0n && (
-                  <Row label="Làm ngoài giờ" value={formatVND(parseVNDInput(overtime))} />
+                {parkingFee > 0n && (
+                  <FeeRow label={`Phí xe (${parkingCount} xe)`} base={parkingFee} vat={parkingVat} />
+                )}
+                {buildingType === "VP" && overtimeBN > 0n && (
+                  <FeeRow label="Phí ngoài giờ" base={overtimeBN} vat={overtimeVat} />
+                )}
+                {buildingType === "VP" && repairBN > 0n && (
+                  <FeeRow label="Phí sửa chữa" base={repairBN} vat={repairVat} />
+                )}
+                {buildingType === "VP" && extraParkingBN > 0n && (
+                  <FeeRow label="Phí xe lẻ" base={extraParkingBN} vat={extraParkingVat} />
                 )}
                 {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
                   <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
@@ -501,15 +542,35 @@ export function InvoiceDetail({
                   </div>
                 </>
               ) : (
-                <div className="space-y-1">
-                  <Label className="text-xs">Phí ngoài giờ (₫)</Label>
-                  <Input
-                    inputMode="numeric"
-                    value={formatNumber(parseVNDInput(overtime))}
-                    onChange={(e) => setOvertime(e.target.value)}
-                    disabled={!canWrite}
-                  />
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Phí ngoài giờ (₫)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={formatNumber(parseVNDInput(overtime))}
+                      onChange={(e) => setOvertime(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Phí sửa chữa (₫)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={formatNumber(parseVNDInput(repairFee))}
+                      onChange={(e) => setRepairFee(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Phí xe lẻ (₫)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={formatNumber(parseVNDInput(extraParkingFee))}
+                      onChange={(e) => setExtraParkingFee(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                </>
               )}
               <div className="space-y-1">
                 <Label className="text-xs">Hạn thanh toán</Label>
@@ -841,6 +902,28 @@ function Row({ label, value, bold, positive, danger }: { label: string; value: s
     <div className="flex justify-between items-baseline">
       <span className="text-sm text-slate-600">{label}</span>
       <span className={`${bold ? "font-bold text-base" : "text-sm"} ${positive ? "text-emerald-700" : ""} ${danger ? "text-rose-600" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+// Fee row that shows base + (optional) VAT as a single line. When VAT > 0 the
+// value column renders the gross amount and a subtle "+VAT" hint.
+function FeeRow({ label, base, vat }: { label: string; base: bigint; vat: bigint }) {
+  const gross = base + vat;
+  return (
+    <div className="flex justify-between items-baseline">
+      <span className="text-sm text-slate-600">
+        {label}
+        {vat > 0n && <span className="text-[10px] text-primary ml-1.5 font-medium">+VAT</span>}
+      </span>
+      <span className="text-sm">
+        {formatVND(gross)}
+        {vat > 0n && (
+          <span className="text-[10px] text-slate-400 ml-1">
+            ({formatVND(base)} + {formatVND(vat)})
+          </span>
+        )}
+      </span>
     </div>
   );
 }

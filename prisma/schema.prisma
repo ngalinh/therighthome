@@ -152,6 +152,11 @@ model Customer {
   companyName         String?
   taxNumber           String?
   businessLicenseUrls String[] @default([])
+  // Người đại diện theo pháp luật (legal representative who signs the contract)
+  // and their position. Separate from `fullName` which is reused as the
+  // operational contact person ("Người liên hệ") for COMPANY customers.
+  representativeName  String?
+  representativeTitle String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,6 +201,12 @@ model Contract {
   monthlyRent   BigInt // VND
   vatRate       Float  @default(0) // 0 for CHDV, 0.1 for VP usually
   depositAmount BigInt @default(0)
+
+  // VP only: which non-rent fees get VAT (vatRate) added on top when invoices
+  // are generated. Possible values: "electricity", "parking", "overtime",
+  // "repair", "extraParking". Rent already includes VAT internally and is not
+  // listed here.
+  vatApplicableFees String[] @default([])
 
   // Open-ended contract: stays ACTIVE until manually terminated, regardless
   // of endDate. Used for rolling/indefinite leases.
@@ -306,7 +317,9 @@ model Invoice {
   parkingFee           BigInt @default(0)
 
   // Office only
-  overtimeFee BigInt @default(0)
+  overtimeFee     BigInt @default(0)
+  repairFee       BigInt @default(0) // Phí sửa chữa
+  extraParkingFee BigInt @default(0) // Phí xe lẻ
 
   // Service
   serviceFee BigInt @default(0)

@@ -16,6 +16,8 @@ const addSchema = z.object({
   licensePlate: z.string().optional(),
   companyName: z.string().optional(),
   taxNumber: z.string().optional(),
+  representativeName: z.string().optional(),
+  representativeTitle: z.string().optional(),
   // CCCD-scan extras
   dateOfBirth: z.string().optional(),
   hometown: z.string().optional(),
@@ -47,6 +49,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!d.type) return NextResponse.json({ error: "Cần type" }, { status: 400 });
     if (d.type === "INDIVIDUAL" && !d.fullName) return NextResponse.json({ error: "Cá nhân cần fullName" }, { status: 400 });
     if (d.type === "COMPANY" && !d.companyName) return NextResponse.json({ error: "Công ty cần companyName" }, { status: 400 });
+    if (d.type === "COMPANY" && (!d.representativeName?.trim() || !d.representativeTitle?.trim())) {
+      return NextResponse.json({ error: "Công ty cần Người đại diện và Chức vụ" }, { status: 400 });
+    }
     const created = await prisma.customer.create({
       data: {
         buildingId: contract.buildingId,
@@ -58,6 +63,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         licensePlate: d.licensePlate,
         companyName: d.companyName,
         taxNumber: d.taxNumber,
+        representativeName: d.representativeName,
+        representativeTitle: d.representativeTitle,
         dateOfBirth: d.dateOfBirth ? new Date(d.dateOfBirth) : null,
         idIssuedDate: d.idIssuedDate ? new Date(d.idIssuedDate) : null,
         hometown: d.hometown,

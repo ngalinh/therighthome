@@ -11,6 +11,9 @@ const updateSchema = z.object({
   paymentDay: z.number().int().min(1).max(28).optional(),
   monthlyRent: z.string().optional(), // BigInt as string
   vatRate: z.number().min(0).max(1).optional(),
+  vatApplicableFees: z
+    .array(z.enum(["electricity", "parking", "overtime", "repair", "extraParking"]))
+    .optional(),
   depositAmount: z.string().optional(),
   parkingCount: z.number().int().min(0).optional(),
   parkingFeePerVehicle: z.string().optional(),
@@ -60,6 +63,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (d.paymentDay !== undefined) updateData.paymentDay = d.paymentDay;
   if (d.monthlyRent !== undefined) updateData.monthlyRent = BigInt(d.monthlyRent);
   if (d.vatRate !== undefined) updateData.vatRate = d.vatRate;
+  if (d.vatApplicableFees !== undefined) updateData.vatApplicableFees = d.vatApplicableFees;
   if (d.depositAmount !== undefined) updateData.depositAmount = BigInt(d.depositAmount);
   if (d.parkingCount !== undefined) updateData.parkingCount = d.parkingCount;
   if (d.parkingFeePerVehicle !== undefined)
