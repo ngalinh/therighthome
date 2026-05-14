@@ -36,7 +36,9 @@ export function NewContractForm({
   // Contract fields
   const [roomId, setRoomId] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [termMonths, setTermMonths] = useState<number>(buildingType === "CHDV" ? 12 : 12);
+  const [termMonths, setTermMonths] = useState<number>(12);
+  const [useCustomTerm, setUseCustomTerm] = useState(false);
+  const [customTermInput, setCustomTermInput] = useState("");
   const [paymentDay, setPaymentDay] = useState<number>(defaults.paymentDay);
   const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState<number>(1);
   const [monthlyRent, setMonthlyRent] = useState("");
@@ -198,7 +200,19 @@ export function NewContractForm({
                 </Select>
               </Field>
               <Field label="Thời hạn HĐ">
-                <Select value={String(termMonths)} onValueChange={(v) => setTermMonths(Number(v))}>
+                <Select
+                  value={useCustomTerm ? "custom" : String(termMonths)}
+                  onValueChange={(v) => {
+                    if (v === "custom") {
+                      setUseCustomTerm(true);
+                      setCustomTermInput("");
+                    } else {
+                      setUseCustomTerm(false);
+                      setCustomTermInput("");
+                      setTermMonths(Number(v));
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36, 60]).map((m) => (
@@ -206,8 +220,23 @@ export function NewContractForm({
                         {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
                       </SelectItem>
                     ))}
+                    <SelectItem value="custom">Khác…</SelectItem>
                   </SelectContent>
                 </Select>
+                {useCustomTerm && (
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Nhập số tháng"
+                    value={customTermInput}
+                    onChange={(e) => {
+                      setCustomTermInput(e.target.value);
+                      const n = Number(e.target.value);
+                      if (n > 0) setTermMonths(n);
+                    }}
+                    className="mt-2"
+                  />
+                )}
               </Field>
               <Field label="Ngày bắt đầu" required>
                 <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
