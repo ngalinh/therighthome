@@ -34,6 +34,8 @@ export default async function EditContractPage({
                 phone: true, email: true, licensePlate: true,
                 idCardFrontUrl: true, idCardBackUrl: true,
                 businessLicenseUrls: true,
+                representativeName: true,
+                representativeTitle: true,
               },
             },
           },

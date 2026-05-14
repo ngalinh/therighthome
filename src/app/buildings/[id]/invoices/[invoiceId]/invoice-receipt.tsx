@@ -30,6 +30,8 @@ export type ReceiptLine = {
   amount: bigint;
 };
 
+export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+
 export type ReceiptData = {
   invoiceCode: string;
   month: number;
@@ -54,6 +56,8 @@ export type ReceiptData = {
   parkingCount: number;
   parkingFee: bigint;
   overtimeFee: bigint;
+  repairFee: bigint;
+  extraParkingFee: bigint;
   serviceFee: bigint;
   waterOccupants: number;
   waterPricePerPerson: bigint;
@@ -62,6 +66,8 @@ export type ReceiptData = {
   paidAmount: bigint;
   notes: string | null;
   paymentMethod: ReceiptPM;
+  vatRate: number;
+  vatApplicableFees: VatFeeKey[];
 };
 
 export function InvoiceReceiptDialog({
@@ -321,9 +327,11 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                   value={formatVND(data.rentAmount)}
                 />
                 {data.electricityFee > 0n && (
-                  <CostRow
+                  <FeeCostRow
                     label={`Tiền điện T${prevMonth}${kwh > 0 ? ` (${kwh} kWh × ${formatVND(data.electricityPricePerKwh)})` : ""}`}
-                    value={formatVND(data.electricityFee)}
+                    base={data.electricityFee}
+                    withVat={data.vatApplicableFees.includes("electricity")}
+                    vatRate={data.vatRate}
                   />
                 )}
                 {data.buildingType === "CHDV" && data.waterFee > 0n && (
@@ -333,13 +341,36 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                   />
                 )}
                 {data.parkingFee > 0n && (
-                  <CostRow
+                  <FeeCostRow
                     label={`Phí xe (${data.parkingCount} xe)`}
-                    value={formatVND(data.parkingFee)}
+                    base={data.parkingFee}
+                    withVat={data.vatApplicableFees.includes("parking")}
+                    vatRate={data.vatRate}
                   />
                 )}
                 {data.buildingType === "VP" && data.overtimeFee > 0n && (
-                  <CostRow label="Làm ngoài giờ" value={formatVND(data.overtimeFee)} />
+                  <FeeCostRow
+                    label="Phí ngoài giờ"
+                    base={data.overtimeFee}
+                    withVat={data.vatApplicableFees.includes("overtime")}
+                    vatRate={data.vatRate}
+                  />
+                )}
+                {data.buildingType === "VP" && data.repairFee > 0n && (
+                  <FeeCostRow
+                    label="Phí sửa chữa"
+                    base={data.repairFee}
+                    withVat={data.vatApplicableFees.includes("repair")}
+                    vatRate={data.vatRate}
+                  />
+                )}
+                {data.buildingType === "VP" && data.extraParkingFee > 0n && (
+                  <FeeCostRow
+                    label="Phí xe lẻ"
+                    base={data.extraParkingFee}
+                    withVat={data.vatApplicableFees.includes("extraParking")}
+                    vatRate={data.vatRate}
+                  />
                 )}
                 {data.buildingType === "CHDV" && data.serviceFee > 0n && (
                   <CostRow label="Phí dịch vụ" value={formatVND(data.serviceFee)} />
@@ -463,6 +494,23 @@ function InfoBox({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
       <div className="text-sm font-medium text-slate-800 mt-0.5">{value}</div>
     </div>
+  );
+}
+
+function FeeCostRow({
+  label, base, withVat, vatRate,
+}: { label: string; base: bigint; withVat: boolean; vatRate: number }) {
+  if (!withVat || vatRate <= 0) {
+    return <CostRow label={label} value={formatVND(base)} />;
+  }
+  const vat = BigInt(Math.round(Number(base) * vatRate));
+  const gross = base + vat;
+  const vatPct = Math.round(vatRate * 100);
+  return (
+    <CostRow
+      label={`${label} (+${vatPct}% VAT: ${formatVND(vat)})`}
+      value={formatVND(gross)}
+    />
   );
 }
 

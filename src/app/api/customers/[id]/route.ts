@@ -13,6 +13,8 @@ const updateSchema = z.object({
   licensePlate: z.string().nullable().optional(),
   companyName: z.string().nullable().optional(),
   taxNumber: z.string().nullable().optional(),
+  representativeName: z.string().nullable().optional(),
+  representativeTitle: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   idCardFrontUrl: z.string().nullable().optional(),
   idCardBackUrl: z.string().nullable().optional(),

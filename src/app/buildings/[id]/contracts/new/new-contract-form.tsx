@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { contractEndDate, parseVNDInput, formatNumber } from "@/lib/utils";
 
-type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; businessLicenseUrls?: string[] } };
+type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; representativeName: string; representativeTitle: string; businessLicenseUrls?: string[] } };
 
 export function NewContractForm({
   buildingId,
@@ -143,7 +143,9 @@ export function NewContractForm({
                     {c.kind === "INDIVIDUAL" ? c.data.fullName : c.data.companyName}
                   </div>
                   <div className="text-xs text-slate-500 truncate">
-                    {c.kind === "INDIVIDUAL" ? c.data.idNumber : `MST: ${c.data.taxNumber}`}
+                    {c.kind === "INDIVIDUAL"
+                      ? c.data.idNumber
+                      : `MST: ${c.data.taxNumber} · ${c.data.representativeName} (${c.data.representativeTitle})`}
                   </div>
                   {i === 0 && <span className="text-[10px] text-primary font-medium">KHÁCH CHÍNH</span>}
                 </div>
@@ -374,6 +376,8 @@ function AddCustomerSection({
   const [companyName, setCompanyName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [contactName, setContactName] = useState("");
+  const [representativeName, setRepresentativeName] = useState("");
+  const [representativeTitle, setRepresentativeTitle] = useState("");
   const [bizFiles, setBizFiles] = useState<File[]>([]);
   const [bizUploading, setBizUploading] = useState(false);
   const bizInputRef = useRef<HTMLInputElement>(null);
@@ -477,6 +481,14 @@ function AddCustomerSection({
           <Field label="Mã số thuế" required>
             <Input value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
           </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Field label="Người đại diện" required>
+              <Input value={representativeName} onChange={(e) => setRepresentativeName(e.target.value)} />
+            </Field>
+            <Field label="Chức vụ" required>
+              <Input value={representativeTitle} onChange={(e) => setRepresentativeTitle(e.target.value)} />
+            </Field>
+          </div>
           <Field label="Người liên hệ">
             <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </Field>
@@ -508,9 +520,25 @@ function AddCustomerSection({
               toast.error("Cần Tên công ty và Mã số thuế");
               return;
             }
+            if (!representativeName.trim() || !representativeTitle.trim()) {
+              toast.error("Cần Người đại diện và Chức vụ");
+              return;
+            }
             try {
               const businessLicenseUrls = await uploadBizLicense();
-              onAdd({ kind: "COMPANY", data: { companyName, taxNumber, phone, email, contactName, businessLicenseUrls } });
+              onAdd({
+                kind: "COMPANY",
+                data: {
+                  companyName,
+                  taxNumber,
+                  phone,
+                  email,
+                  contactName,
+                  representativeName: representativeName.trim(),
+                  representativeTitle: representativeTitle.trim(),
+                  businessLicenseUrls,
+                },
+              });
             } catch (e) {
               const msg = e instanceof Error ? e.message : "Upload ĐKKD thất bại";
               toast.error(msg);

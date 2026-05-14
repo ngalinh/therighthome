@@ -16,6 +16,8 @@ type Customer = {
   permanentAddress: string | null;
   idIssuedDate: Date | string | null;
   licensePlate?: string | null;
+  representativeName?: string | null;
+  representativeTitle?: string | null;
 };
 
 type Contract = {
@@ -82,6 +84,8 @@ export function buildContractPlaceholders({
     email: primary?.email ?? "",
     cong_ty: primary?.companyName ?? "",
     mst: primary?.taxNumber ?? "",
+    nguoi_dai_dien: primary?.representativeName ?? "",
+    chuc_vu: primary?.representativeTitle ?? "",
 
     // Khách 2 (nếu có) — wrap section trong template bằng {#co_khach_2}...{/co_khach_2}
     co_khach_2: hasSecond,
@@ -156,6 +160,8 @@ export const PLACEHOLDER_HELP = `{ma_hd}                Mã hợp đồng
 {email}                Email khách 1
 {cong_ty}              Tên công ty (nếu có)
 {mst}                  Mã số thuế (nếu có)
+{nguoi_dai_dien}       Người đại diện công ty (nếu có)
+{chuc_vu}              Chức vụ người đại diện (nếu có)
 {ten_khach_2}          Tên khách 2 (nếu có)
 {cccd_2}               Số CCCD khách 2
 {ngay_cap_2}           Ngày cấp CCCD khách 2

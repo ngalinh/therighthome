@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { nextInvoiceCode } from "@/lib/codes";
-import { computeInvoice, getEffectiveRent } from "@/lib/invoice-compute";
+import { computeInvoice, getEffectiveRent, type VatFeeKey } from "@/lib/invoice-compute";
 
 /**
  * Generate invoices for all ACTIVE contracts that don't yet have an invoice
@@ -106,12 +106,15 @@ export async function generateInvoiceForContract(
   const compute = computeInvoice({
     rentAmount: effectiveRent,
     vatRate: c.vatRate,
+    vatApplicableFees: c.vatApplicableFees as VatFeeKey[],
     electricityStart,
     electricityEnd: null,
     electricityPricePerKwh: electricityPrice,
     parkingCount: c.parkingCount,
     parkingFeePerVehicle,
     overtimeFee: 0n,
+    repairFee: 0n,
+    extraParkingFee: 0n,
     serviceFee: c.serviceFeeAmount,
     waterPricePerPerson,
     waterOccupants,
@@ -135,6 +138,8 @@ export async function generateInvoiceForContract(
         parkingFeePerVehicle,
         parkingFee: compute.parkingFee,
         overtimeFee: 0n,
+        repairFee: 0n,
+        extraParkingFee: 0n,
         serviceFee: c.serviceFeeAmount,
         waterPricePerPerson,
         waterOccupants,
@@ -166,6 +171,8 @@ export async function generateInvoiceForContract(
       parkingFeePerVehicle,
       parkingFee: compute.parkingFee,
       overtimeFee: 0n,
+      repairFee: 0n,
+      extraParkingFee: 0n,
       serviceFee: c.serviceFeeAmount,
       waterPricePerPerson,
       waterOccupants,
@@ -202,6 +209,8 @@ export async function recomputeInvoice(invoiceId: string, partial: {
   electricityEnd?: number | null;
   parkingCount?: number;
   overtimeFee?: bigint;
+  repairFee?: bigint;
+  extraParkingFee?: bigint;
   serviceFee?: bigint;
   rentAmount?: bigint;
   waterPricePerPerson?: bigint;
@@ -212,16 +221,22 @@ export async function recomputeInvoice(invoiceId: string, partial: {
 
   const waterPricePerPerson = partial.waterPricePerPerson ?? inv.waterPricePerPerson;
   const waterOccupants = partial.waterOccupants ?? inv.waterOccupants;
+  const overtimeFee = partial.overtimeFee ?? inv.overtimeFee;
+  const repairFee = partial.repairFee ?? inv.repairFee;
+  const extraParkingFee = partial.extraParkingFee ?? inv.extraParkingFee;
 
   const compute = computeInvoice({
     rentAmount: partial.rentAmount ?? inv.rentAmount,
     vatRate: inv.contract.vatRate,
+    vatApplicableFees: inv.contract.vatApplicableFees as VatFeeKey[],
     electricityStart: partial.electricityStart ?? inv.electricityStart,
     electricityEnd: partial.electricityEnd ?? inv.electricityEnd,
     electricityPricePerKwh: inv.electricityPricePerKwh,
     parkingCount: partial.parkingCount ?? inv.parkingCount,
     parkingFeePerVehicle: inv.parkingFeePerVehicle,
-    overtimeFee: partial.overtimeFee ?? inv.overtimeFee,
+    overtimeFee,
+    repairFee,
+    extraParkingFee,
     serviceFee: partial.serviceFee ?? inv.serviceFee,
     waterPricePerPerson,
     waterOccupants,
@@ -237,7 +252,9 @@ export async function recomputeInvoice(invoiceId: string, partial: {
       electricityFee: compute.electricityFee,
       parkingCount: partial.parkingCount ?? inv.parkingCount,
       parkingFee: compute.parkingFee,
-      overtimeFee: partial.overtimeFee ?? inv.overtimeFee,
+      overtimeFee,
+      repairFee,
+      extraParkingFee,
       serviceFee: partial.serviceFee ?? inv.serviceFee,
       waterPricePerPerson,
       waterOccupants,
