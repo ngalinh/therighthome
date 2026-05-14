@@ -259,17 +259,22 @@ function EditRoomDialog({
   const router = useRouter();
   const [number, setNumber] = useState(room?.number ?? "");
   const [info, setInfo] = useState(room?.info ?? "");
+  const [status, setStatus] = useState<"AVAILABLE" | "MAINTENANCE" | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   if (!room) return null;
 
+  const canResetStatus = room.status === "OCCUPIED" && !room.contractId;
+
   async function submit() {
     if (!number.trim()) return toast.error("Số phòng không được để trống");
     setLoading(true);
+    const body: Record<string, unknown> = { number: number.trim(), info: info.trim() || null };
+    if (canResetStatus && status !== undefined) body.status = status;
     const res = await fetch(`/api/buildings/${buildingId}/rooms/${room!.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ number: number.trim(), info: info.trim() || null }),
+      body: JSON.stringify(body),
     });
     setLoading(false);
     if (!res.ok) {
@@ -301,6 +306,23 @@ function EditRoomDialog({
               placeholder="Mô tả nội thất, diện tích, hướng ban công, ghi chú…"
             />
           </div>
+          {canResetStatus && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Trạng thái phòng</Label>
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+                Phòng đang ở trạng thái &quot;Đang thuê&quot; nhưng không có hợp đồng. Chọn trạng thái để cập nhật.
+              </p>
+              <select
+                value={status ?? ""}
+                onChange={(e) => setStatus(e.target.value ? e.target.value as "AVAILABLE" | "MAINTENANCE" : undefined)}
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+              >
+                <option value="">-- Giữ nguyên --</option>
+                <option value="AVAILABLE">Trống (cho thuê)</option>
+                <option value="MAINTENANCE">Đang bảo trì</option>
+              </select>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Huỷ</Button>
