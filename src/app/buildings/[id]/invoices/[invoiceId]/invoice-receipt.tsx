@@ -165,7 +165,7 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       });
       pdf.addImage(dataUrl, "PNG", 0, 0, pageW, pageH);
 
-      const filename = `phieu-${data.invoiceCode}.pdf`;
+      const filename = `${data.invoiceCode}.pdf`;
       const blob = pdf.output("blob");
       const file = new File([blob], filename, { type: "application/pdf" });
 
