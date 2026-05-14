@@ -461,7 +461,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
 
       {/* Footer */}
       <div className="px-6 py-3 text-center text-[11px] text-slate-400 border-t border-slate-200">
-        Cảm ơn quý khách đã sử dụng dịch vụ của {data.buildingName}
+        Cảm ơn quý khách đã sử dụng dịch vụ của {data.buildingType === "VP" ? "K300 Office" : "The Right Home"}
       </div>
     </div>
   );
