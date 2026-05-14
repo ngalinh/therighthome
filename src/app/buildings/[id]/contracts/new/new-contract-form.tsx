@@ -233,6 +233,9 @@ export function NewContractForm({
                   )}
                 </Field>
               )}
+              <Field label="Tiền cọc">
+                <VNDInput value={deposit} onChange={setDeposit} />
+              </Field>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -253,9 +256,6 @@ export function NewContractForm({
                   <Input type="number" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))} />
                 </Field>
               )}
-              <Field label="Tiền cọc">
-                <VNDInput value={deposit} onChange={setDeposit} />
-              </Field>
               {buildingType === "VP" && termMonths >= 24 && (
                 <Field label="Giá năm 2">
                   <VNDInput value={yearlyRents.y2 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y2: v }))} />

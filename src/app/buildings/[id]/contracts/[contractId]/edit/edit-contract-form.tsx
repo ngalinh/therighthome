@@ -553,6 +553,9 @@ export function EditContractForm({
                   )}
                 </Field>
               )}
+              <Field label="Tiền cọc (₫)">
+                <VNDInput value={deposit} onChange={setDeposit} />
+              </Field>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -576,9 +579,6 @@ export function EditContractForm({
                   />
                 </Field>
               )}
-              <Field label="Tiền cọc (₫)">
-                <VNDInput value={deposit} onChange={setDeposit} />
-              </Field>
             </div>
             {buildingType === "VP" && (
               <VatFeesPickerField
