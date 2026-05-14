@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt, Check } from "lucide-react";
 import { toast } from "sonner";
 import { contractEndDate, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
@@ -559,16 +559,14 @@ export function EditContractForm({
               <Field label="Tiền cọc (₫)">
                 <VNDInput value={deposit} onChange={setDeposit} />
               </Field>
-              {buildingType === "VP" && (
-                <Field label={`Chi phí lấy VAT${vatRate > 0 ? ` (${vatRate}%)` : ""}`}>
-                  <VatFeesPicker
-                    value={vatApplicableFees}
-                    onChange={setVatApplicableFees}
-                    disabled={vatRate <= 0}
-                  />
-                </Field>
-              )}
             </div>
+            {buildingType === "VP" && (
+              <VatFeesPickerField
+                value={vatApplicableFees}
+                onChange={setVatApplicableFees}
+                vatRate={vatRate}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1634,33 +1632,61 @@ const VAT_FEE_OPTIONS: { key: VatFeeKey; label: string }[] = [
   { key: "extraParking", label: "Phí xe lẻ" },
 ];
 
-function VatFeesPicker({
-  value, onChange, disabled,
+// Pill-style toggle picker rendered on its own row. Selected pills have the
+// brand primary background; unselected stay as outline chips. When vatRate is
+// 0, the whole picker is dimmed with a hint to enable VAT first.
+function VatFeesPickerField({
+  value, onChange, vatRate,
 }: {
   value: VatFeeKey[];
   onChange: (v: VatFeeKey[]) => void;
-  disabled?: boolean;
+  vatRate: number;
 }) {
+  const disabled = vatRate <= 0;
   const set = new Set(value);
-  function toggle(key: VatFeeKey, checked: boolean) {
+  function toggle(key: VatFeeKey) {
+    if (disabled) return;
     const next = new Set(set);
-    if (checked) next.add(key); else next.delete(key);
+    if (next.has(key)) next.delete(key); else next.add(key);
     onChange(VAT_FEE_OPTIONS.map((o) => o.key).filter((k) => next.has(k)));
   }
+  const count = value.length;
   return (
-    <div className={`flex flex-wrap gap-x-3 gap-y-1.5 ${disabled ? "opacity-50" : ""}`}>
-      {VAT_FEE_OPTIONS.map((o) => (
-        <label key={o.key} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-          <input
-            type="checkbox"
-            disabled={disabled}
-            className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-            checked={set.has(o.key)}
-            onChange={(e) => toggle(o.key, e.target.checked)}
-          />
-          {o.label}
-        </label>
-      ))}
+    <div className="space-y-1.5 pt-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <Label className="text-xs">
+          Chi phí lấy VAT{vatRate > 0 ? ` (${vatRate}%)` : ""}
+        </Label>
+        <span className="text-[11px] text-slate-500">
+          {disabled
+            ? "Đặt VAT > 0 để bật"
+            : count === 0
+              ? "Chưa chọn — không phí nào cộng VAT"
+              : `Đã chọn ${count}/${VAT_FEE_OPTIONS.length}`}
+        </span>
+      </div>
+      <div className={`flex flex-wrap gap-1.5 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+        {VAT_FEE_OPTIONS.map((o) => {
+          const active = set.has(o.key);
+          return (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => toggle(o.key)}
+              aria-pressed={active}
+              className={
+                "inline-flex items-center gap-1 h-8 px-3 rounded-full border text-xs font-medium transition-colors " +
+                (active
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-background text-slate-700 border-slate-200 hover:border-primary/40 hover:bg-primary/5")
+              }
+            >
+              {active && <Check className="h-3 w-3" />}
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
