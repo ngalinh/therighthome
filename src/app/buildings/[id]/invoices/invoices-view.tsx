@@ -36,6 +36,8 @@ type Invoice = {
   electricityFee: string;
   parkingFee: string;
   overtimeFee: string;
+  repairFee: string;
+  extraParkingFee: string;
   serviceFee: string;
   totalAmount: string;
   paidAmount: string;
@@ -159,6 +161,8 @@ export function InvoicesView({
                   "Tiền điện": Number(inv.electricityFee),
                   "Phí xe": Number(inv.parkingFee),
                   "Phí ngoài giờ": Number(inv.overtimeFee),
+                  "Phí sửa chữa": Number(inv.repairFee),
+                  "Phí xe lẻ": Number(inv.extraParkingFee),
                   "Phí dịch vụ": Number(inv.serviceFee),
                   "Tổng": Number(inv.totalAmount),
                   "Đã thu": Number(inv.paidAmount),
@@ -445,6 +449,8 @@ function InvoiceTable({
           <th className="px-3 py-2.5 text-right">Tiền điện</th>
           <th className="px-3 py-2.5 text-right">Phí xe</th>
           <th className="px-3 py-2.5 text-right">{isVP ? "Phí ngoài giờ" : "Phí DV"}</th>
+          {isVP && <th className="px-3 py-2.5 text-right">Phí sửa chữa</th>}
+          {isVP && <th className="px-3 py-2.5 text-right">Phí xe lẻ</th>}
           <th className="px-3 py-2.5 text-right">Tổng</th>
           <th className="px-3 py-2.5 text-right">Đã thu</th>
           <th className="px-3 py-2.5 text-right">Còn lại</th>
@@ -483,6 +489,8 @@ function InvoiceTable({
               <td className="px-3 py-2.5 text-right whitespace-nowrap">
                 {formatVND(BigInt(isVP ? inv.overtimeFee : inv.serviceFee))}
               </td>
+              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.repairFee))}</td>}
+              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.extraParkingFee))}</td>}
               <td className="px-3 py-2.5 text-right font-semibold whitespace-nowrap text-emerald-700">
                 {formatVND(BigInt(inv.totalAmount))}
               </td>
