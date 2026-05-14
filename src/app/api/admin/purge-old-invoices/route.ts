@@ -3,12 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // ONE-TIME endpoint: xoá tất cả hoá đơn trước tháng 5/2026.
-// Gọi: POST /api/admin/purge-old-invoices   (chỉ SUPER_ADMIN)
+// Gọi: POST /api/admin/purge-old-invoices   (chỉ ADMIN)
 // Sau khi dùng xong → xoá file này.
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const session = await auth();
-  if (!session || session.user.role !== "SUPER_ADMIN") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       { year: { lt: 2026 } },
       { year: 2026, month: { lt: 5 } },
     ],
-  } as const;
+  };
 
   // Count first
   const total = await prisma.invoice.count({ where });
