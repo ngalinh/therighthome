@@ -55,6 +55,7 @@ const createSchema = z.object({
   waterPricePerPerson: z.string().optional(),
   electricityPricePerKwh: z.string(),
   notes: z.string().optional(),
+  rentPaymentCycleMonths: z.number().int().min(1).max(12).optional(),
   customers: z.array(customerSchema).min(1),
   yearlyRents: z.array(z.object({ yearIndex: z.number(), rent: z.string() })).optional(),
   temporaryResidenceStatus: z.enum(["NOT_REGISTERED", "SUBMITTED", "REGISTERED"]).optional(),
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         serviceFeeAmount: BigInt(d.serviceFeeAmount),
         waterPricePerPerson: d.waterPricePerPerson ? BigInt(d.waterPricePerPerson) : 0n,
         notes: d.notes,
+        rentPaymentCycleMonths: d.rentPaymentCycleMonths ?? 1,
         status: "ACTIVE",
         temporaryResidenceStatus: d.temporaryResidenceStatus ?? "NOT_REGISTERED",
         temporaryResidenceIsIndefinite:

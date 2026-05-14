@@ -51,6 +51,7 @@ type Contract = {
   endDate: string;
   termMonths: number;
   paymentDay: number;
+  rentPaymentCycleMonths: number;
   monthlyRent: string;
   vatRate: number;
   vatApplicableFees: string[];
@@ -104,6 +105,7 @@ export function EditContractForm({
   const [startDate, setStartDate] = useState(contract.startDate.slice(0, 10));
   const [termMonths, setTermMonths] = useState(contract.termMonths);
   const [paymentDay, setPaymentDay] = useState(contract.paymentDay);
+  const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState(contract.rentPaymentCycleMonths ?? 1);
   const [monthlyRent, setMonthlyRent] = useState(contract.monthlyRent);
   const [vatRate, setVatRate] = useState(contract.vatRate * 100); // store as percent in UI
   const [deposit, setDeposit] = useState(contract.depositAmount);
@@ -270,6 +272,7 @@ export function EditContractForm({
       waterPricePerPerson: parseVNDInput(waterPerPerson).toString(),
       electricityPricePerKwh: parseVNDInput(electricityPricePerKwh).toString(),
       notes,
+      rentPaymentCycleMonths,
       yearlyRents: yearlyRents.map((y) => ({
         yearIndex: y.yearIndex,
         rent: parseVNDInput(y.rent).toString(),
@@ -533,6 +536,23 @@ export function EditContractForm({
                   onChange={(e) => setPaymentDay(Number(e.target.value))}
                 />
               </Field>
+              {buildingType === "VP" && (
+                <Field label="Chu kỳ thanh toán tiền thuê">
+                  <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Hàng tháng (1 tháng/lần)</SelectItem>
+                      <SelectItem value="2">2 tháng/lần</SelectItem>
+                      <SelectItem value="3">3 tháng/lần (quý)</SelectItem>
+                      <SelectItem value="6">6 tháng/lần</SelectItem>
+                      <SelectItem value="12">12 tháng/lần (năm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {rentPaymentCycleMonths > 1 && (
+                    <p className="text-[11px] text-slate-500 mt-1">Phí dịch vụ vẫn tính hàng tháng</p>
+                  )}
+                </Field>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

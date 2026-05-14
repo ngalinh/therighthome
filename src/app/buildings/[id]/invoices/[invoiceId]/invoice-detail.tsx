@@ -60,6 +60,7 @@ type Invoice = {
   contract: {
     startDate: string;
     paymentDay: number;
+    rentPaymentCycleMonths: number;
     vatRate: number;
     vatApplicableFees: string[];
     room: { number: string };
@@ -185,7 +186,8 @@ export function InvoiceDetail({
   // Month labels: rent = current month (anchored to contract start day),
   // other costs = previous month (consumption period).
   const prevMonth = invoice.month === 1 ? 12 : invoice.month - 1;
-  const rentPeriod = rentPeriodLabel(invoice.contract.paymentDay, invoice.month, invoice.year);
+  const cycle = invoice.contract.rentPaymentCycleMonths ?? 1;
+  const rentPeriod = rentPeriodLabel(invoice.contract.paymentDay, invoice.month, invoice.year, cycle);
   const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {

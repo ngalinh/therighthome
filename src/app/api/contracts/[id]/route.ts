@@ -22,6 +22,7 @@ const updateSchema = z.object({
   electricityPricePerKwh: z.string().optional(),
   notes: z.string().nullable().optional(),
   expiringNote: z.string().nullable().optional(),
+  rentPaymentCycleMonths: z.number().int().min(1).max(12).optional(),
   yearlyRents: z
     .array(z.object({ yearIndex: z.number().int().min(1).max(20), rent: z.string() }))
     .optional(),
@@ -74,6 +75,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     updateData.electricityPricePerKwh = BigInt(d.electricityPricePerKwh);
   if (d.notes !== undefined) updateData.notes = d.notes;
   if (d.expiringNote !== undefined) updateData.expiringNote = d.expiringNote;
+  if (d.rentPaymentCycleMonths !== undefined) updateData.rentPaymentCycleMonths = d.rentPaymentCycleMonths;
   if (d.temporaryResidenceStatus !== undefined) {
     updateData.temporaryResidenceStatus = d.temporaryResidenceStatus;
     if (d.temporaryResidenceStatus !== "REGISTERED") {
