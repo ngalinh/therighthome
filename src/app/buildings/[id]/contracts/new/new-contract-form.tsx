@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X } from "lucide-react";
+import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { contractEndDate, parseVNDInput, formatNumber } from "@/lib/utils";
@@ -412,18 +412,18 @@ function AddCustomerSection({
   const [bizFiles, setBizFiles] = useState<File[]>([]);
   const [bizUploading, setBizUploading] = useState(false);
   const bizInputRef = useRef<HTMLInputElement>(null);
-  const MAX_BIZ_IMAGES = 3;
+  const MAX_BIZ_FILES = 3;
 
   function addBizFiles(list: FileList | null) {
     if (!list) return;
     const incoming = Array.from(list);
-    const room = MAX_BIZ_IMAGES - bizFiles.length;
+    const room = MAX_BIZ_FILES - bizFiles.length;
     if (room <= 0) {
-      toast.error(`Tối đa ${MAX_BIZ_IMAGES} ảnh ĐKKD`);
+      toast.error(`Tối đa ${MAX_BIZ_FILES} file ĐKKD`);
       return;
     }
     if (incoming.length > room) {
-      toast.error(`Chỉ thêm được ${room} ảnh nữa (tối đa ${MAX_BIZ_IMAGES})`);
+      toast.error(`Chỉ thêm được ${room} file nữa (tối đa ${MAX_BIZ_FILES})`);
     }
     setBizFiles((prev) => [...prev, ...incoming.slice(0, room)]);
   }
@@ -464,40 +464,37 @@ function AddCustomerSection({
       ) : (
         <div className="space-y-3">
           <div>
-            <Label className="text-xs">Ảnh ĐKKD (tối đa {MAX_BIZ_IMAGES})</Label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {bizFiles.map((f, i) => {
-                const url = URL.createObjectURL(f);
-                return (
-                  <div key={i} className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-slate-50">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`ĐKKD ${i + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setBizFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center"
-                      aria-label="Xoá"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                );
-              })}
-              {bizFiles.length < MAX_BIZ_IMAGES && (
+            <Label className="text-xs">File ĐKKD — PDF (tối đa {MAX_BIZ_FILES})</Label>
+            <div className="mt-1 space-y-1.5">
+              {bizFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2">
+                  <FileText className="h-4 w-4 text-rose-500 shrink-0" />
+                  <span className="flex-1 truncate text-xs text-slate-700">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBizFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-slate-400 hover:text-rose-500"
+                    aria-label="Xoá"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {bizFiles.length < MAX_BIZ_FILES && (
                 <button
                   type="button"
                   onClick={() => bizInputRef.current?.click()}
-                  className="aspect-[1.6/1] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+                  className="w-full rounded-lg border-2 border-dashed border-slate-300 py-2.5 flex items-center justify-center gap-1.5 text-slate-400 hover:border-primary hover:text-primary transition-colors text-xs"
                 >
-                  <ImagePlus className="h-5 w-5 mb-0.5" />
-                  <span className="text-[10px]">Thêm ảnh</span>
+                  <Upload className="h-4 w-4" />
+                  Chọn file PDF
                 </button>
               )}
             </div>
             <input
               ref={bizInputRef}
               type="file"
-              accept="image/*"
+              accept=".pdf,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => {
