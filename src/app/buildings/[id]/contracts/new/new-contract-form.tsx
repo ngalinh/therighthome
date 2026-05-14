@@ -243,10 +243,11 @@ export function NewContractForm({
                 <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
                 {(() => {
                   const r = parseVNDInput(monthlyRent);
-                  const v = (r * BigInt(Math.round(vatRate * 100))) / 10000n;
+                  const preVAT = vatRate > 0 ? (r * 100n) / BigInt(100 + Math.round(vatRate)) : r;
+                  const v = r - preVAT;
                   return vatRate > 0 && r > 0n ? (
                     <p className="text-[11px] text-slate-500 mt-1">
-                      = {formatNumber(r - v)} chưa VAT + {formatNumber(v)} VAT
+                      = {formatNumber(preVAT)} chưa VAT + {formatNumber(v)} VAT
                     </p>
                   ) : null;
                 })()}

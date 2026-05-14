@@ -215,12 +215,9 @@ export function EditContractForm({
     router.refresh();
   }
 
-  // monthlyRent is stored as the AFTER-VAT total (what tenant actually pays).
-  // pre-VAT and VAT amount are derived for display per user's convention:
-  //   preVAT = rent × (1 - vatRate);  vatAmount = rent × vatRate
   const rentBigInt = parseVNDInput(monthlyRent);
-  const vatAmount = (rentBigInt * BigInt(Math.round(vatRate * 100))) / 10000n;
-  const preVATAmount = rentBigInt - vatAmount;
+  const preVATAmount = vatRate > 0 ? (rentBigInt * 100n) / BigInt(100 + Math.round(vatRate)) : rentBigInt;
+  const vatAmount = rentBigInt - preVATAmount;
 
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [terminateOpen, setTerminateOpen] = useState(false);
