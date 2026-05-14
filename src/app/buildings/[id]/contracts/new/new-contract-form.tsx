@@ -216,21 +216,23 @@ export function NewContractForm({
               <Field label="Ngày thanh toán hàng tháng">
                 <Input type="number" min={1} max={28} value={paymentDay} onChange={(e) => setPaymentDay(Number(e.target.value))} />
               </Field>
-              <Field label="Chu kỳ thanh toán tiền thuê">
-                <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Hàng tháng (1 tháng/lần)</SelectItem>
-                    <SelectItem value="2">2 tháng/lần</SelectItem>
-                    <SelectItem value="3">3 tháng/lần (quý)</SelectItem>
-                    <SelectItem value="6">6 tháng/lần</SelectItem>
-                    <SelectItem value="12">12 tháng/lần (năm)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {rentPaymentCycleMonths > 1 && (
-                  <p className="text-[11px] text-slate-500 mt-1">Phí dịch vụ vẫn tính hàng tháng</p>
-                )}
-              </Field>
+              {buildingType === "VP" && (
+                <Field label="Chu kỳ thanh toán tiền thuê">
+                  <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Hàng tháng (1 tháng/lần)</SelectItem>
+                      <SelectItem value="2">2 tháng/lần</SelectItem>
+                      <SelectItem value="3">3 tháng/lần (quý)</SelectItem>
+                      <SelectItem value="6">6 tháng/lần</SelectItem>
+                      <SelectItem value="12">12 tháng/lần (năm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {rentPaymentCycleMonths > 1 && (
+                    <p className="text-[11px] text-slate-500 mt-1">Phí dịch vụ vẫn tính hàng tháng</p>
+                  )}
+                </Field>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
