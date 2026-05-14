@@ -28,7 +28,7 @@ export async function POST() {
   const invoiceIds = await prisma.invoice.findMany({ where, select: { id: true } });
   const ids = invoiceIds.map((i) => i.id);
 
-  await prisma.ledgerEntry.updateMany({
+  await prisma.transaction.updateMany({
     where: { invoiceId: { in: ids } },
     data: { invoiceId: null },
   });
