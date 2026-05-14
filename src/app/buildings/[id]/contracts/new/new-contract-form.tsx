@@ -49,7 +49,7 @@ export function NewContractForm({
   const [electricityPricePerKwh, setElectricityPricePerKwh] = useState(defaults.electricityPricePerKwh);
   const [notes, setNotes] = useState("");
   // VP yearly rents
-  const [yearlyRents, setYearlyRents] = useState<{ y2?: string; y3?: string }>({});
+  const [yearlyRents, setYearlyRents] = useState<{ y2?: string; y3?: string; y4?: string; y5?: string }>({});
   // Tạm trú (CHDV only)
   const [trStatus, setTrStatus] = useState<"NOT_REGISTERED" | "SUBMITTED" | "REGISTERED">("NOT_REGISTERED");
   const [trExpiresAt, setTrExpiresAt] = useState("");
@@ -98,6 +98,8 @@ export function NewContractForm({
               { yearIndex: 1, rent: parseVNDInput(monthlyRent).toString() },
               ...(yearlyRents.y2 ? [{ yearIndex: 2, rent: parseVNDInput(yearlyRents.y2).toString() }] : []),
               ...(yearlyRents.y3 ? [{ yearIndex: 3, rent: parseVNDInput(yearlyRents.y3).toString() }] : []),
+              ...(yearlyRents.y4 ? [{ yearIndex: 4, rent: parseVNDInput(yearlyRents.y4).toString() }] : []),
+              ...(yearlyRents.y5 ? [{ yearIndex: 5, rent: parseVNDInput(yearlyRents.y5).toString() }] : []),
             ]
           : [],
       ...(buildingType === "CHDV"
@@ -199,7 +201,7 @@ export function NewContractForm({
                 <Select value={String(termMonths)} onValueChange={(v) => setTermMonths(Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36]).map((m) => (
+                    {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36, 60]).map((m) => (
                       <SelectItem key={m} value={String(m)}>
                         {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
                       </SelectItem>
@@ -264,6 +266,16 @@ export function NewContractForm({
               {buildingType === "VP" && termMonths >= 36 && (
                 <Field label="Giá năm 3">
                   <VNDInput value={yearlyRents.y3 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y3: v }))} />
+                </Field>
+              )}
+              {buildingType === "VP" && termMonths >= 48 && (
+                <Field label="Giá năm 4">
+                  <VNDInput value={yearlyRents.y4 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y4: v }))} />
+                </Field>
+              )}
+              {buildingType === "VP" && termMonths >= 60 && (
+                <Field label="Giá năm 5">
+                  <VNDInput value={yearlyRents.y5 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y5: v }))} />
                 </Field>
               )}
             </div>
