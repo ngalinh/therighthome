@@ -212,6 +212,10 @@ model Contract {
   // of endDate. Used for rolling/indefinite leases.
   isOpenEnded Boolean @default(false)
 
+  // Chu kỳ thanh toán tiền thuê (số tháng/lần). Mặc định 1 = hàng tháng.
+  // Ví dụ: 2 = mỗi 2 tháng đóng tiền thuê 1 lần, neo vào startDate.
+  rentPaymentCycleMonths Int @default(1)
+
   // Snapshot from settings at contract creation (for invoice generation)
   electricityPricePerKwh BigInt @default(0)
   parkingCount           Int    @default(0)

@@ -3,6 +3,28 @@ import { nextInvoiceCode } from "@/lib/codes";
 import { computeInvoice, getEffectiveRent, type VatFeeKey } from "@/lib/invoice-compute";
 
 /**
+ * Returns true if the given invoice month/year is a rent billing month for this
+ * contract. Anchored to the contract's startDate: month 0 (the start month) is
+ * always a rent month, then every `cycleMonths` months after that.
+ *
+ * Example: startDate = 2025-03-15, cycleMonths = 2
+ *   → rent months: Mar(0), May(2), Jul(4) ...
+ *   → fee-only months: Apr(1), Jun(3) ...
+ */
+function isRentBillingMonth(
+  startDate: Date,
+  invoiceMonth: number,
+  invoiceYear: number,
+  cycleMonths: number,
+): boolean {
+  if (cycleMonths <= 1) return true;
+  const startM = startDate.getMonth() + 1;
+  const startY = startDate.getFullYear();
+  const elapsed = (invoiceYear - startY) * 12 + (invoiceMonth - startM);
+  return elapsed >= 0 && elapsed % cycleMonths === 0;
+}
+
+/**
  * Generate invoices for all ACTIVE contracts that don't yet have an invoice
  * for the given (month, year). Idempotent — calling twice doesn't duplicate,
  * and CANCELLED auto invoices are intentionally NOT regenerated (the user
@@ -76,13 +98,17 @@ export async function generateInvoiceForContract(
   const dueDay = c.paymentDay || c.building.setting?.defaultDueDay || 5;
   const dueDate = new Date(year, month - 1, Math.min(dueDay, 28));
 
-  const effectiveRent = getEffectiveRent(
+  const cycle = c.rentPaymentCycleMonths ?? 1;
+  const rentMonth = isRentBillingMonth(c.startDate, month, year, cycle);
+  const monthlyRentForPeriod = getEffectiveRent(
     c.startDate,
     c.monthlyRent,
     c.yearlyRents.map((y) => ({ yearIndex: y.yearIndex, rent: y.rent })),
     month,
     year,
   );
+  // Rent billing months: charge cycle × monthly rent. Fee-only months: 0.
+  const effectiveRent = rentMonth ? monthlyRentForPeriod * BigInt(cycle) : 0n;
 
   const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
   const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;

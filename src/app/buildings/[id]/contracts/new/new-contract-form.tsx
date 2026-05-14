@@ -38,6 +38,7 @@ export function NewContractForm({
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [termMonths, setTermMonths] = useState<number>(buildingType === "CHDV" ? 12 : 12);
   const [paymentDay, setPaymentDay] = useState<number>(defaults.paymentDay);
+  const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState<number>(1);
   const [monthlyRent, setMonthlyRent] = useState("");
   const [vatRate, setVatRate] = useState<number>(buildingType === "VP" ? 10 : 0);
   const [deposit, setDeposit] = useState("");
@@ -80,6 +81,7 @@ export function NewContractForm({
       startDate,
       termMonths,
       paymentDay,
+      rentPaymentCycleMonths,
       monthlyRent: parseVNDInput(monthlyRent).toString(),
       vatRate: vatRate / 100,
       depositAmount: parseVNDInput(deposit).toString(),
@@ -213,6 +215,21 @@ export function NewContractForm({
               </Field>
               <Field label="Ngày thanh toán hàng tháng">
                 <Input type="number" min={1} max={28} value={paymentDay} onChange={(e) => setPaymentDay(Number(e.target.value))} />
+              </Field>
+              <Field label="Chu kỳ thanh toán tiền thuê">
+                <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Hàng tháng (1 tháng/lần)</SelectItem>
+                    <SelectItem value="2">2 tháng/lần</SelectItem>
+                    <SelectItem value="3">3 tháng/lần (quý)</SelectItem>
+                    <SelectItem value="6">6 tháng/lần</SelectItem>
+                    <SelectItem value="12">12 tháng/lần (năm)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {rentPaymentCycleMonths > 1 && (
+                  <p className="text-[11px] text-slate-500 mt-1">Phí dịch vụ vẫn tính hàng tháng</p>
+                )}
               </Field>
             </div>
 

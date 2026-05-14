@@ -99,28 +99,32 @@ export function formatDateVN(d: Date | string | null | undefined): string {
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-// Rent period for an invoice, anchored to the contract paymentDay. For a
-// contract with paymentDay D, the May invoice covers D/05 → (D-1)/06, etc.
+// Rent period for an invoice, anchored to the contract paymentDay.
+// cycleMonths: how many months this rent invoice covers (default 1).
+// Example: paymentDay=15, month=3, year=2025, cycleMonths=2 → "15/03/25-14/05/25"
 // Returned format: "DD/MM/YY-DD/MM/YY".
 export function rentPeriodLabel(
   paymentDay: number,
   invoiceMonth: number,
   invoiceYear: number,
+  cycleMonths: number = 1,
 ): string {
   const day = Math.max(1, Math.min(28, paymentDay || 1));
-  // Period start: paymentDay in invoice month/year
-  const fromY = invoiceYear;
   const fromM = invoiceMonth;
-  // Period end: (day - 1) of the following month. If day === 1, end is the
-  // last day of the same invoice month.
+  const fromY = invoiceYear;
+  // End month = invoiceMonth + cycleMonths (with year rollover)
+  let toM = invoiceMonth + cycleMonths;
   let toY = invoiceYear;
-  let toM = invoiceMonth + 1;
-  if (toM > 12) { toM = 1; toY += 1; }
+  while (toM > 12) { toM -= 12; toY += 1; }
   const fmt = (d: number, m: number, y: number) =>
     `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${String(y).slice(-2)}`;
   if (day === 1) {
-    const lastDay = new Date(Date.UTC(fromY, fromM, 0)).getUTCDate();
-    return `${fmt(1, fromM, fromY)}-${fmt(lastDay, fromM, fromY)}`;
+    // End = last day of the last month in the cycle
+    let endM = invoiceMonth + cycleMonths - 1;
+    let endY = invoiceYear;
+    while (endM > 12) { endM -= 12; endY += 1; }
+    const lastDay = new Date(Date.UTC(endY, endM, 0)).getUTCDate();
+    return `${fmt(1, fromM, fromY)}-${fmt(lastDay, endM, endY)}`;
   }
   return `${fmt(day, fromM, fromY)}-${fmt(day - 1, toM, toY)}`;
 }
