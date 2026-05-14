@@ -29,12 +29,11 @@ export default async function InvoicesPage({
   const month = Number(sp.month ?? now.getMonth() + 1);
   const year = Number(sp.year ?? now.getFullYear());
 
-  // Lazy auto-generate: when the user views the current month (or earlier
-  // months that haven't had invoices generated yet), make sure invoices exist
-  // for every active contract before listing. Idempotent.
-  const isCurrentOrPast = year < now.getFullYear()
-    || (year === now.getFullYear() && month <= now.getMonth() + 1);
-  if (canWrite && isCurrentOrPast) {
+  // Lazy auto-generate ONLY for the current month. Viewing past months should
+  // never create new invoices — historical data must be either pre-existing or
+  // created manually via the "Tạo hoá đơn" button.
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  if (canWrite && isCurrentMonth) {
     await generateMonthlyInvoices(month, year, id).catch((e) => {
       console.error("[invoices/auto-generate] failed for", id, year, month, e);
     });
