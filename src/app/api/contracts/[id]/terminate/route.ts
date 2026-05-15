@@ -32,7 +32,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       where: { contractId: id, isPrimary: true },
     });
 
-    // Auto-record deposit loss as revenue (Thu) — countInBR=true.
+    // Auto-record deposit loss as revenue (Thu) — countInBR=false vì
+    // tiền cọc đã vào quỹ lúc thu ban đầu, không có dòng tiền mới.
     if (d.reason === "TERMINATED_LOST_DEPOSIT") {
       const lostAmount = d.depositLost ? BigInt(d.depositLost) : c.depositAmount;
       if (lostAmount > 0n) {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             paymentMethodId: d.paymentMethodId,
             partyKind: "CUSTOMER",
             customerId: customer?.customerId,
-            countInBR: true,
+            countInBR: false,
             accountingMonth: at.getMonth() + 1,
             accountingYear: at.getFullYear(),
             createdById: session.user.id,
