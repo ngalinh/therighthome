@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X } from "lucide-react";
+import { Loader2, Plus, User, Building2 as Office, Trash2, Check, ImagePlus, X, FileText, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { contractEndDate, parseVNDInput, formatNumber } from "@/lib/utils";
@@ -36,7 +36,9 @@ export function NewContractForm({
   // Contract fields
   const [roomId, setRoomId] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [termMonths, setTermMonths] = useState<number>(buildingType === "CHDV" ? 12 : 12);
+  const [termMonths, setTermMonths] = useState<number>(12);
+  const [useCustomTerm, setUseCustomTerm] = useState(false);
+  const [customTermInput, setCustomTermInput] = useState("");
   const [paymentDay, setPaymentDay] = useState<number>(defaults.paymentDay);
   const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState<number>(1);
   const [monthlyRent, setMonthlyRent] = useState("");
@@ -49,7 +51,7 @@ export function NewContractForm({
   const [electricityPricePerKwh, setElectricityPricePerKwh] = useState(defaults.electricityPricePerKwh);
   const [notes, setNotes] = useState("");
   // VP yearly rents
-  const [yearlyRents, setYearlyRents] = useState<{ y2?: string; y3?: string }>({});
+  const [yearlyRents, setYearlyRents] = useState<{ y2?: string; y3?: string; y4?: string; y5?: string }>({});
   // Tạm trú (CHDV only)
   const [trStatus, setTrStatus] = useState<"NOT_REGISTERED" | "SUBMITTED" | "REGISTERED">("NOT_REGISTERED");
   const [trExpiresAt, setTrExpiresAt] = useState("");
@@ -98,6 +100,8 @@ export function NewContractForm({
               { yearIndex: 1, rent: parseVNDInput(monthlyRent).toString() },
               ...(yearlyRents.y2 ? [{ yearIndex: 2, rent: parseVNDInput(yearlyRents.y2).toString() }] : []),
               ...(yearlyRents.y3 ? [{ yearIndex: 3, rent: parseVNDInput(yearlyRents.y3).toString() }] : []),
+              ...(yearlyRents.y4 ? [{ yearIndex: 4, rent: parseVNDInput(yearlyRents.y4).toString() }] : []),
+              ...(yearlyRents.y5 ? [{ yearIndex: 5, rent: parseVNDInput(yearlyRents.y5).toString() }] : []),
             ]
           : [],
       ...(buildingType === "CHDV"
@@ -196,16 +200,45 @@ export function NewContractForm({
                 </Select>
               </Field>
               <Field label="Thời hạn HĐ">
-                <Select value={String(termMonths)} onValueChange={(v) => setTermMonths(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36]).map((m) => (
-                      <SelectItem key={m} value={String(m)}>
-                        {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={useCustomTerm ? "custom" : String(termMonths)}
+                    onValueChange={(v) => {
+                      if (v === "custom") {
+                        setUseCustomTerm(true);
+                        setCustomTermInput("");
+                      } else {
+                        setUseCustomTerm(false);
+                        setCustomTermInput("");
+                        setTermMonths(Number(v));
+                      }
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(buildingType === "CHDV" ? [3, 6, 12] : [12, 24, 36, 60]).map((m) => (
+                        <SelectItem key={m} value={String(m)}>
+                          {buildingType === "CHDV" ? `${m} tháng` : `${m / 12} năm`}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Khác…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {useCustomTerm && (
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="Số tháng"
+                      value={customTermInput}
+                      onChange={(e) => {
+                        setCustomTermInput(e.target.value);
+                        const n = Number(e.target.value);
+                        if (n > 0) setTermMonths(n);
+                      }}
+                      className="w-28 shrink-0"
+                    />
+                  )}
+                </div>
               </Field>
               <Field label="Ngày bắt đầu" required>
                 <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -265,6 +298,16 @@ export function NewContractForm({
               {buildingType === "VP" && termMonths >= 36 && (
                 <Field label="Giá năm 3">
                   <VNDInput value={yearlyRents.y3 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y3: v }))} />
+                </Field>
+              )}
+              {buildingType === "VP" && termMonths >= 48 && (
+                <Field label="Giá năm 4">
+                  <VNDInput value={yearlyRents.y4 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y4: v }))} />
+                </Field>
+              )}
+              {buildingType === "VP" && termMonths >= 60 && (
+                <Field label="Giá năm 5">
+                  <VNDInput value={yearlyRents.y5 ?? ""} onChange={(v) => setYearlyRents((y) => ({ ...y, y5: v }))} />
                 </Field>
               )}
             </div>
@@ -401,18 +444,18 @@ function AddCustomerSection({
   const [bizFiles, setBizFiles] = useState<File[]>([]);
   const [bizUploading, setBizUploading] = useState(false);
   const bizInputRef = useRef<HTMLInputElement>(null);
-  const MAX_BIZ_IMAGES = 3;
+  const MAX_BIZ_FILES = 3;
 
   function addBizFiles(list: FileList | null) {
     if (!list) return;
     const incoming = Array.from(list);
-    const room = MAX_BIZ_IMAGES - bizFiles.length;
+    const room = MAX_BIZ_FILES - bizFiles.length;
     if (room <= 0) {
-      toast.error(`Tối đa ${MAX_BIZ_IMAGES} ảnh ĐKKD`);
+      toast.error(`Tối đa ${MAX_BIZ_FILES} file ĐKKD`);
       return;
     }
     if (incoming.length > room) {
-      toast.error(`Chỉ thêm được ${room} ảnh nữa (tối đa ${MAX_BIZ_IMAGES})`);
+      toast.error(`Chỉ thêm được ${room} file nữa (tối đa ${MAX_BIZ_FILES})`);
     }
     setBizFiles((prev) => [...prev, ...incoming.slice(0, room)]);
   }
@@ -453,40 +496,37 @@ function AddCustomerSection({
       ) : (
         <div className="space-y-3">
           <div>
-            <Label className="text-xs">Ảnh ĐKKD (tối đa {MAX_BIZ_IMAGES})</Label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {bizFiles.map((f, i) => {
-                const url = URL.createObjectURL(f);
-                return (
-                  <div key={i} className="relative aspect-[1.6/1] rounded-lg overflow-hidden border bg-slate-50">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`ĐKKD ${i + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setBizFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center"
-                      aria-label="Xoá"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                );
-              })}
-              {bizFiles.length < MAX_BIZ_IMAGES && (
+            <Label className="text-xs">File ĐKKD — PDF (tối đa {MAX_BIZ_FILES})</Label>
+            <div className="mt-1 space-y-1.5">
+              {bizFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2">
+                  <FileText className="h-4 w-4 text-rose-500 shrink-0" />
+                  <span className="flex-1 truncate text-xs text-slate-700">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBizFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-slate-400 hover:text-rose-500"
+                    aria-label="Xoá"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {bizFiles.length < MAX_BIZ_FILES && (
                 <button
                   type="button"
                   onClick={() => bizInputRef.current?.click()}
-                  className="aspect-[1.6/1] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-colors"
+                  className="w-full rounded-lg border-2 border-dashed border-slate-300 py-2.5 flex items-center justify-center gap-1.5 text-slate-400 hover:border-primary hover:text-primary transition-colors text-xs"
                 >
-                  <ImagePlus className="h-5 w-5 mb-0.5" />
-                  <span className="text-[10px]">Thêm ảnh</span>
+                  <Upload className="h-4 w-4" />
+                  Chọn file PDF
                 </button>
               )}
             </div>
             <input
               ref={bizInputRef}
               type="file"
-              accept="image/*"
+              accept=".pdf,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => {

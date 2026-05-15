@@ -135,6 +135,8 @@ export async function RevenueTab({
     customerId: string | null;
     partyId: string | null;
     roomId: string | null;
+    accountingMonth: number | null;
+    accountingYear: number | null;
   };
   type Row = {
     key: string;
@@ -223,6 +225,8 @@ export async function RevenueTab({
         customerId: t.customer ? t.customerId : null,
         partyId: t.party ? t.partyId : null,
         roomId: t.roomId ?? null,
+        accountingMonth: t.accountingMonth,
+        accountingYear: t.accountingYear,
       },
     });
   }

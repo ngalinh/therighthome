@@ -27,7 +27,11 @@ export type EditableTransaction = {
   customerId: string | null;
   partyId: string | null;
   roomId: string | null;
+  accountingMonth: number | null;
+  accountingYear: number | null;
 };
+
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function EditTransactionDialog({
   tx, categories, paymentMethods, partyKindConfigs, rooms, onClose,
@@ -48,6 +52,8 @@ export function EditTransactionDialog({
   const [partyKind, setPartyKind] = useState("");
   const [roomId, setRoomId] = useState("");
   const [notes, setNotes] = useState("");
+  const [acctMonth, setAcctMonth] = useState<number | null>(null);
+  const [acctYear, setAcctYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -60,6 +66,8 @@ export function EditTransactionDialog({
     setPartyKind(tx.partyKind ?? "");
     setRoomId(tx.roomId ?? "");
     setNotes(tx.notes ?? "");
+    setAcctMonth(tx.accountingMonth);
+    setAcctYear(tx.accountingYear);
   }, [tx]);
 
   if (!tx) return null;
@@ -86,6 +94,8 @@ export function EditTransactionDialog({
       customerId: partyKind === "CUSTOMER" ? inferredCustomerId : null,
       roomId: roomId || null,
       notes,
+      accountingMonth: acctMonth,
+      accountingYear: acctYear,
     };
     const res = await fetch(`/api/transactions/${tx.id}`, {
       method: "PATCH",
@@ -166,6 +176,39 @@ export function EditTransactionDialog({
                 {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tháng hạch toán</Label>
+              <Select
+                value={acctMonth ? String(acctMonth) : ""}
+                onValueChange={(v) => setAcctMonth(v ? Number(v) : null)}
+              >
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Năm hạch toán</Label>
+              <Select
+                value={acctYear ? String(acctYear) : ""}
+                onValueChange={(v) => setAcctYear(v ? Number(v) : null)}
+              >
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const base = acctYear ?? new Date(date).getFullYear();
+                    return [base - 1, base, base + 1].map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Ghi chú</Label>
