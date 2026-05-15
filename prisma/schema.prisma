@@ -447,6 +447,8 @@ model Transaction {
 
   // Hạch toán vào BCKD
   countInBR       Boolean @default(true)
+  // Hiển thị trong sổ quỹ (false = ghi sổ kế toán, không có dòng tiền thực)
+  showInCashbook  Boolean @default(true)
   accountingMonth Int?
   accountingYear  Int?
 
