@@ -48,7 +48,9 @@ function vatOn(amount: bigint, vatRate: number): bigint {
 }
 
 export function computeInvoice(d: InvoiceComputeInput): InvoiceComputeResult {
-  const vatAmount = BigInt(Math.round(Number(d.rentAmount) * d.vatRate));
+  const vatAmount = d.vatRate > 0
+    ? BigInt(Math.round(Number(d.rentAmount) * d.vatRate / (1 + d.vatRate)))
+    : 0n;
   const kwh =
     d.electricityStart != null && d.electricityEnd != null && d.electricityEnd > d.electricityStart
       ? d.electricityEnd - d.electricityStart
