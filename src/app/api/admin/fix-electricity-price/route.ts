@@ -6,7 +6,7 @@ import { computeInvoice, type VatFeeKey } from "@/lib/invoice-compute";
 const OLD_PRICE = 3500n;
 const NEW_PRICE = 4000n;
 
-export async function POST() {
+export async function GET() {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
