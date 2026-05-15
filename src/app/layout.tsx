@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Cormorant_Garamond, JetBrains_Mono } from "next/font/google";
+import { Be_Vietnam_Pro, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
@@ -11,9 +11,9 @@ const beVietnamPro = Be_Vietnam_Pro({
   display: "swap",
 });
 
-const cormorantGaramond = Cormorant_Garamond({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600"],
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
   style: ["normal", "italic"],
   variable: "--font-serif",
   display: "swap",
@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="vi"
       suppressHydrationWarning
-      className={`${beVietnamPro.variable} ${cormorantGaramond.variable} ${jetbrainsMono.variable}`}
+      className={`${beVietnamPro.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />

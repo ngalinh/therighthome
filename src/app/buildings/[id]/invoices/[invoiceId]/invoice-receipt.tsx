@@ -165,7 +165,7 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       });
       pdf.addImage(dataUrl, "PNG", 0, 0, pageW, pageH);
 
-      const filename = `${data.invoiceCode}.pdf`;
+      const filename = `phieu-${data.invoiceCode}.pdf`;
       const blob = pdf.output("blob");
       const file = new File([blob], filename, { type: "application/pdf" });
 
@@ -461,7 +461,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
 
       {/* Footer */}
       <div className="px-6 py-3 text-center text-[11px] text-slate-400 border-t border-slate-200">
-        Cảm ơn quý khách đã sử dụng dịch vụ của {data.buildingType === "VP" ? "K300 Office" : "The Right Home"}
+        Cảm ơn quý khách đã sử dụng dịch vụ của {data.buildingName}
       </div>
     </div>
   );

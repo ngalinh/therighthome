@@ -120,7 +120,6 @@ export function InvoiceDetail({
 
   const [elecStart, setElecStart] = useState<string>(invoice.electricityStart?.toString() ?? "");
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
-  const [elecPrice, setElecPrice] = useState<string>(invoice.electricityPricePerKwh);
   const [parkingCount, setParkingCount] = useState<number>(invoice.parkingCount);
   const [overtime, setOvertime] = useState(invoice.overtimeFee);
   const [repairFee, setRepairFee] = useState(invoice.repairFee);
@@ -153,8 +152,8 @@ export function InvoiceDetail({
       ? BigInt(invoice.parkingFeePerVehicle)
       : BigInt(settingFallback.parkingFeePerVehicle);
   const effectiveElectricityPrice =
-    parseVNDInput(elecPrice) > 0n
-      ? parseVNDInput(elecPrice)
+    invoice.electricityPricePerKwh !== "0"
+      ? BigInt(invoice.electricityPricePerKwh)
       : BigInt(settingFallback.electricityPricePerKwh);
 
   // Live compute preview
@@ -237,6 +236,8 @@ export function InvoiceDetail({
         electricityStart: elecStart ? Number(elecStart) : null,
         electricityEnd: elecEnd ? Number(elecEnd) : null,
         parkingCount,
+        // Bring the snapshots up to the current effective rate so the saved
+        // total reflects what the user sees on screen.
         parkingFeePerVehicle: effectiveParkingFeePerVehicle.toString(),
         electricityPricePerKwh: effectiveElectricityPrice.toString(),
         overtimeFee: parseVNDInput(overtime).toString(),
@@ -496,17 +497,6 @@ export function InvoiceDetail({
                   onChange={setElecEnd}
                   disabled={!canWrite}
                 />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Đơn giá điện (₫/kWh)</Label>
-                  <Input
-                    inputMode="numeric"
-                    value={formatNumber(parseVNDInput(elecPrice))}
-                    onChange={(e) => setElecPrice(e.target.value)}
-                    disabled={!canWrite}
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>

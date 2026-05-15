@@ -113,8 +113,6 @@ export async function DebtTab({
     customerId: string | null;
     partyId: string | null;
     roomId: string | null;
-    accountingMonth: number | null;
-    accountingYear: number | null;
   };
   type Row = {
     key: string;
@@ -220,8 +218,6 @@ export async function DebtTab({
         customerId: e.customer ? e.customerId : null,
         partyId: e.party ? e.partyId : null,
         roomId: e.roomId ?? null,
-        accountingMonth: e.accountingMonth,
-        accountingYear: e.accountingYear,
       },
     });
   }

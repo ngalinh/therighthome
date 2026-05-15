@@ -101,7 +101,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "Be Vietnam Pro", "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "Cormorant Garamond", "Iowan Old Style", "Georgia", "serif"],
+        serif: ["var(--font-serif)", "Instrument Serif", "Cormorant Garamond", "Iowan Old Style", "Georgia", "serif"],
         mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
       borderRadius: {
