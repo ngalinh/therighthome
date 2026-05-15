@@ -36,7 +36,7 @@ export async function CashbookTab({
 
   const [transactions, allOpenings, priorTxs, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
-      where: { buildingId, date: { gte: start, lte: end } },
+      where: { buildingId, countInBR: true, date: { gte: start, lte: end } },
       include: {
         paymentMethod: true,
         category: { select: { name: true } },
@@ -58,7 +58,7 @@ export async function CashbookTab({
       orderBy: [{ asOfYear: "desc" }, { asOfMonth: "desc" }],
     }),
     prisma.transaction.findMany({
-      where: { buildingId, date: { lt: start } },
+      where: { buildingId, countInBR: true, date: { lt: start } },
       select: { type: true, amount: true, paymentMethodId: true, date: true },
     }),
     prisma.contract.findMany({ where: { buildingId }, select: { id: true, code: true } }),
