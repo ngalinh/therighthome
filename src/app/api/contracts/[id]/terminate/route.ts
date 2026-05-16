@@ -102,10 +102,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       },
     });
 
-    // Free room if no other active contracts
+    // Free primary room if no other active contracts use it
     const stillActive = await tx.contract.count({ where: { roomId: c.roomId, status: "ACTIVE" } });
     if (stillActive === 0) {
       await tx.room.update({ where: { id: c.roomId }, data: { status: "AVAILABLE" } });
+    }
+
+    // Free secondary rooms (ContractRoom) — each freed only if no other active contract uses it
+    const secondaryRooms = await tx.contractRoom.findMany({
+      where: { contractId: id },
+      select: { roomId: true },
+    });
+    for (const { roomId } of secondaryRooms) {
+      const otherActive = await tx.contract.count({ where: { roomId, status: "ACTIVE" } });
+      const otherActiveSecondary = await tx.contractRoom.count({
+        where: { roomId, contract: { status: "ACTIVE", id: { not: id } } },
+      });
+      if (otherActive === 0 && otherActiveSecondary === 0) {
+        await tx.room.update({ where: { id: roomId }, data: { status: "AVAILABLE" } });
+      }
     }
   });
 

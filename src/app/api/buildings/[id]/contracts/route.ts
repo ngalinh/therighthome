@@ -43,6 +43,7 @@ const customerSchema = z.discriminatedUnion("kind", [
 
 const createSchema = z.object({
   roomId: z.string(),
+  secondaryRoomIds: z.array(z.string()).optional(),
   startDate: z.string(),
   termMonths: z.number().int().min(1).max(60),
   paymentDay: z.number().int().min(1).max(28),
@@ -169,6 +170,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
 
     await tx.room.update({ where: { id: d.roomId }, data: { status: "OCCUPIED" } });
+
+    if (d.secondaryRoomIds && d.secondaryRoomIds.length > 0) {
+      await tx.contractRoom.createMany({
+        data: d.secondaryRoomIds.map((roomId, idx) => ({
+          contractId: created.id,
+          roomId,
+          sortOrder: idx,
+        })),
+      });
+      await tx.room.updateMany({
+        where: { id: { in: d.secondaryRoomIds } },
+        data: { status: "OCCUPIED" },
+      });
+    }
 
     return created;
   });

@@ -75,6 +75,7 @@ export async function generateInvoiceForContract(
     include: {
       building: { include: { setting: true } },
       yearlyRents: true,
+      secondaryRooms: { include: { room: true }, orderBy: { sortOrder: "asc" } },
       _count: { select: { customers: true } },
     },
   });
@@ -118,16 +119,23 @@ export async function generateInvoiceForContract(
       : (c.building.setting?.waterPricePerPerson ?? 0n);
   const waterOccupants = c._count.customers;
 
-  // Carry electricityEnd from the previous month's invoice so the new
-  // invoice's "số điện đầu kỳ" is pre-filled with last month's "cuối kỳ".
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
+  const isMultiRoom = c.secondaryRooms.length > 0;
+
+  // Carry electricityEnd from the previous month's invoice.
+  // Multi-room: carry per-room from InvoiceElectricityLine.
+  // Single-room: carry from Invoice.electricityEnd directly.
   const prev = await prisma.invoice.findFirst({
     where: { contractId: c.id, month: prevMonth, year: prevYear, isManual: false },
-    select: { electricityEnd: true, electricityEndPhoto: true },
+    select: {
+      electricityEnd: true,
+      electricityEndPhoto: true,
+      electricityLines: { orderBy: { sortOrder: "asc" } },
+    },
   });
-  const electricityStart = prev?.electricityEnd ?? null;
-  const electricityStartPhoto = prev?.electricityEndPhoto ?? null;
+  const electricityStart = isMultiRoom ? null : (prev?.electricityEnd ?? null);
+  const electricityStartPhoto = isMultiRoom ? null : (prev?.electricityEndPhoto ?? null);
 
   const compute = computeInvoice({
     rentAmount: effectiveRent,
@@ -209,6 +217,30 @@ export async function generateInvoiceForContract(
     },
     select: { id: true, code: true },
   });
+
+  // Multi-room: create per-room electricity lines with carry-over from prev month
+  if (isMultiRoom) {
+    const prevLines = prev?.electricityLines ?? [];
+    const primaryRoom = await prisma.room.findUnique({ where: { id: c.roomId }, select: { number: true } });
+    const rooms = [
+      { label: `P${primaryRoom?.number ?? "?"}`, sortOrder: 0 },
+      ...c.secondaryRooms.map((sr, idx) => ({ label: `P${sr.room.number}`, sortOrder: idx + 1 })),
+    ];
+
+    await prisma.invoiceElectricityLine.createMany({
+      data: rooms.map((r) => {
+        const prevLine = prevLines.find((l) => l.roomLabel === r.label);
+        return {
+          invoiceId: inv.id,
+          roomLabel: r.label,
+          sortOrder: r.sortOrder,
+          start: prevLine?.end ?? null,
+          startPhotoUrl: prevLine?.endPhotoUrl ?? null,
+        };
+      }),
+    });
+  }
+
   return { invoiceId: inv.id, code: inv.code, created: true, reactivated: false };
 }
 
@@ -242,7 +274,10 @@ export async function recomputeInvoice(invoiceId: string, partial: {
   waterPricePerPerson?: bigint;
   waterOccupants?: number;
 }) {
-  const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, include: { contract: true } });
+  const inv = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { contract: true, electricityLines: true },
+  });
   if (!inv) throw new Error("Invoice not found");
 
   const waterPricePerPerson = partial.waterPricePerPerson ?? inv.waterPricePerPerson;
@@ -251,12 +286,25 @@ export async function recomputeInvoice(invoiceId: string, partial: {
   const repairFee = partial.repairFee ?? inv.repairFee;
   const extraParkingFee = partial.extraParkingFee ?? inv.extraParkingFee;
 
+  // Multi-room: sum electricity across all lines; single-room: use start/end directly.
+  let effectiveElecStart = partial.electricityStart ?? inv.electricityStart;
+  let effectiveElecEnd = partial.electricityEnd ?? inv.electricityEnd;
+  if (inv.electricityLines.length > 0) {
+    const totalKwh = inv.electricityLines.reduce((sum, l) => {
+      const kwh = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
+      return sum + kwh;
+    }, 0);
+    // Encode total as a virtual start=0 / end=totalKwh for computeInvoice
+    effectiveElecStart = 0;
+    effectiveElecEnd = totalKwh;
+  }
+
   const compute = computeInvoice({
     rentAmount: partial.rentAmount ?? inv.rentAmount,
     vatRate: inv.contract.vatRate,
     vatApplicableFees: inv.contract.vatApplicableFees as VatFeeKey[],
-    electricityStart: partial.electricityStart ?? inv.electricityStart,
-    electricityEnd: partial.electricityEnd ?? inv.electricityEnd,
+    electricityStart: effectiveElecStart,
+    electricityEnd: effectiveElecEnd,
     electricityPricePerKwh: inv.electricityPricePerKwh,
     parkingCount: partial.parkingCount ?? inv.parkingCount,
     parkingFeePerVehicle: inv.parkingFeePerVehicle,
@@ -273,8 +321,8 @@ export async function recomputeInvoice(invoiceId: string, partial: {
     data: {
       rentAmount: partial.rentAmount ?? inv.rentAmount,
       vatAmount: compute.vatAmount,
-      electricityStart: partial.electricityStart ?? inv.electricityStart,
-      electricityEnd: partial.electricityEnd ?? inv.electricityEnd,
+      electricityStart: inv.electricityLines.length > 0 ? inv.electricityStart : (partial.electricityStart ?? inv.electricityStart),
+      electricityEnd: inv.electricityLines.length > 0 ? inv.electricityEnd : (partial.electricityEnd ?? inv.electricityEnd),
       electricityFee: compute.electricityFee,
       parkingCount: partial.parkingCount ?? inv.parkingCount,
       parkingFee: compute.parkingFee,
