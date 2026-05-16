@@ -35,6 +35,7 @@ export function NewContractForm({
 
   // Contract fields
   const [roomId, setRoomId] = useState("");
+  const [secondaryRoomIds, setSecondaryRoomIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [termMonths, setTermMonths] = useState<number>(12);
   const [useCustomTerm, setUseCustomTerm] = useState(false);
@@ -80,6 +81,7 @@ export function NewContractForm({
 
     const payload = {
       roomId,
+      ...(buildingType === "VP" && secondaryRoomIds.length > 0 ? { secondaryRoomIds } : {}),
       startDate,
       termMonths,
       paymentDay,
@@ -190,7 +192,7 @@ export function NewContractForm({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Phòng" required>
-                <Select value={roomId} onValueChange={setRoomId}>
+                <Select value={roomId} onValueChange={(v) => { setRoomId(v); setSecondaryRoomIds([]); }}>
                   <SelectTrigger><SelectValue placeholder="Chọn phòng trống" /></SelectTrigger>
                   <SelectContent>
                     {rooms.map((r) => (
@@ -198,6 +200,34 @@ export function NewContractForm({
                     ))}
                   </SelectContent>
                 </Select>
+                {buildingType === "VP" && roomId && (
+                  <div className="mt-2 space-y-1">
+                    {secondaryRoomIds.map((sid, idx) => {
+                      const r = rooms.find((r) => r.id === sid);
+                      return (
+                        <div key={sid} className="flex items-center gap-2 text-sm text-slate-600">
+                          <span className="flex-1">+ Phòng {r?.number}</span>
+                          <button type="button" onClick={() => setSecondaryRoomIds((ids) => ids.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-rose-500">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <Select
+                      value=""
+                      onValueChange={(v) => { if (!secondaryRoomIds.includes(v)) setSecondaryRoomIds((ids) => [...ids, v]); }}
+                    >
+                      <SelectTrigger className="h-8 text-xs border-dashed">
+                        <SelectValue placeholder="+ Thêm phòng phụ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rooms.filter((r) => r.id !== roomId && !secondaryRoomIds.includes(r.id)).map((r) => (
+                          <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </Field>
               <Field label="Thời hạn HĐ">
                 <div className="flex gap-2">

@@ -37,6 +37,7 @@ export default async function InvoiceDetailPage({
         include: { category: { select: { id: true, name: true } } },
         orderBy: { sortOrder: "asc" },
       },
+      electricityLines: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!inv || inv.buildingId !== id) notFound();

@@ -25,6 +25,16 @@ type LineItem = {
   category: { id: string; name: string } | null;
 };
 
+type ElectricityLine = {
+  id: string;
+  roomLabel: string;
+  sortOrder: number;
+  start: number | null;
+  end: number | null;
+  startPhotoUrl: string | null;
+  endPhotoUrl: string | null;
+};
+
 type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
 
 type Invoice = {
@@ -57,6 +67,7 @@ type Invoice = {
   paidAmount: string;
   notes: string | null;
   lineItems: LineItem[];
+  electricityLines: ElectricityLine[];
   contract: {
     startDate: string;
     paymentDay: number;
@@ -120,6 +131,8 @@ export function InvoiceDetail({
 
   const [elecStart, setElecStart] = useState<string>(invoice.electricityStart?.toString() ?? "");
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
+  const isMultiRoom = invoice.electricityLines.length > 0;
+  const [elecLines, setElecLines] = useState<ElectricityLine[]>(invoice.electricityLines);
   const [parkingCount, setParkingCount] = useState<number>(invoice.parkingCount);
   const [overtime, setOvertime] = useState(invoice.overtimeFee);
   const [repairFee, setRepairFee] = useState(invoice.repairFee);
@@ -159,7 +172,12 @@ export function InvoiceDetail({
   // Live compute preview
   const elecStartN = elecStart ? Number(elecStart) : null;
   const elecEndN = elecEnd ? Number(elecEnd) : null;
-  const kwh = elecStartN !== null && elecEndN !== null && elecEndN > elecStartN ? elecEndN - elecStartN : 0;
+  const kwh = isMultiRoom
+    ? elecLines.reduce((sum, l) => {
+        const k = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
+        return sum + k;
+      }, 0)
+    : (elecStartN !== null && elecEndN !== null && elecEndN > elecStartN ? elecEndN - elecStartN : 0);
   const elecFee = BigInt(kwh) * effectiveElectricityPrice;
   const parkingFee = BigInt(parkingCount) * effectiveParkingFeePerVehicle;
   const waterFee = BigInt(waterOccupants) * parseVNDInput(waterPricePerPerson);
@@ -442,11 +460,28 @@ export function InvoiceDetail({
                   }
                   value={formatVND(BigInt(invoice.rentAmount))}
                 />
-                <FeeRow
-                  label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
-                  base={elecFee}
-                  vat={elecVat}
-                />
+                {isMultiRoom
+                  ? elecLines.map((l) => {
+                      const lKwh = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
+                      const lFee = BigInt(lKwh) * effectiveElectricityPrice;
+                      const lVat = vatApplicable.has("electricity") ? vatOf(lFee) : 0n;
+                      return (
+                        <FeeRow
+                          key={l.id}
+                          label={`Tiền điện ${usageLabelMonth} - ${l.roomLabel}${lKwh ? ` (${lKwh} kWh × ${formatVND(effectiveElectricityPrice)})` : ""}`}
+                          base={lFee}
+                          vat={lVat}
+                        />
+                      );
+                    })
+                  : (
+                    <FeeRow
+                      label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
+                      base={elecFee}
+                      vat={elecVat}
+                    />
+                  )
+                }
                 {buildingType === "CHDV" && waterFee > 0n && (
                   <Row label={`Tiền nước (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
                 )}
@@ -478,26 +513,57 @@ export function InvoiceDetail({
           <Card>
             <CardHeader><CardTitle>Số điện</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <PhotoUploadField
-                  invoiceId={invoice.id}
-                  which="start"
-                  label="Số điện đầu kỳ"
-                  photoUrl={invoice.electricityStartPhoto}
-                  value={elecStart}
-                  onChange={setElecStart}
-                  disabled={!canWrite}
-                />
-                <PhotoUploadField
-                  invoiceId={invoice.id}
-                  which="end"
-                  label="Số điện cuối kỳ"
-                  photoUrl={invoice.electricityEndPhoto}
-                  value={elecEnd}
-                  onChange={setElecEnd}
-                  disabled={!canWrite}
-                />
-              </div>
+              {isMultiRoom
+                ? elecLines.map((line) => (
+                    <div key={line.id}>
+                      <p className="text-sm font-medium text-slate-600 mb-2">{line.roomLabel}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <ElecLinePhotoField
+                          invoiceId={invoice.id}
+                          lineId={line.id}
+                          which="start"
+                          label="Số điện đầu kỳ"
+                          photoUrl={line.startPhotoUrl}
+                          value={line.start?.toString() ?? ""}
+                          onChange={(val) => setElecLines((ls) => ls.map((l) => l.id === line.id ? { ...l, start: val === "" ? null : Number(val) } : l))}
+                          disabled={!canWrite}
+                        />
+                        <ElecLinePhotoField
+                          invoiceId={invoice.id}
+                          lineId={line.id}
+                          which="end"
+                          label="Số điện cuối kỳ"
+                          photoUrl={line.endPhotoUrl}
+                          value={line.end?.toString() ?? ""}
+                          onChange={(val) => setElecLines((ls) => ls.map((l) => l.id === line.id ? { ...l, end: val === "" ? null : Number(val) } : l))}
+                          disabled={!canWrite}
+                        />
+                      </div>
+                    </div>
+                  ))
+                : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <PhotoUploadField
+                      invoiceId={invoice.id}
+                      which="start"
+                      label="Số điện đầu kỳ"
+                      photoUrl={invoice.electricityStartPhoto}
+                      value={elecStart}
+                      onChange={setElecStart}
+                      disabled={!canWrite}
+                    />
+                    <PhotoUploadField
+                      invoiceId={invoice.id}
+                      which="end"
+                      label="Số điện cuối kỳ"
+                      photoUrl={invoice.electricityEndPhoto}
+                      value={elecEnd}
+                      onChange={setElecEnd}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                )
+              }
             </CardContent>
           </Card>
         )}
@@ -926,6 +992,102 @@ function FeeRow({ label, base, vat }: { label: string; base: bigint; vat: bigint
           </span>
         )}
       </span>
+    </div>
+  );
+}
+
+// Electricity input + photo upload for a single InvoiceElectricityLine row.
+function ElecLinePhotoField({
+  invoiceId, lineId, which, label, photoUrl, value, onChange, disabled,
+}: {
+  invoiceId: string;
+  lineId: string;
+  which: "start" | "end";
+  label: string;
+  photoUrl: string | null;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const router = useRouter();
+  const [uploading, setUploading] = useState(false);
+  const [localPhoto, setLocalPhoto] = useState(photoUrl);
+  const [zoom, setZoom] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  async function saveValue(val: string) {
+    const num = val === "" ? null : Number(val);
+    await fetch(`/api/invoices/${invoiceId}/electricity-lines/${lineId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(which === "start" ? { start: num } : { end: num }),
+    });
+    router.refresh();
+  }
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { toast.error("Ảnh quá lớn (>10MB)."); e.target.value = ""; return; }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("which", which);
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/electricity-lines/${lineId}/photo`, { method: "POST", body: fd });
+      if (!res.ok) { toast.error("Upload thất bại"); return; }
+      const { url } = await res.json();
+      setLocalPhoto(url);
+      toast.success("Đã upload ảnh");
+      router.refresh();
+    } catch { toast.error("Lỗi mạng. Thử lại."); }
+    finally { setUploading(false); e.target.value = ""; }
+  }
+
+  async function removePhoto() {
+    if (!confirm("Xoá ảnh này?")) return;
+    setRemoving(true);
+    const res = await fetch(`/api/invoices/${invoiceId}/electricity-lines/${lineId}/photo?which=${which}`, { method: "DELETE" });
+    setRemoving(false);
+    if (!res.ok) return toast.error("Xoá thất bại");
+    setLocalPhoto(null);
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <Input
+        type="number"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => saveValue(e.target.value)}
+        disabled={disabled}
+        placeholder="0"
+      />
+      {localPhoto ? (
+        <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 group">
+          <button type="button" onClick={() => setZoom(true)} className="block w-full h-full cursor-zoom-in">
+            <img src={localPhoto} alt={label} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
+          </button>
+          {!disabled && (
+            <button type="button" onClick={removePhoto} disabled={removing}
+              className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+            >
+              {removing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
+      ) : null}
+      <ImageLightbox src={zoom ? localPhoto : null} alt={label} onClose={() => setZoom(false)} />
+      {!disabled && (
+        <label className={"flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border bg-background text-sm font-medium cursor-pointer hover:bg-accent/10 hover:text-accent transition-colors w-full" + (uploading ? " opacity-50 pointer-events-none" : "")}>
+          <input type="file" accept="image/*" className="sr-only" onChange={upload} disabled={uploading} />
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          {localPhoto ? "Thay ảnh công tơ" : "Ảnh công tơ"}
+        </label>
+      )}
     </div>
   );
 }

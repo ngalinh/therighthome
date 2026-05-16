@@ -110,6 +110,7 @@ model Room {
 
   building         Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contracts        Contract[]
+  contractRooms    ContractRoom[]
   maintenanceTasks MaintenanceTask[]
   overtimeRequests OvertimeRequest[]
   transactions     Transaction[]
@@ -245,13 +246,31 @@ model Contract {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  building    Building             @relation(fields: [buildingId], references: [id])
-  room        Room                 @relation(fields: [roomId], references: [id])
-  customers   ContractCustomer[]
-  yearlyRents ContractYearlyRent[]
-  invoices    Invoice[]
+  building       Building             @relation(fields: [buildingId], references: [id])
+  room           Room                 @relation(fields: [roomId], references: [id])
+  customers      ContractCustomer[]
+  yearlyRents    ContractYearlyRent[]
+  invoices       Invoice[]
+  secondaryRooms ContractRoom[]
 
   @@index([buildingId, status])
+  @@index([roomId])
+}
+
+// Extra rooms on a contract (VP multi-room tenancy). Primary room is still
+// stored on Contract.roomId; this table holds additional rooms only.
+model ContractRoom {
+  id         String   @id @default(cuid())
+  contractId String
+  roomId     String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  room     Room     @relation(fields: [roomId], references: [id])
+
+  @@unique([contractId, roomId])
+  @@index([contractId])
   @@index([roomId])
 }
 
@@ -347,16 +366,34 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  contract         Contract          @relation(fields: [contractId], references: [id])
-  building         Building          @relation(fields: [buildingId], references: [id])
-  payments         InvoicePayment[]
-  transactions     Transaction[]
-  overtimeRequests OvertimeRequest[]
-  lineItems        InvoiceLineItem[]
+  contract          Contract               @relation(fields: [contractId], references: [id])
+  building          Building               @relation(fields: [buildingId], references: [id])
+  payments          InvoicePayment[]
+  transactions      Transaction[]
+  overtimeRequests  OvertimeRequest[]
+  lineItems         InvoiceLineItem[]
+  electricityLines  InvoiceElectricityLine[]
 
   @@index([contractId, month, year])
   @@index([buildingId, year, month])
   @@index([status])
+}
+
+// Per-room electricity readings for multi-room invoices.
+// Single-room invoices continue to use Invoice.electricityStart/End directly.
+model InvoiceElectricityLine {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  roomLabel   String  // e.g. "P101"
+  sortOrder   Int     @default(0)
+  start       Int?
+  end         Int?
+  startPhotoUrl String?
+  endPhotoUrl   String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 model InvoiceLineItem {
