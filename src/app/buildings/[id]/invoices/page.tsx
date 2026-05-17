@@ -20,7 +20,7 @@ export default async function InvoicesPage({
   const sp = await searchParams;
   const perm = await getBuildingPermission(session.user.id, session.user.role, id);
   if (!perm) notFound();
-  const building = await prisma.building.findUnique({ where: { id } });
+  const building = await prisma.building.findUnique({ where: { id }, include: { setting: true } });
   if (!building) notFound();
   const canWrite = await can(session.user.id, session.user.role, id, "invoice.write");
   const canSend = await can(session.user.id, session.user.role, id, "invoice.send");
@@ -29,11 +29,17 @@ export default async function InvoicesPage({
   const month = Number(sp.month ?? now.getMonth() + 1);
   const year = Number(sp.year ?? now.getFullYear());
 
-  // Lazy auto-generate ONLY for the current month. Viewing past months should
-  // never create new invoices — historical data must be either pre-existing or
-  // created manually via the "Tạo hoá đơn" button.
+  // Auto-generate invoices when viewing:
+  // 1. The current month (always), or
+  // 2. Next month — if today >= autoGenerateInvoiceDay (allows pre-generation
+  //    so accountants can prepare and send invoices before the billing date).
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-  if (canWrite && isCurrentMonth) {
+  const autoDay = building.setting?.autoGenerateInvoiceDay ?? 0;
+  const nextMonthYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+  const nextMonth = now.getMonth() === 11 ? 1 : now.getMonth() + 2;
+  const isNextMonthEarly = autoDay > 0 && now.getDate() >= autoDay
+    && year === nextMonthYear && month === nextMonth;
+  if (canWrite && (isCurrentMonth || isNextMonthEarly)) {
     await generateMonthlyInvoices(month, year, id).catch((e) => {
       console.error("[invoices/auto-generate] failed for", id, year, month, e);
     });
