@@ -180,6 +180,7 @@ enum ContractStatus {
   EXPIRED
   TERMINATED_LOST_DEPOSIT // Mất cọc
   TERMINATED // Dừng thuê bình thường
+  TRANSFERRED // Chuyển phòng — đóng HĐ cũ, tạo HĐ mới
 }
 
 enum TemporaryResidenceStatus {
@@ -239,9 +240,14 @@ model Contract {
   contractFileUrl  String? // user-uploaded signed contract
   generatedDocxUrl String? // auto-generated from template
 
-  // Termination
+  // Termination / transfer
   terminatedAt  DateTime?
   depositRefund BigInt? // amount refunded; if status=TERMINATED_LOST_DEPOSIT, deposit goes to revenue
+
+  // Room transfer: link between old and new contract
+  transferredFromId String?
+  transferredFrom   Contract?  @relation("ContractTransfer", fields: [transferredFromId], references: [id])
+  transferredTo     Contract[] @relation("ContractTransfer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
