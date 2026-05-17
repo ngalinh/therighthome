@@ -452,58 +452,104 @@ export function InvoiceDetail({
               </>
             ) : (
               <>
-                <Row
-                  label={
-                    BigInt(invoice.vatAmount) > 0n
-                      ? `Tiền thuê (${rentPeriod}) · đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT`
-                      : `Tiền thuê (${rentPeriod})`
-                  }
-                  value={formatVND(BigInt(invoice.rentAmount))}
-                />
-                {isMultiRoom
-                  ? elecLines.map((l) => {
-                      const lKwh = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
-                      const lFee = BigInt(lKwh) * effectiveElectricityPrice;
-                      const lVat = vatApplicable.has("electricity") ? vatOf(lFee) : 0n;
-                      return (
-                        <FeeRow
-                          key={l.id}
-                          label={`Tiền điện ${usageLabelMonth} - ${l.roomLabel}${lKwh ? ` (${lKwh} kWh × ${formatVND(effectiveElectricityPrice)})` : ""}`}
-                          base={lFee}
-                          vat={lVat}
-                        />
-                      );
-                    })
-                  : (
-                    <FeeRow
-                      label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
-                      base={elecFee}
-                      vat={elecVat}
+                {buildingType === "VP" && vatRate > 0 ? (
+                  // Excel-style: all lines show NET, then subtotal + VAT + total
+                  (() => {
+                    const netRent = BigInt(invoice.rentAmount) - BigInt(invoice.vatAmount);
+                    const totalVat = BigInt(invoice.vatAmount) + feeVatTotal;
+                    const subtotal = totalPreview - totalVat;
+                    return (
+                      <>
+                        <Row label={`Tiền thuê (${rentPeriod})`} value={formatVND(netRent)} />
+                        {isMultiRoom
+                          ? elecLines.map((l) => {
+                              const lKwh = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
+                              const lFee = BigInt(lKwh) * effectiveElectricityPrice;
+                              return (
+                                <Row
+                                  key={l.id}
+                                  label={`Tiền điện ${usageLabelMonth} - ${l.roomLabel}${lKwh ? ` (${lKwh} kWh × ${formatVND(effectiveElectricityPrice)})` : ""}`}
+                                  value={formatVND(lFee)}
+                                />
+                              );
+                            })
+                          : elecFee > 0n && (
+                              <Row
+                                label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
+                                value={formatVND(elecFee)}
+                              />
+                            )
+                        }
+                        {parkingFee > 0n && <Row label={`Phí xe (${parkingCount} xe)`} value={formatVND(parkingFee)} />}
+                        {overtimeBN > 0n && <Row label="Phí ngoài giờ" value={formatVND(overtimeBN)} />}
+                        {repairBN > 0n && <Row label="Phí sửa chữa" value={formatVND(repairBN)} />}
+                        {extraParkingBN > 0n && <Row label="Phí xe lẻ" value={formatVND(extraParkingBN)} />}
+                        <hr />
+                        <Row label="Cộng chưa VAT" value={formatVND(subtotal)} />
+                        <Row label={`VAT (${Math.round(vatRate * 100)}%)`} value={formatVND(totalVat)} />
+                        <hr />
+                        <Row label="Tổng phải thanh toán" value={formatVND(totalPreview)} bold />
+                        <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
+                        {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
+                      </>
+                    );
+                  })()
+                ) : (
+                  <>
+                    <Row
+                      label={
+                        BigInt(invoice.vatAmount) > 0n
+                          ? `Tiền thuê (${rentPeriod}) · đã VAT, gồm ${formatVND(BigInt(invoice.vatAmount))} VAT`
+                          : `Tiền thuê (${rentPeriod})`
+                      }
+                      value={formatVND(BigInt(invoice.rentAmount))}
                     />
-                  )
-                }
-                {buildingType === "CHDV" && waterFee > 0n && (
-                  <Row label={`Tiền nước (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+                    {isMultiRoom
+                      ? elecLines.map((l) => {
+                          const lKwh = l.start != null && l.end != null && l.end > l.start ? l.end - l.start : 0;
+                          const lFee = BigInt(lKwh) * effectiveElectricityPrice;
+                          const lVat = vatApplicable.has("electricity") ? vatOf(lFee) : 0n;
+                          return (
+                            <FeeRow
+                              key={l.id}
+                              label={`Tiền điện ${usageLabelMonth} - ${l.roomLabel}${lKwh ? ` (${lKwh} kWh × ${formatVND(effectiveElectricityPrice)})` : ""}`}
+                              base={lFee}
+                              vat={lVat}
+                            />
+                          );
+                        })
+                      : (
+                        <FeeRow
+                          label={`Tiền điện ${usageLabelMonth}${kwh ? ` (${kwh} kWh × ${formatVND(BigInt(invoice.electricityPricePerKwh))})` : ""}`}
+                          base={elecFee}
+                          vat={elecVat}
+                        />
+                      )
+                    }
+                    {buildingType === "CHDV" && waterFee > 0n && (
+                      <Row label={`Tiền nước (${waterOccupants} người × ${formatVND(parseVNDInput(waterPricePerPerson))})`} value={formatVND(waterFee)} />
+                    )}
+                    {parkingFee > 0n && (
+                      <FeeRow label={`Phí xe (${parkingCount} xe)`} base={parkingFee} vat={parkingVat} />
+                    )}
+                    {buildingType === "VP" && overtimeBN > 0n && (
+                      <FeeRow label="Phí ngoài giờ" base={overtimeBN} vat={overtimeVat} />
+                    )}
+                    {buildingType === "VP" && repairBN > 0n && (
+                      <FeeRow label="Phí sửa chữa" base={repairBN} vat={repairVat} />
+                    )}
+                    {buildingType === "VP" && extraParkingBN > 0n && (
+                      <FeeRow label="Phí xe lẻ" base={extraParkingBN} vat={extraParkingVat} />
+                    )}
+                    {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
+                      <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
+                    )}
+                    <hr />
+                    <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
+                    <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
+                    {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
+                  </>
                 )}
-                {parkingFee > 0n && (
-                  <FeeRow label={`Phí xe (${parkingCount} xe)`} base={parkingFee} vat={parkingVat} />
-                )}
-                {buildingType === "VP" && overtimeBN > 0n && (
-                  <FeeRow label="Phí ngoài giờ" base={overtimeBN} vat={overtimeVat} />
-                )}
-                {buildingType === "VP" && repairBN > 0n && (
-                  <FeeRow label="Phí sửa chữa" base={repairBN} vat={repairVat} />
-                )}
-                {buildingType === "VP" && extraParkingBN > 0n && (
-                  <FeeRow label="Phí xe lẻ" base={extraParkingBN} vat={extraParkingVat} />
-                )}
-                {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
-                  <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
-                )}
-                <hr />
-                <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />
-                <Row label="Đã thu" value={formatVND(BigInt(invoice.paidAmount))} positive />
-                {remaining > 0n && <Row label="Còn lại" value={formatVND(remaining)} bold danger />}
               </>
             )}
           </CardContent>

@@ -316,6 +316,40 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                   value={formatVND(l.amount)}
                 />
               ))
+            ) : data.buildingType === "VP" && data.vatRate > 0 ? (
+              // Excel-style for VP with VAT: all lines NET, then subtotal + VAT
+              (() => {
+                const vatOf = (n: bigint, key: VatFeeKey) =>
+                  data.vatApplicableFees.includes(key) ? BigInt(Math.round(Number(n) * data.vatRate)) : 0n;
+                const elecVat = vatOf(data.electricityFee, "electricity");
+                const parkVat = vatOf(data.parkingFee, "parking");
+                const otVat = vatOf(data.overtimeFee, "overtime");
+                const repVat = vatOf(data.repairFee, "repair");
+                const exParkVat = vatOf(data.extraParkingFee, "extraParking");
+                const feeVatTotal = elecVat + parkVat + otVat + repVat + exParkVat;
+                const netRent = data.rentAmount - data.vatAmount;
+                const totalVat = data.vatAmount + feeVatTotal;
+                const subtotal = data.totalAmount - totalVat;
+                const vatPct = Math.round(data.vatRate * 100);
+                return (
+                  <>
+                    <CostRow label={`Tiền thuê (${data.rentPeriod})`} value={formatVND(netRent)} />
+                    {data.electricityFee > 0n && (
+                      <CostRow
+                        label={`Tiền điện T${prevMonth}${kwh > 0 ? ` (${kwh} kWh × ${formatVND(data.electricityPricePerKwh)})` : ""}`}
+                        value={formatVND(data.electricityFee)}
+                      />
+                    )}
+                    {data.parkingFee > 0n && <CostRow label={`Phí xe (${data.parkingCount} xe)`} value={formatVND(data.parkingFee)} />}
+                    {data.overtimeFee > 0n && <CostRow label="Phí ngoài giờ" value={formatVND(data.overtimeFee)} />}
+                    {data.repairFee > 0n && <CostRow label="Phí sửa chữa" value={formatVND(data.repairFee)} />}
+                    {data.extraParkingFee > 0n && <CostRow label="Phí xe lẻ" value={formatVND(data.extraParkingFee)} />}
+                    <tr><td colSpan={2} style={{ paddingTop: 4, paddingBottom: 4 }}><div className="border-t border-slate-200" /></td></tr>
+                    <CostRow label="Cộng chưa VAT" value={formatVND(subtotal)} />
+                    <CostRow label={`VAT (${vatPct}%)`} value={formatVND(totalVat)} />
+                  </>
+                );
+              })()
             ) : (
               <>
                 <CostRow
