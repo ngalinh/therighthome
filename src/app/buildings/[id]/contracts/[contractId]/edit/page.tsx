@@ -72,6 +72,15 @@ export default async function EditContractPage({
       }
     : null;
 
+  // Available rooms for transfer dialog (CHDV only, exclude current room).
+  const availableRooms = building.type === "CHDV" && contract.status === "ACTIVE"
+    ? await prisma.room.findMany({
+        where: { buildingId: id, status: "AVAILABLE" },
+        orderBy: { number: "asc" },
+        select: { id: true, number: true },
+      })
+    : [];
+
   // Existing broker fees recorded for this contract (matched by content prefix).
   const brokerFees = await prisma.transaction.findMany({
     where: {
@@ -111,6 +120,7 @@ export default async function EditContractPage({
           brokerCategoryId={ensuredBrokerCategory.id}
           paymentMethods={paymentMethods}
           brokerFees={serializeBigInt(brokerFees)}
+          availableRooms={availableRooms}
         />
       </PageBody>
     </AppShell>

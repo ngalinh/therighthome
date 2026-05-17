@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt, Check } from "lucide-react";
+import { Loader2, Save, X, Plus, Trash2, Upload, FileText, UserPlus, XCircle, RefreshCw, Edit, Sparkles, Download, Printer, Share2, Maximize2, Receipt, Check, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { contractEndDate, parseVNDInput, formatNumber, formatVND, customerDisplayName } from "@/lib/utils";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
@@ -90,6 +90,7 @@ export function EditContractForm({
   brokerCategoryId,
   paymentMethods,
   brokerFees,
+  availableRooms,
 }: {
   buildingId: string;
   buildingType: "CHDV" | "VP";
@@ -98,6 +99,7 @@ export function EditContractForm({
   brokerCategoryId: string | null;
   paymentMethods: { id: string; name: string }[];
   brokerFees: BrokerFee[];
+  availableRooms?: { id: string; number: string }[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -224,6 +226,7 @@ export function EditContractForm({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [genInvoiceOpen, setGenInvoiceOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
   async function handleDelete() {
@@ -740,6 +743,11 @@ export function EditContractForm({
             <Button variant="outline" onClick={() => setExtendOpen(true)}>
               <RefreshCw className="h-4 w-4" /> Gia hạn
             </Button>
+            {buildingType === "CHDV" && contract.status === "ACTIVE" && (
+              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft className="h-4 w-4" /> Chuyển phòng
+              </Button>
+            )}
             {(contract.status === "ACTIVE" || contract.status === "EXPIRED") && (
               <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
                 <XCircle className="h-4 w-4" /> Kết thúc
@@ -790,6 +798,17 @@ export function EditContractForm({
         contract={contract}
         buildingId={buildingId}
       />
+
+      {buildingType === "CHDV" && (
+        <TransferRoomDialog
+          open={transferOpen}
+          onClose={() => setTransferOpen(false)}
+          contract={contract}
+          availableRooms={availableRooms ?? []}
+          paymentMethods={paymentMethods}
+          buildingId={buildingId}
+        />
+      )}
 
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
         <DialogContent>
@@ -891,6 +910,126 @@ function GenerateInvoiceDialog({
           <Button variant="gradient" onClick={submit} disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Tạo hoá đơn
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TransferRoomDialog({
+  open, onClose, contract, availableRooms, paymentMethods, buildingId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  contract: { id: string; code: string; monthlyRent: string; depositAmount: string };
+  availableRooms: { id: string; number: string }[];
+  paymentMethods: { id: string; name: string }[];
+  buildingId: string;
+}) {
+  const router = useRouter();
+  const [newRoomId, setNewRoomId] = useState("");
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newRent, setNewRent] = useState(contract.monthlyRent);
+  const [newDeposit, setNewDeposit] = useState(contract.depositAmount);
+  const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const depositDiff = parseVNDInput(newDeposit) - BigInt(contract.depositAmount);
+  const needsPm = depositDiff !== 0n;
+
+  async function submit() {
+    if (!newRoomId) return toast.error("Chọn phòng mới");
+    if (!transferDate) return toast.error("Chọn ngày chuyển");
+    if (parseVNDInput(newRent) <= 0n) return toast.error("Nhập giá thuê mới");
+    if (needsPm && !paymentMethodId) return toast.error("Chọn phương thức thanh toán");
+    setLoading(true);
+    const res = await fetch(`/api/contracts/${contract.id}/transfer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        newRoomId,
+        transferDate,
+        newMonthlyRent: parseVNDInput(newRent).toString(),
+        newDepositAmount: parseVNDInput(newDeposit).toString(),
+        paymentMethodId: paymentMethodId || undefined,
+      }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Chuyển phòng thất bại");
+    }
+    const data = await res.json();
+    toast.success(`Đã chuyển phòng — HĐ mới ${data.code}`);
+    onClose();
+    router.push(`/buildings/${buildingId}/contracts/${data.id}/edit`);
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && !loading && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Chuyển phòng — HĐ {contract.code}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            HĐ hiện tại sẽ được đóng lại (trạng thái CHUYỂN PHÒNG) và một HĐ mới sẽ được tạo cho phòng mới, giữ nguyên thông tin khách và các phí khác.
+          </p>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Phòng mới <span className="text-rose-500">*</span></Label>
+            {availableRooms.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Không có phòng trống</p>
+            ) : (
+              <Select value={newRoomId} onValueChange={setNewRoomId}>
+                <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                <SelectContent>
+                  {availableRooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Ngày chuyển <span className="text-rose-500">*</span></Label>
+            <DateInput value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Giá thuê mới (₫/tháng) <span className="text-rose-500">*</span></Label>
+            <VNDInput value={newRent} onChange={setNewRent} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tiền cọc mới (₫)</Label>
+            <VNDInput value={newDeposit} onChange={setNewDeposit} />
+            {depositDiff !== 0n && (
+              <p className="text-[11px] text-slate-500">
+                {depositDiff > 0n
+                  ? `Thu thêm cọc: ${formatVND(depositDiff)}`
+                  : `Hoàn bớt cọc: ${formatVND(-depositDiff)}`}
+              </p>
+            )}
+          </div>
+          {needsPm && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Phương thức thanh toán <span className="text-rose-500">*</span></Label>
+              <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+                <SelectTrigger><SelectValue placeholder="Chọn tài khoản TT" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={loading}>Huỷ</Button>
+          <Button variant="gradient" onClick={submit} disabled={loading || availableRooms.length === 0}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Xác nhận chuyển phòng
           </Button>
         </DialogFooter>
       </DialogContent>
