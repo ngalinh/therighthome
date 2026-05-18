@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         roomId: d.newRoomId,
         code: newCode,
         startDate: transferDate,
-        endDate: contractEndDate(transferDate, c.termMonths),
+        endDate: c.endDate,
         termMonths: c.termMonths,
         paymentDay: c.paymentDay,
         monthlyRent: newRent,
