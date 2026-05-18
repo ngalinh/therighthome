@@ -533,7 +533,7 @@ export function EditContractForm({
                 />
               </Field>
               <Field label="Ngày kết thúc (tự động)">
-                <Input value={endDate} disabled />
+                <DateInput value={endDate} disabled />
               </Field>
               <Field label="Ngày thanh toán hàng tháng">
                 <Input
@@ -1943,7 +1943,7 @@ function ExtendContractDialog({
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">Ngày kết thúc (tự động)</Label>
-                <Input value={newEnd} disabled />
+                <DateInput value={newEnd} disabled />
               </div>
             </div>
           </div>
