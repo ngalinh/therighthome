@@ -7,6 +7,7 @@ import { contractEndDate } from "@/lib/utils";
 
 const updateSchema = z.object({
   startDate: z.string().optional(),
+  endDate: z.string().optional(),
   termMonths: z.number().int().min(1).max(120).optional(),
   paymentDay: z.number().int().min(1).max(28).optional(),
   monthlyRent: z.string().optional(), // BigInt as string
@@ -59,7 +60,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const term = d.termMonths ?? c.termMonths;
     updateData.startDate = start;
     updateData.termMonths = term;
-    updateData.endDate = contractEndDate(start, term);
+    // Use explicit endDate from client if provided; otherwise compute from term.
+    updateData.endDate = d.endDate ? new Date(d.endDate) : contractEndDate(start, term);
+  } else if (d.endDate) {
+    updateData.endDate = new Date(d.endDate);
   }
   if (d.paymentDay !== undefined) updateData.paymentDay = d.paymentDay;
   if (d.monthlyRent !== undefined) updateData.monthlyRent = BigInt(d.monthlyRent);

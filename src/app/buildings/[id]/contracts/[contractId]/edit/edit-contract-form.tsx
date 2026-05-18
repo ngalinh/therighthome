@@ -106,6 +106,17 @@ export function EditContractForm({
 
   const [startDate, setStartDate] = useState(contract.startDate.slice(0, 10));
   const [termMonths, setTermMonths] = useState(contract.termMonths);
+  const [endDate, setEndDate] = useState(contract.endDate.slice(0, 10));
+
+  // Auto-recompute endDate only when termMonths changes, not when startDate
+  // changes alone — preserves fixed end dates (e.g. room-transfer contracts).
+  const prevTermMonths = useRef(contract.termMonths);
+  useEffect(() => {
+    if (termMonths !== prevTermMonths.current) {
+      prevTermMonths.current = termMonths;
+      if (startDate) setEndDate(contractEndDate(new Date(startDate), termMonths).toISOString().slice(0, 10));
+    }
+  }, [termMonths, startDate]);
   const [paymentDay, setPaymentDay] = useState(contract.paymentDay);
   const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState(contract.rentPaymentCycleMonths ?? 1);
   const [monthlyRent, setMonthlyRent] = useState(contract.monthlyRent);
@@ -142,10 +153,6 @@ export function EditContractForm({
   );
   const [trIndefinite, setTrIndefinite] = useState(contract.temporaryResidenceIsIndefinite ?? false);
 
-  const endDate = useMemo(() => {
-    if (!startDate) return "";
-    return contractEndDate(new Date(startDate), termMonths).toISOString().slice(0, 10);
-  }, [startDate, termMonths]);
 
   // Upload + view contract file
   const [contractFileUrl, setContractFileUrl] = useState(contract.contractFileUrl);
@@ -260,6 +267,7 @@ export function EditContractForm({
     setSubmitting(true);
     const payload = {
       startDate,
+      endDate,
       termMonths,
       paymentDay,
       monthlyRent: rentBigInt.toString(),
