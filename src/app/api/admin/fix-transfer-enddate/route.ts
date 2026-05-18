@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST() {
+export async function GET() { return run(); }
+export async function POST() { return run(); }
+async function run() {
   const transferred = await prisma.contract.findMany({
     where: { transferredFromId: { not: null } },
     include: { transferredFrom: { select: { endDate: true, code: true } } },
