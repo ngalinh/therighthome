@@ -1,38 +1,38 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// One-time route: undo room transfer for CHDV-180526
-// - Delete new contract CHDV-180526 (and its customers)
-// - Restore CHDV-150426 → ACTIVE, clear terminatedAt
-// - Restore P104 → OCCUPIED, P102 → AVAILABLE
 export async function GET() {
-  const newContract = await prisma.contract.findFirst({
-    where: { code: "CHDV-180526" },
-    include: { room: true },
-  });
-  if (!newContract) return NextResponse.json({ error: "CHDV-180526 not found" }, { status: 404 });
+  const newC = await prisma.contract.findFirst({ where: { code: "CHDV-180526" } });
+  if (!newC) return NextResponse.json({ error: "CHDV-180526 not found" }, { status: 404 });
 
-  const oldContract = await prisma.contract.findFirst({
-    where: { code: "CHDV-150426" },
-    include: { room: true },
-  });
-  if (!oldContract) return NextResponse.json({ error: "CHDV-150426 not found" }, { status: 404 });
+  const oldC = await prisma.contract.findFirst({ where: { code: "CHDV-150426" } });
+  if (!oldC) return NextResponse.json({ error: "CHDV-150426 not found" }, { status: 404 });
 
   await prisma.$transaction(async (tx) => {
-    // Delete new contract customers + contract
-    await tx.contractCustomer.deleteMany({ where: { contractId: newContract.id } });
-    await tx.contract.delete({ where: { id: newContract.id } });
-
-    // Restore old contract
-    await tx.contract.update({
-      where: { id: oldContract.id },
-      data: { status: "ACTIVE", terminatedAt: null },
+    // Detach + delete invoices of new contract
+    const invoiceIds = (await tx.invoice.findMany({ where: { contractId: newC.id }, select: { id: true } })).map(i => i.id);
+    if (invoiceIds.length > 0) {
+      await tx.transaction.updateMany({ where: { invoiceId: { in: invoiceIds } }, data: { invoiceId: null } });
+      await tx.invoice.deleteMany({ where: { contractId: newC.id } });
+    }
+    // Delete deposit-related transactions for new contract
+    await tx.transaction.deleteMany({
+      where: {
+        buildingId: newC.buildingId,
+        OR: [
+          { content: { startsWith: `Thu thêm cọc chuyển phòng - HĐ ${newC.code}` } },
+          { content: { startsWith: `Hoàn bớt cọc chuyển phòng - HĐ ${oldC.code}` } },
+        ],
+      },
     });
-
+    // Delete new contract (ContractCustomer cascades)
+    await tx.contract.delete({ where: { id: newC.id } });
+    // Restore old contract
+    await tx.contract.update({ where: { id: oldC.id }, data: { status: "ACTIVE", terminatedAt: null } });
     // Restore rooms
-    await tx.room.update({ where: { id: oldContract.roomId }, data: { status: "OCCUPIED" } }); // P104
-    await tx.room.update({ where: { id: newContract.roomId }, data: { status: "AVAILABLE" } }); // P102
+    await tx.room.update({ where: { id: oldC.roomId }, data: { status: "OCCUPIED" } });
+    await tx.room.update({ where: { id: newC.roomId }, data: { status: "AVAILABLE" } });
   });
 
-  return NextResponse.json({ ok: true, message: "Đã hoàn tác chuyển phòng. CHDV-150426 → ACTIVE, P104 → OCCUPIED, P102 → AVAILABLE, CHDV-180526 → đã xoá." });
+  return NextResponse.json({ ok: true, message: "Done: CHDV-150426 → ACTIVE, P104 → OCCUPIED, P102 → AVAILABLE, CHDV-180526 → xoá." });
 }
