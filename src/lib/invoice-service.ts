@@ -111,8 +111,12 @@ export async function generateInvoiceForContract(
   // Rent billing months: charge cycle × monthly rent. Fee-only months: 0.
   const effectiveRent = rentMonth ? monthlyRentForPeriod * BigInt(cycle) : 0n;
 
-  const electricityPrice = c.building.setting?.electricityPricePerKwh ?? c.electricityPricePerKwh;
-  const parkingFeePerVehicle = c.building.setting?.parkingFeePerVehicle ?? c.parkingFeePerVehicle;
+  const electricityPrice = c.electricityPricePerKwh > 0n
+    ? c.electricityPricePerKwh
+    : (c.building.setting?.electricityPricePerKwh ?? 0n);
+  const parkingFeePerVehicle = c.parkingFeePerVehicle > 0n
+    ? c.parkingFeePerVehicle
+    : (c.building.setting?.parkingFeePerVehicle ?? 0n);
   const waterPricePerPerson =
     c.waterPricePerPerson > 0n
       ? c.waterPricePerPerson
