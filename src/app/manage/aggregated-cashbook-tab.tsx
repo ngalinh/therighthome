@@ -99,6 +99,7 @@ export async function AggregatedCashbookTab({
         paymentMethodId: { in: sharedPMIds },
         buildingId: { in: targetBuildingIds },
         date: { gte: start, lte: end },
+        showInCashbook: true,
       },
       include: {
         building: { select: { id: true, name: true } },
@@ -126,6 +127,7 @@ export async function AggregatedCashbookTab({
         buildingId: { in: targetBuildingIds },
         paymentMethodId: { in: sharedPMIds },
         date: { lt: start },
+        showInCashbook: true,
       },
       select: { type: true, amount: true, paymentMethodId: true, buildingId: true, date: true },
     }),
