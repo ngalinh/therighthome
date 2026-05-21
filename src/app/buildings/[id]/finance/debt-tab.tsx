@@ -35,7 +35,7 @@ export async function DebtTab({
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
-  const [depositContracts, manualExpenses, rooms, allContracts, allInvoices] = await Promise.all([
+  const [depositContracts, manualExpenses, refundTxs, rooms, allContracts, allInvoices] = await Promise.all([
     prisma.contract.findMany({
       where: {
         buildingId,
@@ -72,6 +72,11 @@ export async function DebtTab({
         party: { select: { id: true, name: true } },
         room: { select: { id: true, number: true } },
       },
+      orderBy: { date: "asc" },
+    }),
+    prisma.transaction.findMany({
+      where: { buildingId, content: { startsWith: "Hoàn tiền cọc - HĐ " } },
+      select: { content: true, paymentMethod: { select: { name: true } } },
       orderBy: { date: "asc" },
     }),
     prisma.room.findMany({
@@ -134,6 +139,12 @@ export async function DebtTab({
     tx: EditableTx | null;
   };
 
+  const refundPMByCode = new Map<string, string>();
+  for (const tx of refundTxs) {
+    const code = tx.content.slice("Hoàn tiền cọc - HĐ ".length);
+    if (tx.paymentMethod?.name) refundPMByCode.set(code, tx.paymentMethod.name);
+  }
+
   const rows: Row[] = [];
 
   for (const c of depositContracts) {
@@ -179,7 +190,7 @@ export async function DebtTab({
       partyKind: "CUSTOMER",
       partyLabel: customerDisplayName(customer),
       content: `Tiền cọc HĐ ${c.code}`,
-      paymentMethod: "",
+      paymentMethod: isTerminationMonth ? (refundPMByCode.get(c.code) ?? "") : "",
       opening,
       payable,
       paid,
