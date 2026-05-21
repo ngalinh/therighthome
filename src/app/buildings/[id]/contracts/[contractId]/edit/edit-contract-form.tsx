@@ -153,6 +153,7 @@ export function EditContractForm({
   );
   const [trIndefinite, setTrIndefinite] = useState(contract.temporaryResidenceIsIndefinite ?? false);
 
+  const isTerminated = ["TERMINATED", "TERMINATED_LOST_DEPOSIT"].includes(contract.status);
 
   // Upload + view contract file
   const [contractFileUrl, setContractFileUrl] = useState(contract.contractFileUrl);
@@ -327,9 +328,11 @@ export function EditContractForm({
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Khách thuê ({contract.customers.length})</CardTitle>
-            <Button size="sm" variant="outline" onClick={() => setAddCustomerOpen(true)}>
-              <UserPlus className="h-3.5 w-3.5" /> Thêm
-            </Button>
+            {!isTerminated && (
+              <Button size="sm" variant="outline" onClick={() => setAddCustomerOpen(true)}>
+                <UserPlus className="h-3.5 w-3.5" /> Thêm
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-2">
             {contract.customers.map((cc) => (
@@ -337,7 +340,7 @@ export function EditContractForm({
                 key={cc.id}
                 cc={cc}
                 contractId={contract.id}
-                canRemove={contract.customers.length > 1}
+                canRemove={!isTerminated && contract.customers.length > 1}
                 onChanged={() => router.refresh()}
               />
             ))}
@@ -421,7 +424,7 @@ export function EditContractForm({
                 <button
                   type="button"
                   onClick={removeFile}
-                  disabled={removingFile}
+                  disabled={removingFile || isTerminated}
                   className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center transition-colors disabled:opacity-50"
                   aria-label="Xoá file"
                   title="Xoá file"
@@ -454,7 +457,7 @@ export function EditContractForm({
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || isTerminated}
               className="w-full"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -488,11 +491,12 @@ export function EditContractForm({
                 value={brokerFee ? formatNumber(parseVNDInput(brokerFee)) : ""}
                 onChange={(e) => setBrokerFee(e.target.value)}
                 placeholder="0"
+                disabled={isTerminated}
               />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tài khoản TT <span className="text-rose-500">*</span></Label>
-              <Select value={brokerPmId} onValueChange={setBrokerPmId}>
+              <Select value={brokerPmId} onValueChange={setBrokerPmId} disabled={isTerminated}>
                 <SelectTrigger><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger>
                 <SelectContent>
                   {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -503,7 +507,7 @@ export function EditContractForm({
               variant="gradient"
               size="sm"
               onClick={recordBrokerFee}
-              disabled={brokerLoading || parseVNDInput(brokerFee) <= 0n || !brokerPmId}
+              disabled={isTerminated || brokerLoading || parseVNDInput(brokerFee) <= 0n || !brokerPmId}
               className="w-full"
             >
               {brokerLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -521,7 +525,7 @@ export function EditContractForm({
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Ngày bắt đầu" required>
-                <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isTerminated} />
               </Field>
               <Field label="Thời hạn (tháng)">
                 <Input
@@ -530,6 +534,7 @@ export function EditContractForm({
                   max={120}
                   value={termMonths}
                   onChange={(e) => setTermMonths(Number(e.target.value))}
+                  disabled={isTerminated}
                 />
               </Field>
               <Field label="Ngày kết thúc (tự động)">
@@ -542,11 +547,12 @@ export function EditContractForm({
                   max={28}
                   value={paymentDay}
                   onChange={(e) => setPaymentDay(Number(e.target.value))}
+                  disabled={isTerminated}
                 />
               </Field>
               {buildingType === "VP" && (
                 <Field label="Chu kỳ thanh toán tiền thuê">
-                  <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))}>
+                  <Select value={String(rentPaymentCycleMonths)} onValueChange={(v) => setRentPaymentCycleMonths(Number(v))} disabled={isTerminated}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">Hàng tháng (1 tháng/lần)</SelectItem>
@@ -562,13 +568,13 @@ export function EditContractForm({
                 </Field>
               )}
               <Field label="Tiền cọc (₫)">
-                <VNDInput value={deposit} onChange={setDeposit} />
+                <VNDInput value={deposit} onChange={setDeposit} disabled={isTerminated} />
               </Field>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label={buildingType === "VP" ? "Giá thuê / tháng (sau VAT, đã gồm VAT)" : "Giá thuê / tháng"} required>
-                <VNDInput value={monthlyRent} onChange={setMonthlyRent} />
+                <VNDInput value={monthlyRent} onChange={setMonthlyRent} disabled={isTerminated} />
                 {vatRate > 0 && rentBigInt > 0n && (
                   <p className="text-[11px] text-slate-500 mt-1">
                     = {formatVND(preVATAmount)} chưa VAT + {formatVND(vatAmount)} VAT
@@ -584,6 +590,7 @@ export function EditContractForm({
                     step="0.1"
                     value={vatRate}
                     onChange={(e) => setVatRate(Number(e.target.value))}
+                    disabled={isTerminated}
                   />
                 </Field>
               )}
@@ -593,6 +600,7 @@ export function EditContractForm({
                 value={vatApplicableFees}
                 onChange={setVatApplicableFees}
                 vatRate={vatRate}
+                disabled={isTerminated}
               />
             )}
           </CardContent>
@@ -603,9 +611,11 @@ export function EditContractForm({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>Giá thuê theo năm (cho HĐ {">"}1 năm)</span>
-              <Button size="sm" variant="outline" onClick={addYearlyRent}>
-                <Plus className="h-3.5 w-3.5" /> Thêm năm
-              </Button>
+              {!isTerminated && (
+                <Button size="sm" variant="outline" onClick={addYearlyRent}>
+                  <Plus className="h-3.5 w-3.5" /> Thêm năm
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -624,14 +634,16 @@ export function EditContractForm({
                         <div className="flex items-center gap-2">
                           <Label className="w-20 text-xs">Năm {y.yearIndex}</Label>
                           <div className="flex-1">
-                            <VNDInput value={y.rent} onChange={(v) => updateYearlyRent(y.yearIndex, v)} />
+                            <VNDInput value={y.rent} onChange={(v) => updateYearlyRent(y.yearIndex, v)} disabled={isTerminated} />
                           </div>
-                          <button
-                            onClick={() => removeYearlyRent(y.yearIndex)}
-                            className="text-rose-500 hover:text-rose-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {!isTerminated && (
+                            <button
+                              onClick={() => removeYearlyRent(y.yearIndex)}
+                              className="text-rose-500 hover:text-rose-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                         {vatRate > 0 && r > 0n && (
                           <p className="text-[11px] text-slate-500 pl-[88px]">
@@ -662,7 +674,7 @@ export function EditContractForm({
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Đơn giá điện (₫/kWh)">
-                <VNDInput value={electricityPricePerKwh} onChange={setElecPrice} />
+                <VNDInput value={electricityPricePerKwh} onChange={setElecPrice} disabled={isTerminated} />
               </Field>
               <Field label="Số xe gửi">
                 <Input
@@ -670,17 +682,18 @@ export function EditContractForm({
                   min={0}
                   value={parkingCount}
                   onChange={(e) => setParkingCount(Number(e.target.value))}
+                  disabled={isTerminated}
                 />
               </Field>
               <Field label="Phí gửi xe (₫/xe/tháng)">
-                <VNDInput value={parkingFeePerVehicle} onChange={setParkingFeePerVehicle} />
+                <VNDInput value={parkingFeePerVehicle} onChange={setParkingFeePerVehicle} disabled={isTerminated} />
               </Field>
               <Field label="Phí dịch vụ (₫/tháng)">
-                <VNDInput value={serviceFee} onChange={setServiceFee} />
+                <VNDInput value={serviceFee} onChange={setServiceFee} disabled={isTerminated} />
               </Field>
               {buildingType === "CHDV" && (
                 <Field label="Tiền nước (₫/người/tháng)">
-                  <VNDInput value={waterPerPerson} onChange={setWaterPerPerson} />
+                  <VNDInput value={waterPerPerson} onChange={setWaterPerPerson} disabled={isTerminated} />
                 </Field>
               )}
             </div>
@@ -695,7 +708,7 @@ export function EditContractForm({
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Tình trạng">
-                  <Select value={trStatus} onValueChange={(v) => setTrStatus(v as typeof trStatus)}>
+                  <Select value={trStatus} onValueChange={(v) => setTrStatus(v as typeof trStatus)} disabled={isTerminated}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="NOT_REGISTERED">Chưa đăng ký</SelectItem>
@@ -708,7 +721,7 @@ export function EditContractForm({
                   <Field label="Thời hạn">
                     <DateInput
                       value={trExpiresAt}
-                      disabled={trIndefinite}
+                      disabled={trIndefinite || isTerminated}
                       onChange={(e) => setTrExpiresAt(e.target.value)}
                     />
                   </Field>
@@ -720,6 +733,7 @@ export function EditContractForm({
                     type="checkbox"
                     className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
                     checked={trIndefinite}
+                    disabled={isTerminated}
                     onChange={(e) => {
                       setTrIndefinite(e.target.checked);
                       if (e.target.checked) setTrExpiresAt("");
@@ -737,44 +751,46 @@ export function EditContractForm({
             <CardTitle>Ghi chú</CardTitle>
           </CardHeader>
           <CardContent>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={5} />
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={5} disabled={isTerminated} />
           </CardContent>
         </Card>
 
-        <div className="flex flex-wrap justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {contract.status === "ACTIVE" && (
-              <Button variant="outline" onClick={() => setGenInvoiceOpen(true)}>
-                <Receipt className="h-4 w-4" /> Tạo hoá đơn
+        {!isTerminated && (
+          <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {contract.status === "ACTIVE" && (
+                <Button variant="outline" onClick={() => setGenInvoiceOpen(true)}>
+                  <Receipt className="h-4 w-4" /> Tạo hoá đơn
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setExtendOpen(true)}>
+                <RefreshCw className="h-4 w-4" /> Gia hạn
               </Button>
-            )}
-            <Button variant="outline" onClick={() => setExtendOpen(true)}>
-              <RefreshCw className="h-4 w-4" /> Gia hạn
-            </Button>
-            {buildingType === "CHDV" && contract.status === "ACTIVE" && (
-              <Button variant="outline" onClick={() => setTransferOpen(true)}>
-                <ArrowRightLeft className="h-4 w-4" /> Chuyển phòng
+              {buildingType === "CHDV" && contract.status === "ACTIVE" && (
+                <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                  <ArrowRightLeft className="h-4 w-4" /> Chuyển phòng
+                </Button>
+              )}
+              {(contract.status === "ACTIVE" || contract.status === "EXPIRED") && (
+                <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                  <XCircle className="h-4 w-4" /> Kết thúc
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
+                <Trash2 className="h-4 w-4" /> Xoá HĐ
               </Button>
-            )}
-            {(contract.status === "ACTIVE" || contract.status === "EXPIRED") && (
-              <Button variant="outline" onClick={() => setTerminateOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-                <XCircle className="h-4 w-4" /> Kết thúc
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
+                <X className="h-4 w-4" /> Huỷ
               </Button>
-            )}
-            <Button variant="outline" onClick={() => setDeleteOpen(true)} className="text-rose-600 border-rose-200 hover:bg-rose-50">
-              <Trash2 className="h-4 w-4" /> Xoá HĐ
-            </Button>
+              <Button variant="gradient" onClick={submit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Lưu thay đổi
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => router.push(`/buildings/${buildingId}/contracts`)}>
-              <X className="h-4 w-4" /> Huỷ
-            </Button>
-            <Button variant="gradient" onClick={submit} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Lưu thay đổi
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
 
       <AddCustomerDialog
@@ -1800,13 +1816,14 @@ const VAT_FEE_OPTIONS: { key: VatFeeKey; label: string }[] = [
 // brand primary background; unselected stay as outline chips. When vatRate is
 // 0, the whole picker is dimmed with a hint to enable VAT first.
 function VatFeesPickerField({
-  value, onChange, vatRate,
+  value, onChange, vatRate, disabled: disabledProp = false,
 }: {
   value: VatFeeKey[];
   onChange: (v: VatFeeKey[]) => void;
   vatRate: number;
+  disabled?: boolean;
 }) {
-  const disabled = vatRate <= 0;
+  const disabled = disabledProp || vatRate <= 0;
   const set = new Set(value);
   function toggle(key: VatFeeKey) {
     if (disabled) return;
