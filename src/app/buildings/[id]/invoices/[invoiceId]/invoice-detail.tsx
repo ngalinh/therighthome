@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus, DollarSign } from "lucide-react";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus, DollarSign, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
@@ -142,6 +142,8 @@ export function InvoiceDetail({
   const [waterOccupants, setWaterOccupants] = useState<number>(invoice.waterOccupants);
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [dueDate, setDueDate] = useState(invoice.dueDate.slice(0, 10));
+  // Editable rent amount — only used when reopening a CANCELLED auto invoice.
+  const [rentAmountInput, setRentAmountInput] = useState(invoice.rentAmount);
 
   // Manual invoice line items — editable as long as nothing has been paid yet.
   const [lineItems, setLineItems] = useState(
@@ -194,8 +196,13 @@ export function InvoiceDetail({
   const extraParkingVat = vatApplicable.has("extraParking") ? vatOf(extraParkingBN) : 0n;
   const feeVatTotal = elecVat + parkingVat + overtimeVat + repairVat + extraParkingVat;
   // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
+  // For CANCELLED auto invoices use the editable local state so the preview
+  // reflects what will be saved when the user reopens the invoice.
+  const rentForPreview = invoice.status === "CANCELLED" && !invoice.isManual
+    ? parseVNDInput(rentAmountInput)
+    : BigInt(invoice.rentAmount);
   const totalPreview =
-    BigInt(invoice.rentAmount) +
+    rentForPreview +
     elecFee + parkingFee + overtimeBN + repairBN + extraParkingBN +
     parseVNDInput(serviceFee) + waterFee +
     feeVatTotal;
@@ -266,11 +273,42 @@ export function InvoiceDetail({
         waterOccupants,
         notes,
         dueDate,
+        ...(invoice.status === "CANCELLED" ? { rentAmount: parseVNDInput(rentAmountInput).toString() } : {}),
       }),
     });
     setSaving(false);
     if (!res.ok) return toast.error("Lưu thất bại");
     toast.success("Đã lưu");
+    router.refresh();
+  }
+
+  async function reopen() {
+    if (!confirm("Mở lại hoá đơn? Tiền thuê sẽ được cập nhật theo giá trị hiện tại.")) return;
+    setSaving(true);
+    const res = await fetch(`/api/invoices/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        electricityStart: elecStart ? Number(elecStart) : null,
+        electricityEnd: elecEnd ? Number(elecEnd) : null,
+        parkingCount,
+        parkingFeePerVehicle: effectiveParkingFeePerVehicle.toString(),
+        electricityPricePerKwh: effectiveElectricityPrice.toString(),
+        overtimeFee: parseVNDInput(overtime).toString(),
+        repairFee: parseVNDInput(repairFee).toString(),
+        extraParkingFee: parseVNDInput(extraParkingFee).toString(),
+        serviceFee: parseVNDInput(serviceFee).toString(),
+        waterPricePerPerson: parseVNDInput(waterPricePerPerson).toString(),
+        waterOccupants,
+        notes,
+        dueDate,
+        rentAmount: parseVNDInput(rentAmountInput).toString(),
+        reactivate: true,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) return toast.error("Mở lại thất bại");
+    toast.success("Đã mở lại hoá đơn");
     router.refresh();
   }
 
@@ -619,6 +657,17 @@ export function InvoiceDetail({
           <CardHeader><CardTitle>Khác</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {invoice.status === "CANCELLED" && (
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Tiền thuê (₫) — chỉnh trước khi mở lại</Label>
+                  <Input
+                    inputMode="numeric"
+                    value={formatNumber(parseVNDInput(rentAmountInput))}
+                    onChange={(e) => setRentAmountInput(e.target.value)}
+                    disabled={!canWrite}
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs">Số xe</Label>
                 <Input type="number" min={0} value={parkingCount} onChange={(e) => setParkingCount(Number(e.target.value))} disabled={!canWrite} />
@@ -722,6 +771,11 @@ export function InvoiceDetail({
             {invoice.status !== "CANCELLED" && (
               <Button variant="outline" onClick={cancelInvoice}>
                 <XIcon className="h-4 w-4" /> Huỷ HĐ
+              </Button>
+            )}
+            {invoice.status === "CANCELLED" && !invoice.isManual && (
+              <Button variant="outline" onClick={reopen} disabled={saving}>
+                <RotateCcw className="h-4 w-4" /> Mở lại
               </Button>
             )}
             {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (

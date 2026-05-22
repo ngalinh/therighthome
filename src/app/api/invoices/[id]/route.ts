@@ -29,6 +29,8 @@ const updateSchema = z.object({
   // Manual invoice line items — when present on a manual invoice with no
   // payments, replaces the entire breakdown and recomputes totalAmount.
   lineItems: z.array(lineItemSchema).optional(),
+  // Reactivate a CANCELLED auto invoice back to PENDING after editing amounts.
+  reactivate: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -126,6 +128,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       waterPricePerPerson: d.waterPricePerPerson !== undefined ? BigInt(d.waterPricePerPerson) : undefined,
       waterOccupants: d.waterOccupants,
     });
+    if (d.reactivate && inv.status === "CANCELLED") {
+      await prisma.invoice.update({ where: { id }, data: { status: "PENDING" } });
+    }
   }
 
   if (d.notes !== undefined || d.dueDate) {
