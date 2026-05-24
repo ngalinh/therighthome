@@ -202,14 +202,14 @@ export function ContractsTab({
                   {buildingType === "CHDV" && (
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       {c.temporaryResidenceStatus ? (
-                        <div>
+                        <div className="flex flex-col items-start gap-0.5">
                           <Badge variant={TR_STATUS[c.temporaryResidenceStatus]?.variant ?? "secondary"} className="text-[10px] whitespace-nowrap">
                             {TR_STATUS[c.temporaryResidenceStatus]?.label ?? c.temporaryResidenceStatus}
                           </Badge>
                           {c.temporaryResidenceStatus === "REGISTERED" && (
-                            <div className="text-[10px] text-slate-500 mt-0.5">
+                            <span className="text-[10px] text-slate-500 pl-0.5">
                               {c.temporaryResidenceIsIndefinite ? "Vô thời hạn" : c.temporaryResidenceExpiresAt ? formatDateVN(c.temporaryResidenceExpiresAt) : ""}
-                            </div>
+                            </span>
                           )}
                         </div>
                       ) : (
