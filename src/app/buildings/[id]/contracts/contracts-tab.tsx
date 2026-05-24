@@ -157,16 +157,16 @@ export function ContractsTab({
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-              <th className="px-3 py-2.5 text-left">Mã HĐ</th>
-              <th className="px-3 py-2.5 text-left">Trạng thái</th>
-              <th className="px-3 py-2.5 text-left">Khách thuê</th>
-              <th className="px-3 py-2.5 text-left">Phòng</th>
-              <th className="px-3 py-2.5 text-left">Thời hạn</th>
-              <th className="px-3 py-2.5 text-right">Giá thuê</th>
-              <th className="px-3 py-2.5 text-right">Cọc</th>
-              {buildingType === "CHDV" && <th className="px-3 py-2.5 text-center">Tạm trú</th>}
-              <th className="px-3 py-2.5 text-left">File</th>
+            <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 text-center">
+              <th className="px-3 py-2.5">Mã HĐ</th>
+              <th className="px-3 py-2.5">Trạng thái</th>
+              <th className="px-3 py-2.5">Khách thuê</th>
+              <th className="px-3 py-2.5">Phòng</th>
+              <th className="px-3 py-2.5">Thời hạn</th>
+              <th className="px-3 py-2.5">Giá thuê</th>
+              <th className="px-3 py-2.5">Cọc</th>
+              {buildingType === "CHDV" && <th className="px-3 py-2.5">Tạm trú</th>}
+              <th className="px-3 py-2.5">File</th>
             </tr>
           </thead>
           <tbody>
