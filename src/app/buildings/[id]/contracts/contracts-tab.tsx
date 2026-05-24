@@ -165,7 +165,7 @@ export function ContractsTab({
               <th className="px-3 py-2.5 text-left">Thời hạn</th>
               <th className="px-3 py-2.5 text-right">Giá thuê</th>
               <th className="px-3 py-2.5 text-right">Cọc</th>
-              {buildingType === "CHDV" && <th className="px-3 py-2.5 text-left">Tạm trú</th>}
+              {buildingType === "CHDV" && <th className="px-3 py-2.5 text-center">Tạm trú</th>}
               <th className="px-3 py-2.5 text-left">File</th>
             </tr>
           </thead>
