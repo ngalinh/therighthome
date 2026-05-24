@@ -19,6 +19,9 @@ type Contract = {
   depositAmount: string;
   generatedDocxUrl: string | null;
   contractFileUrl: string | null;
+  temporaryResidenceStatus: string | null;
+  temporaryResidenceExpiresAt: string | null;
+  temporaryResidenceIsIndefinite: boolean;
   room: { number: string };
   customers: {
     isPrimary: boolean;
@@ -37,9 +40,16 @@ const STATUS_ORDER: Record<string, number> = {
   ACTIVE: 0, EXPIRED: 1, TERMINATED: 2, TERMINATED_LOST_DEPOSIT: 3,
 };
 
+const TR_STATUS: Record<string, { label: string; variant: "default" | "success" | "warning" | "secondary" }> = {
+  NOT_REGISTERED: { label: "Chưa đăng ký", variant: "secondary" },
+  SUBMITTED: { label: "Đã gửi hồ sơ", variant: "warning" },
+  REGISTERED: { label: "Đã đăng ký", variant: "success" },
+};
+
 export function ContractsTab({
   contracts,
   buildingId,
+  buildingType,
 }: {
   contracts: Contract[];
   buildingId: string;
@@ -155,6 +165,7 @@ export function ContractsTab({
               <th className="px-3 py-2.5 text-left">Thời hạn</th>
               <th className="px-3 py-2.5 text-right">Giá thuê</th>
               <th className="px-3 py-2.5 text-right">Cọc</th>
+              {buildingType === "CHDV" && <th className="px-3 py-2.5 text-left">Tạm trú</th>}
               <th className="px-3 py-2.5 text-left">File</th>
             </tr>
           </thead>
@@ -188,6 +199,24 @@ export function ContractsTab({
                     {vatPct > 0 && <div className="text-[10px] text-slate-500">đã VAT {vatPct}%</div>}
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap text-xs">{formatVND(deposit)}</td>
+                  {buildingType === "CHDV" && (
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {c.temporaryResidenceStatus ? (
+                        <div>
+                          <Badge variant={TR_STATUS[c.temporaryResidenceStatus]?.variant ?? "secondary"} className="text-[10px] whitespace-nowrap">
+                            {TR_STATUS[c.temporaryResidenceStatus]?.label ?? c.temporaryResidenceStatus}
+                          </Badge>
+                          {c.temporaryResidenceStatus === "REGISTERED" && (
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              {c.temporaryResidenceIsIndefinite ? "Vô thời hạn" : c.temporaryResidenceExpiresAt ? formatDateVN(c.temporaryResidenceExpiresAt) : ""}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     <div className="flex gap-2 text-xs">
                       {c.generatedDocxUrl && (
