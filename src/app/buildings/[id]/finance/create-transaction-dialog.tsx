@@ -145,7 +145,7 @@ export function CreateTransactionDialog({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Nội dung</Label>
-            <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" />
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" rows={3} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Tài khoản TT</Label>
