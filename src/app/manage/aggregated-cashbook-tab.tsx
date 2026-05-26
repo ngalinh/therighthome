@@ -314,7 +314,7 @@ export async function AggregatedCashbookTab({
                             </>
                           ) : <span className="text-slate-400">—</span>}
                         </td>
-                        <td className="px-4 py-2 max-w-xs truncate">
+                        <td className="px-4 py-2">
                           {renderContentWithLinks({ content: t.content, buildingId: t.buildingId, contractMap, invoiceMap })}
                         </td>
                         <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
