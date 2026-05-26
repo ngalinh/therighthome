@@ -166,7 +166,7 @@ export function EditTransactionDialog({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Nội dung</Label>
-            <Input value={content} onChange={(e) => setContent(e.target.value)} />
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Tài khoản TT</Label>
