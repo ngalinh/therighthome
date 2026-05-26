@@ -278,7 +278,7 @@ export async function AggregatedCashbookTab({
                     <th className="px-4 py-2 text-left">Toà nhà</th>
                     <th className="px-4 py-2 text-left">Loại thu/chi</th>
                     <th className="px-4 py-2 text-left">Đối tượng</th>
-                    <th className="px-4 py-2 text-left">Nội dung</th>
+                    <th className="px-4 py-2 text-left min-w-[280px]">Nội dung</th>
                     <th className="px-4 py-2 text-right">Thu</th>
                     <th className="px-4 py-2 text-right">Chi</th>
                     <th className="px-4 py-2 text-right">Số dư</th>
