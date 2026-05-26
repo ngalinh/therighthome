@@ -192,7 +192,7 @@ export function DebtClient({
                       {r.partyLabel && <div className="text-xs text-slate-500">{r.partyLabel}</div>}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.category || <span className="text-slate-400">—</span>}</td>
-                    <td className="px-3 py-2.5 min-w-[210px] max-w-[260px]"><div className="line-clamp-2">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</div></td>
+                    <td className="px-3 py-2.5 min-w-[210px]">{renderContentWithLinks({ content: r.content, buildingId, contractMap, invoiceMap })}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.paymentMethod || <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.opening))}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.payable))}</td>
