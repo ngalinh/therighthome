@@ -470,8 +470,8 @@ function InvoiceTable({
         </tr>
       </thead>
       <tbody>
-        <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "#fbf3e3", borderBottomColor: "#ecd9b5" }}>
-          <td className="px-3 py-2.5 text-slate-500" colSpan={3}>Tổng cộng ({invoices.length} HĐ)</td>
+        <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "linear-gradient(135deg, #ffe7d8 0%, #ffcfb1 70%, #ffb78f 100%)", borderBottomColor: "#ffc6a8" }}>
+          <td className="px-3 py-2.5 font-semibold text-slate-700" colSpan={3}>Tổng cộng ({invoices.length} HĐ)</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRent)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totElec)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totParking)}</td>
