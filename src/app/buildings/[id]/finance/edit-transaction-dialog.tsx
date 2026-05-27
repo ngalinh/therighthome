@@ -29,6 +29,7 @@ export type EditableTransaction = {
   roomId: string | null;
   accountingMonth: number | null;
   accountingYear: number | null;
+  transferPairId: string | null;
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -71,6 +72,7 @@ export function EditTransactionDialog({
   }, [tx]);
 
   if (!tx) return null;
+  const isTransfer = !!tx.transferPairId;
   const filteredCategories = categories.filter((c) => c.type === tx.type);
   const visibleParties = partyKindConfigs.filter((p) => tx.type === "INCOME" ? p.forRevenue : p.forExpense);
 
@@ -119,6 +121,11 @@ export function EditTransactionDialog({
           <DialogTitle>Sửa {tx.type === "INCOME" ? "phiếu thu" : "phiếu chi"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {isTransfer && (
+            <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+              Phiếu chuyển nguồn — ngày, số tiền, nội dung sẽ áp dụng cho cả 2 giao dịch
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Ngày</Label>
@@ -142,41 +149,45 @@ export function EditTransactionDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Đối tượng</Label>
-              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); if (v !== "CUSTOMER") setRoomId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-                <SelectContent>
-                  {visibleParties.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {partyKind === "CUSTOMER" && (
+          {!isTransfer && (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
-                <Select value={roomId} onValueChange={setRoomId}>
-                  <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                <Label className="text-xs">Đối tượng</Label>
+                <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); if (v !== "CUSTOMER") setRoomId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
                   <SelectContent>
-                    {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                    {visibleParties.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-          </div>
+              {partyKind === "CUSTOMER" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
+                  <Select value={roomId} onValueChange={setRoomId}>
+                    <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                    <SelectContent>
+                      {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Nội dung</Label>
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tài khoản TT</Label>
-            <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-              <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-              <SelectContent>
-                {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isTransfer && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tài khoản TT</Label>
+              <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Tháng hạch toán</Label>

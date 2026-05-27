@@ -19,7 +19,7 @@ export async function RevenueTab({
   buildingId: string;
   month: number;
   year: number;
-  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE"; isTransfer: boolean }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
@@ -137,6 +137,7 @@ export async function RevenueTab({
     roomId: string | null;
     accountingMonth: number | null;
     accountingYear: number | null;
+    transferPairId: string | null;
   };
   type Row = {
     key: string;
@@ -227,6 +228,7 @@ export async function RevenueTab({
         roomId: t.roomId ?? null,
         accountingMonth: t.accountingMonth,
         accountingYear: t.accountingYear,
+        transferPairId: t.transferPairId,
       },
     });
   }

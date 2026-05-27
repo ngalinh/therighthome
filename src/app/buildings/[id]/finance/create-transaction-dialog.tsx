@@ -119,41 +119,43 @@ export function CreateTransactionDialog({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Loại {type === "INCOME" ? "thu" : "chi"}</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); const cat = filteredCategories.find((c) => c.id === v); if (!cat?.isTransfer) setDestPaymentMethodId(""); }}>
               <SelectTrigger><SelectValue placeholder="Chọn loại" /></SelectTrigger>
               <SelectContent>
                 {filteredCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Đối tượng</Label>
-              <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setRoomId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-                <SelectContent>
-                  {visibleParties.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {partyKind === "CUSTOMER" && (
+          {!isTransfer && (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
-                <Select value={roomId} onValueChange={setRoomId}>
-                  <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                <Label className="text-xs">Đối tượng</Label>
+                <Select value={partyKind} onValueChange={(v) => { setPartyKind(v); setRoomId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
                   <SelectContent>
-                    {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                    {visibleParties.map((p) => <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-          </div>
+              {partyKind === "CUSTOMER" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Số phòng <span className="text-rose-500">*</span></Label>
+                  <Select value={roomId} onValueChange={setRoomId}>
+                    <SelectTrigger><SelectValue placeholder="Chọn phòng" /></SelectTrigger>
+                    <SelectContent>
+                      {rooms.map((r) => <SelectItem key={r.id} value={r.id}>Phòng {r.number}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Nội dung</Label>
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" rows={3} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Tài khoản TT</Label>
+            <Label className="text-xs">{isTransfer ? "Tài khoản chuyển" : "Tài khoản TT"}</Label>
             <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
               <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
               <SelectContent>
@@ -161,35 +163,50 @@ export function CreateTransactionDialog({
               </SelectContent>
             </Select>
           </div>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
-            <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
-          </label>
-          {countInBR && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tháng hạch toán</Label>
-                <Select value={String(effMonth)} onValueChange={(v) => setAcctMonth(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map((m) => (
-                      <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Năm hạch toán</Label>
-                <Select value={String(effYear)} onValueChange={(v) => setAcctYear(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[dateYear - 1, dateYear, dateYear + 1].map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {isTransfer && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tài khoản nhận</Label>
+              <Select value={destPaymentMethodId} onValueChange={setDestPaymentMethodId}>
+                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.filter((p) => p.id !== paymentMethodId).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+          )}
+          {!isTransfer && (
+            <>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
+                <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
+              </label>
+              {countInBR && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tháng hạch toán</Label>
+                    <Select value={String(effMonth)} onValueChange={(v) => setAcctMonth(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {MONTHS.map((m) => (
+                          <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Năm hạch toán</Label>
+                    <Select value={String(effYear)} onValueChange={(v) => setAcctYear(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[dateYear - 1, dateYear, dateYear + 1].map((y) => (
+                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div className="space-y-1.5">
             <Label className="text-xs">Ghi chú</Label>
