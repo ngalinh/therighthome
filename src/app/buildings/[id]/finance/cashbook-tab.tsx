@@ -235,7 +235,7 @@ export async function CashbookTab({
                   {visible.map(({ tx: t, partyLabel, roomLabel, runningAfter }) => (
                     <tr key={t.id} className="border-t hover:bg-slate-50">
                       <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{t.category?.name || <span className="text-slate-400">—</span>}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{t.category?.name ? (t.transferPairId ? `${t.category.name} ↔` : t.category.name) : <span className="text-slate-400">—</span>}</td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         {partyLabel || roomLabel ? (
                           <>

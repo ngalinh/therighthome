@@ -43,7 +43,7 @@ export function DebtClient({
   year: number;
   rows: Row[];
   rooms: { id: string; number: string; primaryCustomerId: string | null }[];
-  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE"; isTransfer: boolean }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   partyKindConfigs: PartyKindConfig[];
   canWrite: boolean;

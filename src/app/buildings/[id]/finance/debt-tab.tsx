@@ -24,7 +24,7 @@ export async function DebtTab({
   buildingId: string;
   month: number;
   year: number;
-  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE"; isTransfer: boolean }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
@@ -120,6 +120,7 @@ export async function DebtTab({
     roomId: string | null;
     accountingMonth: number | null;
     accountingYear: number | null;
+    transferPairId: string | null;
   };
   type Row = {
     key: string;
@@ -233,6 +234,7 @@ export async function DebtTab({
         roomId: e.roomId ?? null,
         accountingMonth: e.accountingMonth,
         accountingYear: e.accountingYear,
+        transferPairId: e.transferPairId,
       },
     });
   }
