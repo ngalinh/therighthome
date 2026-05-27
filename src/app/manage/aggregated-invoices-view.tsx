@@ -342,7 +342,7 @@ function InvoiceTable({
         </tr>
       </thead>
       <tbody>
-        <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "linear-gradient(135deg, #ffe7d8 0%, #ffcfb1 70%, #ffb78f 100%)", borderBottomColor: "#ffc6a8" }}>
+        <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "linear-gradient(135deg, #fdedde 0%, #f9cfb0 100%)", borderBottomColor: "#f5cfae" }}>
           <td className="px-3 py-2.5 font-semibold text-slate-700" colSpan={4}>Tổng cộng ({invoices.length} HĐ)</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRent)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totElec)}</td>
