@@ -495,7 +495,8 @@ model Transaction {
   accountingMonth Int?
   accountingYear  Int?
 
-  invoiceId String?
+  invoiceId      String?
+  transferPairId String? // ID of the paired transfer transaction (mutual link)
 
   createdById String?
   createdAt   DateTime @default(now())
@@ -535,6 +536,7 @@ model TransactionCategory {
   buildingType BuildingType? // null = applies to both
   name         String
   type         TransactionType
+  isTransfer   Boolean         @default(false)
 
   transactions     Transaction[]
   invoiceLineItems InvoiceLineItem[]

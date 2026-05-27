@@ -23,7 +23,7 @@ export function CreateTransactionDialog({
   buildingId: string;
   month: number;
   year: number;
-  categories: { id: string; name: string; type: "INCOME" | "EXPENSE" }[];
+  categories: { id: string; name: string; type: "INCOME" | "EXPENSE"; isTransfer: boolean }[];
   paymentMethods: { id: string; name: string; isCash: boolean }[];
   partyKindConfigs: PartyKindConfig[];
   rooms: { id: string; number: string; primaryCustomerId: string | null }[];
@@ -41,10 +41,13 @@ export function CreateTransactionDialog({
   const [acctMonth, setAcctMonth] = useState<number | null>(null);
   const [acctYear, setAcctYear] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  const [destPaymentMethodId, setDestPaymentMethodId] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!type) return null;
   const filteredCategories = categories.filter((c) => c.type === type);
+  const selectedCategory = filteredCategories.find((c) => c.id === categoryId);
+  const isTransfer = selectedCategory?.isTransfer ?? false;
   const visibleParties = partyKindConfigs.filter((p) => type === "INCOME" ? p.forRevenue : p.forExpense);
   const dateObj = new Date(date);
   const dateMonth = dateObj.getMonth() + 1;
@@ -56,9 +59,10 @@ export function CreateTransactionDialog({
     const a = parseVNDInput(amount);
     if (a <= 0n) return toast.error("Số tiền > 0");
     if (!content.trim()) return toast.error("Nhập nội dung");
-    if (partyKind === "CUSTOMER" && !roomId) return toast.error("Chọn số phòng cho khách hàng");
+    if (isTransfer && !destPaymentMethodId) return toast.error("Chọn tài khoản nhận");
+    if (!isTransfer && partyKind === "CUSTOMER" && !roomId) return toast.error("Chọn số phòng cho khách hàng");
     setLoading(true);
-    const inferredCustomerId = partyKind === "CUSTOMER" && roomId
+    const inferredCustomerId = !isTransfer && partyKind === "CUSTOMER" && roomId
       ? rooms.find((r) => r.id === roomId)?.primaryCustomerId ?? null
       : null;
     const payload: Record<string, unknown> = {
@@ -68,13 +72,14 @@ export function CreateTransactionDialog({
       content,
       categoryId: categoryId || undefined,
       paymentMethodId: paymentMethodId || undefined,
-      partyKind: partyKind || undefined,
+      partyKind: isTransfer ? undefined : (partyKind || undefined),
       customerId: inferredCustomerId || undefined,
-      roomId: roomId || undefined,
-      countInBR,
-      accountingMonth: countInBR ? effMonth : month,
-      accountingYear: countInBR ? effYear : year,
+      roomId: isTransfer ? undefined : (roomId || undefined),
+      countInBR: isTransfer ? false : countInBR,
+      accountingMonth: (!isTransfer && countInBR) ? effMonth : month,
+      accountingYear: (!isTransfer && countInBR) ? effYear : year,
       notes,
+      destinationPaymentMethodId: isTransfer ? destPaymentMethodId : undefined,
     };
     const res = await fetch(`/api/buildings/${buildingId}/transactions`, {
       method: "POST",

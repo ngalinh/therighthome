@@ -476,6 +476,19 @@ async function main() {
     });
   }
 
+  // Ensure VP transfer categories exist (idempotent upsert)
+  await prisma.transactionCategory.upsert({
+    where: { buildingType_name_type: { buildingType: "VP", name: "Chuyển nguồn", type: "EXPENSE" } },
+    update: { isTransfer: true },
+    create: { buildingType: "VP", name: "Chuyển nguồn", type: "EXPENSE", isTransfer: true },
+  });
+  await prisma.transactionCategory.upsert({
+    where: { buildingType_name_type: { buildingType: "VP", name: "Chuyển nguồn", type: "INCOME" } },
+    update: { isTransfer: true },
+    create: { buildingType: "VP", name: "Chuyển nguồn", type: "INCOME", isTransfer: true },
+  });
+  console.log("Ensured VP Chuyển nguồn categories.");
+
   console.log("Seed complete");
 }
 
