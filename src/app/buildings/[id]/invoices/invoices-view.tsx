@@ -469,18 +469,18 @@ function InvoiceTable({
         </tr>
       </thead>
       <tbody>
-        <tr className="bg-amber-50/60 border-b-2 border-amber-200 font-semibold text-slate-700 text-xs">
-          <td className="px-3 py-2 text-slate-500" colSpan={3}>Tổng cộng ({invoices.length} HĐ)</td>
-          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totRent)}</td>
-          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totElec)}</td>
-          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totParking)}</td>
-          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totFee)}</td>
-          {isVP && <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totRepair)}</td>}
-          {isVP && <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totExtraParking)}</td>}
-          <td className="px-3 py-2 text-right whitespace-nowrap text-emerald-700">{formatVND(totTotal)}</td>
-          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totPaid)}</td>
-          <td className={`px-3 py-2 text-right whitespace-nowrap ${totRemaining > 0n ? "text-rose-600" : ""}`}>{formatVND(totRemaining)}</td>
-          <td className="px-3 py-2" />
+        <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "#fbf3e3", borderBottomColor: "#ecd9b5" }}>
+          <td className="px-3 py-2.5 text-slate-500" colSpan={3}>Tổng cộng ({invoices.length} HĐ)</td>
+          <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRent)}</td>
+          <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totElec)}</td>
+          <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totParking)}</td>
+          <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totFee)}</td>
+          {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRepair)}</td>}
+          {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totExtraParking)}</td>}
+          <td className="px-3 py-2.5 text-right whitespace-nowrap text-emerald-700">{formatVND(totTotal)}</td>
+          <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totPaid)}</td>
+          <td className={`px-3 py-2.5 text-right whitespace-nowrap ${totRemaining > 0n ? "text-rose-600" : ""}`}>{formatVND(totRemaining)}</td>
+          <td className="px-3 py-2.5" />
         </tr>
         {invoices.map((inv) => {
           const primary = inv.contract.customers[0]?.customer;
