@@ -438,6 +438,17 @@ function InvoiceTable({
   onHardDelete: (inv: Invoice) => void;
 }) {
   const isVP = buildingType === "VP";
+
+  const totRent = invoices.reduce((s, i) => s + BigInt(i.rentAmount), 0n);
+  const totElec = invoices.reduce((s, i) => s + BigInt(i.electricityFee), 0n);
+  const totParking = invoices.reduce((s, i) => s + BigInt(i.parkingFee), 0n);
+  const totFee = invoices.reduce((s, i) => s + BigInt(isVP ? i.overtimeFee : i.serviceFee), 0n);
+  const totRepair = invoices.reduce((s, i) => s + BigInt(i.repairFee), 0n);
+  const totExtraParking = invoices.reduce((s, i) => s + BigInt(i.extraParkingFee), 0n);
+  const totTotal = invoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
+  const totPaid = invoices.reduce((s, i) => s + BigInt(i.paidAmount), 0n);
+  const totRemaining = totTotal - totPaid;
+
   return (
     <table className="w-full text-sm">
       <thead>
@@ -458,6 +469,19 @@ function InvoiceTable({
         </tr>
       </thead>
       <tbody>
+        <tr className="bg-amber-50/60 border-b-2 border-amber-200 font-semibold text-slate-700 text-xs">
+          <td className="px-3 py-2 text-slate-500" colSpan={3}>Tổng cộng ({invoices.length} HĐ)</td>
+          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totRent)}</td>
+          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totElec)}</td>
+          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totParking)}</td>
+          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totFee)}</td>
+          {isVP && <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totRepair)}</td>}
+          {isVP && <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totExtraParking)}</td>}
+          <td className="px-3 py-2 text-right whitespace-nowrap text-emerald-700">{formatVND(totTotal)}</td>
+          <td className="px-3 py-2 text-right whitespace-nowrap">{formatVND(totPaid)}</td>
+          <td className={`px-3 py-2 text-right whitespace-nowrap ${totRemaining > 0n ? "text-rose-600" : ""}`}>{formatVND(totRemaining)}</td>
+          <td className="px-3 py-2" />
+        </tr>
         {invoices.map((inv) => {
           const primary = inv.contract.customers[0]?.customer;
           const name = customerDisplayName(primary);
