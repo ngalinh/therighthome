@@ -439,14 +439,15 @@ function InvoiceTable({
 }) {
   const isVP = buildingType === "VP";
 
-  const totRent = invoices.reduce((s, i) => s + BigInt(i.rentAmount), 0n);
-  const totElec = invoices.reduce((s, i) => s + BigInt(i.electricityFee), 0n);
-  const totParking = invoices.reduce((s, i) => s + BigInt(i.parkingFee), 0n);
-  const totFee = invoices.reduce((s, i) => s + BigInt(isVP ? i.overtimeFee : i.serviceFee), 0n);
-  const totRepair = invoices.reduce((s, i) => s + BigInt(i.repairFee), 0n);
-  const totExtraParking = invoices.reduce((s, i) => s + BigInt(i.extraParkingFee), 0n);
-  const totTotal = invoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
-  const totPaid = invoices.reduce((s, i) => s + BigInt(i.paidAmount), 0n);
+  const activeInvoices = invoices.filter((i) => i.status !== "CANCELLED");
+  const totRent = activeInvoices.reduce((s, i) => s + BigInt(i.rentAmount), 0n);
+  const totElec = activeInvoices.reduce((s, i) => s + BigInt(i.electricityFee), 0n);
+  const totParking = activeInvoices.reduce((s, i) => s + BigInt(i.parkingFee), 0n);
+  const totFee = activeInvoices.reduce((s, i) => s + BigInt(isVP ? i.overtimeFee : i.serviceFee), 0n);
+  const totRepair = activeInvoices.reduce((s, i) => s + BigInt(i.repairFee), 0n);
+  const totExtraParking = activeInvoices.reduce((s, i) => s + BigInt(i.extraParkingFee), 0n);
+  const totTotal = activeInvoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
+  const totPaid = activeInvoices.reduce((s, i) => s + BigInt(i.paidAmount), 0n);
   const totRemaining = totTotal - totPaid;
 
   return (
