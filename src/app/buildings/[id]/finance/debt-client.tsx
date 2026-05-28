@@ -27,6 +27,7 @@ type Row = {
   partyLabel: string;
   content: string;
   paymentMethod: string;
+  paymentDate: string | null;
   opening: string;
   payable: string;
   paid: string;
@@ -112,12 +113,13 @@ export function DebtClient({
             sheets={() => [{
               name: `T${month}-${year}`,
               rows: filtered.map((r) => ({
-                "Ngày tháng": formatDateVN(r.date),
+                "Ngày tạo phiếu": formatDateVN(r.date),
                 "Phòng": r.roomNumber ? formatRoomNumber(r.roomNumber) : "",
                 "Loại chi": r.category,
                 "Đối tượng": r.partyLabel,
                 "Nội dung": r.content,
                 "Tài khoản TT": r.paymentMethod,
+                "Ngày TT": r.paymentDate ? formatDateVN(r.paymentDate) : "",
                 "Số dư đầu": Number(r.opening),
                 "Phải trả": Number(r.payable),
                 "Đã trả": Number(r.paid),
@@ -166,7 +168,7 @@ export function DebtClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-3 py-2 text-left whitespace-nowrap">Ngày tháng</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">Ngày tạo phiếu</th>
                 <th className="px-3 py-2 text-left whitespace-nowrap">Phòng / Đối tượng</th>
                 <th className="px-3 py-2 text-left whitespace-nowrap">Loại chi</th>
                 <th className="px-3 py-2 text-left min-w-[210px]">Nội dung</th>
@@ -196,7 +198,10 @@ export function DebtClient({
                     <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">{r.paymentMethod || <span className="text-slate-400">—</span>}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.opening))}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.payable))}</td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(r.paid))}</td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      <div>{formatVND(BigInt(r.paid))}</div>
+                      {r.paymentDate && <div className="text-xs text-slate-400">{formatDateVN(r.paymentDate)}</div>}
+                    </td>
                     <td className={`px-3 py-2.5 text-right whitespace-nowrap font-semibold ${closing > 0n ? "text-rose-600" : ""}`}>
                       {formatVND(closing)}
                     </td>

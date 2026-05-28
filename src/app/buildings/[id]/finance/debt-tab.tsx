@@ -56,8 +56,7 @@ export async function DebtTab({
     prisma.transaction.findMany({
       where: {
         buildingId,
-        accountingMonth: month,
-        accountingYear: year,
+        date: { gte: monthStart, lte: monthEnd },
         type: "EXPENSE",
         // Auto-tạo phiếu chi "Hoàn tiền cọc - HĐ ..." (từ terminate route)
         // đã có dòng riêng dựng từ contract record bên trên — không list
@@ -76,7 +75,7 @@ export async function DebtTab({
     }),
     prisma.transaction.findMany({
       where: { buildingId, content: { startsWith: "Hoàn tiền cọc - HĐ " } },
-      select: { content: true, paymentMethod: { select: { name: true } } },
+      select: { content: true, date: true, paymentDate: true, paymentMethod: { select: { name: true } } },
       orderBy: { date: "asc" },
     }),
     prisma.room.findMany({
@@ -114,6 +113,7 @@ export async function DebtTab({
     notes: string | null;
     categoryId: string | null;
     paymentMethodId: string | null;
+    paymentDate: string | null;
     partyKind: string | null;
     customerId: string | null;
     partyId: string | null;
@@ -133,6 +133,7 @@ export async function DebtTab({
     partyLabel: string;
     content: string;
     paymentMethod: string;
+    paymentDate: string | null;
     opening: bigint;
     payable: bigint;
     paid: bigint;
@@ -141,9 +142,11 @@ export async function DebtTab({
   };
 
   const refundPMByCode = new Map<string, string>();
+  const refundDateByCode = new Map<string, string>();
   for (const tx of refundTxs) {
     const code = tx.content.slice("Hoàn tiền cọc - HĐ ".length);
     if (tx.paymentMethod?.name) refundPMByCode.set(code, tx.paymentMethod.name);
+    refundDateByCode.set(code, (tx.paymentDate ?? tx.date).toISOString());
   }
 
   const rows: Row[] = [];
@@ -192,6 +195,7 @@ export async function DebtTab({
       partyLabel: customerDisplayName(customer),
       content: `Tiền cọc HĐ ${c.code}`,
       paymentMethod: isTerminationMonth ? (refundPMByCode.get(c.code) ?? "") : "",
+      paymentDate: (isTerminationMonth && paid > 0n) ? (refundDateByCode.get(c.code) ?? null) : null,
       opening,
       payable,
       paid,
@@ -215,6 +219,7 @@ export async function DebtTab({
       partyLabel,
       content: e.content,
       paymentMethod: e.paymentMethod?.name ?? "",
+      paymentDate: e.paymentDate?.toISOString() ?? null,
       opening: 0n,
       payable: e.amount,
       paid: e.amount,
@@ -228,6 +233,7 @@ export async function DebtTab({
         notes: e.notes,
         categoryId: e.category?.id ?? null,
         paymentMethodId: e.paymentMethod?.id ?? null,
+        paymentDate: e.paymentDate?.toISOString() ?? null,
         partyKind: e.partyKind ?? null,
         customerId: e.customer ? e.customerId : null,
         partyId: e.party ? e.partyId : null,

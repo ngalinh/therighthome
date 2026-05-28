@@ -23,6 +23,7 @@ export type EditableTransaction = {
   notes: string | null;
   categoryId: string | null;
   paymentMethodId: string | null;
+  paymentDate: string | null;
   partyKind: string | null;
   customerId: string | null;
   partyId: string | null;
@@ -50,6 +51,7 @@ export function EditTransactionDialog({
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const [partyKind, setPartyKind] = useState("");
   const [roomId, setRoomId] = useState("");
   const [notes, setNotes] = useState("");
@@ -64,6 +66,7 @@ export function EditTransactionDialog({
     setContent(tx.content);
     setCategoryId(tx.categoryId ?? "");
     setPaymentMethodId(tx.paymentMethodId ?? "");
+    setPaymentDate(tx.paymentDate ? tx.paymentDate.slice(0, 10) : "");
     setPartyKind(tx.partyKind ?? "");
     setRoomId(tx.roomId ?? "");
     setNotes(tx.notes ?? "");
@@ -92,6 +95,7 @@ export function EditTransactionDialog({
       content,
       categoryId: categoryId || null,
       paymentMethodId: paymentMethodId || null,
+      paymentDate: paymentDate || null,
       partyKind: partyKind || null,
       customerId: partyKind === "CUSTOMER" ? inferredCustomerId : null,
       roomId: roomId || null,
@@ -128,7 +132,7 @@ export function EditTransactionDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Ngày</Label>
+              <Label className="text-xs">Ngày tạo phiếu</Label>
               <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
@@ -178,14 +182,20 @@ export function EditTransactionDialog({
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} />
           </div>
           {!isTransfer && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tài khoản TT</Label>
-              <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tài khoản TT</Label>
+                <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+                  <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ngày TT</Label>
+                <DateInput value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              </div>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
