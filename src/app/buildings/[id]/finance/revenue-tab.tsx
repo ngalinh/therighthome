@@ -24,6 +24,9 @@ export async function RevenueTab({
   partyKindConfigs: { code: string; label: string; forRevenue: boolean; forExpense: boolean }[];
   canWrite: boolean;
 }) {
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
   const [allInvoices, manualIncomes, rooms, contracts] = await Promise.all([
     // All non-cancelled invoices issued up to & including the current month.
     prisma.invoice.findMany({
@@ -52,8 +55,7 @@ export async function RevenueTab({
     prisma.transaction.findMany({
       where: {
         buildingId,
-        accountingMonth: month,
-        accountingYear: year,
+        date: { gte: monthStart, lte: monthEnd },
         type: "INCOME",
         invoiceId: null,
       },
@@ -98,6 +100,8 @@ export async function RevenueTab({
           accountingMonth: true,
           accountingYear: true,
           amount: true,
+          date: true,
+          paymentDate: true,
           paymentMethod: { select: { name: true } },
         },
       })
@@ -106,6 +110,7 @@ export async function RevenueTab({
   const paidPrev = new Map<string, bigint>();
   const paidThis = new Map<string, bigint>();
   const pmThisByInvoice = new Map<string, Set<string>>();
+  const payDateThisByInvoice = new Map<string, string>();
   for (const p of payments) {
     if (!p.invoiceId || p.accountingYear == null || p.accountingMonth == null) continue;
     const before = p.accountingYear < year || (p.accountingYear === year && p.accountingMonth < month);
@@ -119,6 +124,9 @@ export async function RevenueTab({
         set.add(p.paymentMethod.name);
         pmThisByInvoice.set(p.invoiceId, set);
       }
+      const txDate = (p.paymentDate ?? p.date).toISOString();
+      const existing = payDateThisByInvoice.get(p.invoiceId);
+      if (!existing || txDate > existing) payDateThisByInvoice.set(p.invoiceId, txDate);
     }
   }
 
@@ -131,6 +139,7 @@ export async function RevenueTab({
     notes: string | null;
     categoryId: string | null;
     paymentMethodId: string | null;
+    paymentDate: string | null;
     partyKind: string | null;
     customerId: string | null;
     partyId: string | null;
@@ -150,6 +159,7 @@ export async function RevenueTab({
     partyLabel: string;
     content: string;
     paymentMethod: string;
+    paymentDate: string | null;
     opening: bigint;
     due: bigint;
     paid: bigint;
@@ -186,6 +196,7 @@ export async function RevenueTab({
       partyLabel: customerDisplayName(customer),
       content: `Hoá đơn ${inv.code}`,
       paymentMethod: pmNames.join(", "),
+      paymentDate: paid > 0n ? (payDateThisByInvoice.get(inv.id) ?? null) : null,
       opening,
       due,
       paid,
@@ -209,6 +220,7 @@ export async function RevenueTab({
       partyLabel,
       content: t.content,
       paymentMethod: t.paymentMethod?.name ?? "",
+      paymentDate: t.paymentDate?.toISOString() ?? null,
       opening: 0n,
       due: t.amount,
       paid: t.amount,
@@ -222,6 +234,7 @@ export async function RevenueTab({
         notes: t.notes,
         categoryId: t.category?.id ?? null,
         paymentMethodId: t.paymentMethod?.id ?? null,
+        paymentDate: t.paymentDate?.toISOString() ?? null,
         partyKind: t.partyKind ?? null,
         customerId: t.customer ? t.customerId : null,
         partyId: t.party ? t.partyId : null,

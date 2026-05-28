@@ -35,6 +35,7 @@ export function CreateTransactionDialog({
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const [partyKind, setPartyKind] = useState("");
   const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
@@ -72,6 +73,7 @@ export function CreateTransactionDialog({
       content,
       categoryId: categoryId || undefined,
       paymentMethodId: paymentMethodId || undefined,
+      paymentDate: (!isTransfer && paymentDate) ? paymentDate : undefined,
       partyKind: isTransfer ? undefined : (partyKind || undefined),
       customerId: inferredCustomerId || undefined,
       roomId: isTransfer ? undefined : (roomId || undefined),
@@ -105,7 +107,7 @@ export function CreateTransactionDialog({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Ngày</Label>
+              <Label className="text-xs">Ngày tạo phiếu</Label>
               <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
@@ -154,14 +156,22 @@ export function CreateTransactionDialog({
             <Label className="text-xs">Nội dung</Label>
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="vd: Sửa máy lạnh phòng 201" rows={3} />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">{isTransfer ? "Tài khoản chuyển" : "Tài khoản TT"}</Label>
-            <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
-              <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-              <SelectContent>
-                {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{isTransfer ? "Tài khoản chuyển" : "Tài khoản TT"}</Label>
+              <Select value={paymentMethodId} onValueChange={setPaymentMethodId}>
+                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {!isTransfer && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ngày TT</Label>
+                <DateInput value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              </div>
+            )}
           </div>
           {isTransfer && (
             <div className="space-y-1.5">
