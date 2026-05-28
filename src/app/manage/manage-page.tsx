@@ -103,6 +103,7 @@ export async function ManageTypePage({
     where: {
       buildingId: { in: buildingIds },
       contracts: { none: { status: "ACTIVE" } },
+      contractRooms: { none: { contract: { status: "ACTIVE" } } },
     },
     orderBy: [{ buildingId: "asc" }, { number: "asc" }],
     select: {

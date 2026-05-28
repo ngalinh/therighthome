@@ -65,6 +65,7 @@ type Contract = {
   notes: string | null;
   roomId: string;
   room: { number: string };
+  secondaryRooms: { room: { number: string } }[];
   yearlyRents: { yearIndex: number; rent: string }[];
   customers: ContractCustomer[];
   temporaryResidenceStatus: "NOT_REGISTERED" | "SUBMITTED" | "REGISTERED";
@@ -321,7 +322,7 @@ export function EditContractForm({
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Mã HĐ" value={contract.code} />
-            <Row label="Phòng" value={contract.room.number} />
+            <Row label="Phòng" value={[contract.room.number, ...contract.secondaryRooms.map((sr) => sr.room.number)].join(", ")} />
           </CardContent>
         </Card>
 

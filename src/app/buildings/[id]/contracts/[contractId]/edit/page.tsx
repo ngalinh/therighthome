@@ -23,6 +23,7 @@ export default async function EditContractPage({
       where: { id: contractId },
       include: {
         room: true,
+        secondaryRooms: { include: { room: true }, orderBy: { sortOrder: "asc" } },
         yearlyRents: { orderBy: { yearIndex: "asc" } },
         customers: {
           include: {
@@ -108,7 +109,7 @@ export default async function EditContractPage({
     >
       <PageHeader
         title={`Hợp đồng ${contract.code}`}
-        description={`${building.name} · Phòng ${contract.room.number}`}
+        description={`${building.name} · Phòng ${[contract.room.number, ...contract.secondaryRooms.map((sr) => sr.room.number)].join(", ")}`}
         gradient={building.type === "CHDV" ? "chdv" : "vp"}
       />
       <PageBody>
