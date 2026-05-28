@@ -232,7 +232,7 @@ export async function CashbookTab({
                     <th className="px-4 py-2 text-left">Ngày</th>
                     <th className="px-4 py-2 text-left">Loại thu/chi</th>
                     <th className="px-4 py-2 text-left">Đối tượng</th>
-                    <th className="px-4 py-2 text-left min-w-[210px]">Nội dung</th>
+                    <th className="px-4 py-2 text-left min-w-[280px]">Nội dung</th>
                     <th className="px-4 py-2 text-right">Thu</th>
                     <th className="px-4 py-2 text-right">Chi</th>
                     <th className="px-4 py-2 text-right">Số dư</th>
@@ -260,7 +260,7 @@ export async function CashbookTab({
                           </>
                         ) : <span className="text-slate-400">—</span>}
                       </td>
-                      <td className="px-4 py-2 min-w-[210px]">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
+                      <td className="px-4 py-2 min-w-[280px]">{renderContentWithLinks({ content: t.content, buildingId, contractMap, invoiceMap })}</td>
                       <td className="px-4 py-2 text-right text-emerald-700">{t.type === "INCOME" ? formatVND(t.amount) : ""}</td>
                       <td className="px-4 py-2 text-right text-rose-700">{t.type === "EXPENSE" ? formatVND(t.amount) : ""}</td>
                       <td className="px-4 py-2 text-right font-medium">{formatVND(runningAfter)}</td>
