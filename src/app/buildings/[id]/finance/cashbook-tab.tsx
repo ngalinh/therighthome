@@ -36,7 +36,13 @@ export async function CashbookTab({
 
   const [transactions, allOpenings, priorTxs, contractList, invoiceList] = await Promise.all([
     prisma.transaction.findMany({
-      where: { buildingId, showInCashbook: true, date: { gte: start, lte: end } },
+      where: {
+        buildingId, showInCashbook: true,
+        OR: [
+          { paymentDate: { gte: start, lte: end } },
+          { paymentDate: null, date: { gte: start, lte: end } },
+        ],
+      },
       include: {
         paymentMethod: true,
         category: { select: { name: true } },
@@ -44,7 +50,6 @@ export async function CashbookTab({
         party: { select: { name: true } },
         room: { select: { number: true } },
       },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     }),
     prisma.openingBalance.findMany({
       where: {
@@ -58,8 +63,14 @@ export async function CashbookTab({
       orderBy: [{ asOfYear: "desc" }, { asOfMonth: "desc" }],
     }),
     prisma.transaction.findMany({
-      where: { buildingId, showInCashbook: true, date: { lt: start } },
-      select: { type: true, amount: true, paymentMethodId: true, date: true },
+      where: {
+        buildingId, showInCashbook: true,
+        OR: [
+          { paymentDate: { lt: start } },
+          { paymentDate: null, date: { lt: start } },
+        ],
+      },
+      select: { type: true, amount: true, paymentMethodId: true, date: true, paymentDate: true },
     }),
     prisma.contract.findMany({ where: { buildingId }, select: { id: true, code: true } }),
     prisma.invoice.findMany({ where: { buildingId }, select: { id: true, code: true } }),
@@ -84,7 +95,7 @@ export async function CashbookTab({
     let bal = ob?.amount ?? 0n;
     for (const t of priorTxs) {
       if (t.paymentMethodId !== pmId) continue;
-      if (t.date < obStart) continue;
+      if ((t.paymentDate ?? t.date) < obStart) continue;
       bal += t.type === "INCOME" ? t.amount : -t.amount;
     }
     return bal;
@@ -119,6 +130,11 @@ export async function CashbookTab({
     for (const p of extras) pmMap.set(p.id, p);
   }
   const allPms = Array.from(pmMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  transactions.sort((a, b) => {
+    const aEff = (a.paymentDate ?? a.date).getTime();
+    const bEff = (b.paymentDate ?? b.date).getTime();
+    return aEff !== bEff ? aEff - bEff : a.createdAt.getTime() - b.createdAt.getTime();
+  });
 
   const exportSheets: ExportSheet[] = allPms.map((pm) => {
     const txs = transactions.filter((t) => t.paymentMethodId === pm.id);
@@ -134,7 +150,7 @@ export async function CashbookTab({
         ? customerDisplayName(t.customer)
         : t.party?.name ?? (t.partyKind ? PARTY_KIND_LABEL[t.partyKind] ?? "" : "");
       txRows.push({
-        "Ngày": formatDateVN(t.date),
+        "Ngày": formatDateVN((t.paymentDate ?? t.date).toISOString()),
         "Loại thu/chi": t.category?.name ?? "",
         "Đối tượng": partyLabel,
         "Phòng": t.room ? formatRoomNumber(t.room.number) : "",
@@ -234,7 +250,7 @@ export async function CashbookTab({
                   )}
                   {visible.map(({ tx: t, partyLabel, roomLabel, runningAfter }) => (
                     <tr key={t.id} className="border-t hover:bg-slate-50">
-                      <td className="px-4 py-2 whitespace-nowrap">{formatDateVN(t.date)}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{formatDateVN((t.paymentDate ?? t.date).toISOString())}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{t.category?.name ? (t.transferPairId ? `${t.category.name} ↔` : t.category.name) : <span className="text-slate-400">—</span>}</td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         {partyLabel || roomLabel ? (
