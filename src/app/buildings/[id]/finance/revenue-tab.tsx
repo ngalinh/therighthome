@@ -55,7 +55,10 @@ export async function RevenueTab({
     prisma.transaction.findMany({
       where: {
         buildingId,
-        date: { gte: monthStart, lte: monthEnd },
+        OR: [
+          { date: { gte: monthStart, lte: monthEnd } },
+          { date: { lt: monthStart }, paymentDate: { gte: monthStart } },
+        ],
         type: "INCOME",
         invoiceId: null,
       },
@@ -209,6 +212,26 @@ export async function RevenueTab({
     const partyLabel = t.customer
       ? customerDisplayName(t.customer)
       : t.party?.name ?? "";
+
+    const creationMonth = t.date.getMonth() + 1;
+    const creationYear = t.date.getFullYear();
+    const isCreationMonth = creationMonth === month && creationYear === year;
+    const payMonth = t.paymentDate ? t.paymentDate.getMonth() + 1 : null;
+    const payYear = t.paymentDate ? t.paymentDate.getFullYear() : null;
+    const isPayMonth = payMonth !== null && payYear !== null && payMonth === month && payYear === year;
+
+    let opening: bigint, due: bigint, paid: bigint, rowPaymentDate: string | null;
+    if (!t.paymentDate || (isCreationMonth && isPayMonth)) {
+      opening = 0n; due = t.amount; paid = t.amount; rowPaymentDate = t.paymentDate?.toISOString() ?? null;
+    } else if (isCreationMonth) {
+      opening = 0n; due = t.amount; paid = 0n; rowPaymentDate = null;
+    } else if (isPayMonth) {
+      opening = t.amount; due = 0n; paid = t.amount; rowPaymentDate = t.paymentDate.toISOString();
+    } else {
+      opening = t.amount; due = 0n; paid = 0n; rowPaymentDate = null;
+    }
+    const closing = opening + due - paid;
+
     rows.push({
       key: `tx-${t.id}`,
       date: t.date.toISOString(),
@@ -219,12 +242,12 @@ export async function RevenueTab({
       partyKind: t.partyKind ?? null,
       partyLabel,
       content: t.content,
-      paymentMethod: t.paymentMethod?.name ?? "",
-      paymentDate: t.paymentDate?.toISOString() ?? null,
-      opening: 0n,
-      due: t.amount,
-      paid: t.amount,
-      closing: 0n,
+      paymentMethod: isPayMonth || (!t.paymentDate) ? (t.paymentMethod?.name ?? "") : "",
+      paymentDate: rowPaymentDate,
+      opening,
+      due,
+      paid,
+      closing,
       tx: {
         id: t.id,
         type: "INCOME",
