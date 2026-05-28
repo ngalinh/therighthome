@@ -14,8 +14,6 @@ import { formatNumber, parseVNDInput } from "@/lib/utils";
 
 type PartyKindConfig = { code: string; label: string; forRevenue: boolean; forExpense: boolean };
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-
 export function CreateTransactionDialog({
   type, buildingId, month, year, categories, paymentMethods, partyKindConfigs, rooms, onClose,
 }: {
@@ -39,8 +37,6 @@ export function CreateTransactionDialog({
   const [partyKind, setPartyKind] = useState("");
   const [roomId, setRoomId] = useState("");
   const [countInBR, setCountInBR] = useState(true);
-  const [acctMonth, setAcctMonth] = useState<number | null>(null);
-  const [acctYear, setAcctYear] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [destPaymentMethodId, setDestPaymentMethodId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,8 +49,6 @@ export function CreateTransactionDialog({
   const dateObj = new Date(date);
   const dateMonth = dateObj.getMonth() + 1;
   const dateYear = dateObj.getFullYear();
-  const effMonth = acctMonth ?? dateMonth;
-  const effYear = acctYear ?? dateYear;
 
   async function submit() {
     const a = parseVNDInput(amount);
@@ -78,8 +72,8 @@ export function CreateTransactionDialog({
       customerId: inferredCustomerId || undefined,
       roomId: isTransfer ? undefined : (roomId || undefined),
       countInBR: isTransfer ? false : countInBR,
-      accountingMonth: (!isTransfer && countInBR) ? effMonth : month,
-      accountingYear: (!isTransfer && countInBR) ? effYear : year,
+      accountingMonth: isTransfer ? month : dateMonth,
+      accountingYear: isTransfer ? year : dateYear,
       notes,
       destinationPaymentMethodId: isTransfer ? destPaymentMethodId : undefined,
     };
@@ -185,38 +179,10 @@ export function CreateTransactionDialog({
             </div>
           )}
           {!isTransfer && (
-            <>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
-                <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
-              </label>
-              {countInBR && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Tháng hạch toán</Label>
-                    <Select value={String(effMonth)} onValueChange={(v) => setAcctMonth(Number(v))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {MONTHS.map((m) => (
-                          <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Năm hạch toán</Label>
-                    <Select value={String(effYear)} onValueChange={(v) => setAcctYear(Number(v))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[dateYear - 1, dateYear, dateYear + 1].map((y) => (
-                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={countInBR} onChange={(e) => setCountInBR(e.target.checked)} className="rounded" />
+              <span>Hạch toán vào BCKD (báo cáo KQKD)</span>
+            </label>
           )}
           <div className="space-y-1.5">
             <Label className="text-xs">Ghi chú</Label>
