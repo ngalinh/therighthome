@@ -24,7 +24,7 @@ const PERMISSION_MATRIX: Record<BuildingPermission, Capability[]> = {
     "settings.read", "settings.write",
   ],
   MANAGER: [
-    "building.read",
+    "building.read", "building.write",
     "contract.read", "contract.write",
     "invoice.read", "invoice.write", "invoice.send",
     "finance.read", "finance.write",
