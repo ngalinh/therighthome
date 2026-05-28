@@ -56,12 +56,11 @@ export async function DebtTab({
     prisma.transaction.findMany({
       where: {
         buildingId,
-        date: { gte: monthStart, lte: monthEnd },
+        OR: [
+          { date: { gte: monthStart, lte: monthEnd } },
+          { date: { lt: monthStart }, paymentDate: { gte: monthStart } },
+        ],
         type: "EXPENSE",
-        // Auto-tạo phiếu chi "Hoàn tiền cọc - HĐ ..." (từ terminate route)
-        // đã có dòng riêng dựng từ contract record bên trên — không list
-        // thêm lần nữa ở đây để tránh trùng lặp, khiến user xoá nhầm dòng
-        // Transaction → mất phiếu trong Sổ Quỹ.
         NOT: { content: { startsWith: "Hoàn tiền cọc - HĐ " } },
       },
       include: {
@@ -208,6 +207,26 @@ export async function DebtTab({
     const partyLabel = e.customer
       ? customerDisplayName(e.customer)
       : e.party?.name ?? (e.partyKind ? partyKindLabel[e.partyKind] ?? "" : "");
+
+    const creationMonth = e.date.getMonth() + 1;
+    const creationYear = e.date.getFullYear();
+    const isCreationMonth = creationMonth === month && creationYear === year;
+    const payMonth = e.paymentDate ? e.paymentDate.getMonth() + 1 : null;
+    const payYear = e.paymentDate ? e.paymentDate.getFullYear() : null;
+    const isPayMonth = payMonth !== null && payYear !== null && payMonth === month && payYear === year;
+
+    let opening: bigint, payable: bigint, paid: bigint, rowPaymentDate: string | null;
+    if (!e.paymentDate || (isCreationMonth && isPayMonth)) {
+      opening = 0n; payable = e.amount; paid = e.amount; rowPaymentDate = e.paymentDate?.toISOString() ?? null;
+    } else if (isCreationMonth) {
+      opening = 0n; payable = e.amount; paid = 0n; rowPaymentDate = null;
+    } else if (isPayMonth) {
+      opening = e.amount; payable = 0n; paid = e.amount; rowPaymentDate = e.paymentDate.toISOString();
+    } else {
+      opening = e.amount; payable = 0n; paid = 0n; rowPaymentDate = null;
+    }
+    const closing = opening + payable - paid;
+
     rows.push({
       key: `tx-${e.id}`,
       date: e.date.toISOString(),
@@ -218,12 +237,12 @@ export async function DebtTab({
       partyKind: e.partyKind ?? null,
       partyLabel,
       content: e.content,
-      paymentMethod: e.paymentMethod?.name ?? "",
-      paymentDate: e.paymentDate?.toISOString() ?? null,
-      opening: 0n,
-      payable: e.amount,
-      paid: e.amount,
-      closing: 0n,
+      paymentMethod: isPayMonth || (!e.paymentDate) ? (e.paymentMethod?.name ?? "") : "",
+      paymentDate: rowPaymentDate,
+      opening,
+      payable,
+      paid,
+      closing,
       tx: {
         id: e.id,
         type: "EXPENSE",
