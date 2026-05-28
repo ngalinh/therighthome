@@ -222,7 +222,7 @@ export async function RevenueTab({
 
     let opening: bigint, due: bigint, paid: bigint, rowPaymentDate: string | null;
     if (!t.paymentDate || (isCreationMonth && isPayMonth)) {
-      opening = 0n; due = t.amount; paid = t.amount; rowPaymentDate = t.paymentDate?.toISOString() ?? null;
+      opening = 0n; due = t.amount; paid = t.amount; rowPaymentDate = (t.paymentDate ?? t.date).toISOString();
     } else if (isCreationMonth) {
       opening = 0n; due = t.amount; paid = 0n; rowPaymentDate = null;
     } else if (isPayMonth) {

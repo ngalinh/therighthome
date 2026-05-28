@@ -217,7 +217,7 @@ export async function DebtTab({
 
     let opening: bigint, payable: bigint, paid: bigint, rowPaymentDate: string | null;
     if (!e.paymentDate || (isCreationMonth && isPayMonth)) {
-      opening = 0n; payable = e.amount; paid = e.amount; rowPaymentDate = e.paymentDate?.toISOString() ?? null;
+      opening = 0n; payable = e.amount; paid = e.amount; rowPaymentDate = (e.paymentDate ?? e.date).toISOString();
     } else if (isCreationMonth) {
       opening = 0n; payable = e.amount; paid = 0n; rowPaymentDate = null;
     } else if (isPayMonth) {

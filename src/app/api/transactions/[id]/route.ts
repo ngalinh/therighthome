@@ -16,8 +16,6 @@ const updateSchema = z.object({
   partyId: z.string().nullable().optional(),
   roomId: z.string().nullable().optional(),
   countInBR: z.boolean().optional(),
-  accountingMonth: z.number().int().min(1).max(12).optional(),
-  accountingYear: z.number().int().optional(),
   notes: z.string().optional(),
 });
 
@@ -33,8 +31,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const parsed = updateSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
+  const newDate = d.date ? new Date(d.date) : null;
   const updateData = {
-    ...(d.date ? { date: new Date(d.date) } : {}),
+    ...(newDate ? { date: newDate, accountingMonth: newDate.getMonth() + 1, accountingYear: newDate.getFullYear() } : {}),
     ...(d.amount ? { amount: BigInt(d.amount) } : {}),
     ...(d.content !== undefined ? { content: d.content } : {}),
     ...(d.notes !== undefined ? { notes: d.notes } : {}),
@@ -46,8 +45,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     ...(d.partyId !== undefined ? { partyId: d.partyId } : {}),
     ...(d.roomId !== undefined ? { roomId: d.roomId } : {}),
     ...(d.countInBR !== undefined ? { countInBR: d.countInBR } : {}),
-    ...(d.accountingMonth !== undefined ? { accountingMonth: d.accountingMonth } : {}),
-    ...(d.accountingYear !== undefined ? { accountingYear: d.accountingYear } : {}),
   };
   await prisma.transaction.update({ where: { id }, data: updateData });
 
