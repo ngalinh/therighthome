@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty";
-import { Receipt, Send, Plus, Loader2, DollarSign } from "lucide-react";
+import { Receipt, Send, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatVNDCompact, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
@@ -77,7 +77,6 @@ export function AggregatedInvoicesView({
   canSend: boolean;
 }) {
   const router = useRouter();
-  const [generating, setGenerating] = useState(false);
   const [payOpen, setPayOpen] = useState<Invoice | null>(null);
   const [sending, setSending] = useState<string | null>(null);
 
@@ -99,41 +98,6 @@ export function AggregatedInvoicesView({
     if (r !== "ALL" && (next.building ?? buildingFilter) !== "ALL") sp.set("room", r);
     const base = buildingType === "CHDV" ? "/manage/chdv" : "/manage/vp";
     router.push(`${base}?${sp.toString()}`);
-  }
-
-  async function generate() {
-    if (buildingFilter === "ALL") {
-      // Generate for all buildings of this type
-      if (!confirm(`Tạo hoá đơn tháng ${month}/${year} cho toàn bộ ${buildingType === "CHDV" ? "Căn hộ DV" : "Văn phòng"}?`)) return;
-      setGenerating(true);
-      let total = 0;
-      for (const b of buildings) {
-        const res = await fetch(`/api/buildings/${b.id}/invoices`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month, year }),
-        });
-        if (res.ok) {
-          const { created } = await res.json();
-          total += created;
-        }
-      }
-      setGenerating(false);
-      toast.success(total > 0 ? `Đã tạo ${total} hoá đơn` : "Tất cả HĐ đã tồn tại");
-      router.refresh();
-      return;
-    }
-    setGenerating(true);
-    const res = await fetch(`/api/buildings/${buildingFilter}/invoices`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, year }),
-    });
-    setGenerating(false);
-    if (!res.ok) return toast.error("Tạo hoá đơn thất bại");
-    const { created } = await res.json();
-    toast.success(created > 0 ? `Đã tạo ${created} hoá đơn` : "Tất cả HĐ đã tồn tại");
-    router.refresh();
   }
 
   async function send(inv: Invoice) {
@@ -222,12 +186,6 @@ export function AggregatedInvoicesView({
               }),
             }]}
           />
-          {canWrite && (
-            <Button onClick={generate} variant="gradient" disabled={generating}>
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {buildingFilter === "ALL" ? "Tạo HĐ toàn bộ" : "Tạo HĐ tháng này"}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -243,7 +201,7 @@ export function AggregatedInvoicesView({
         <EmptyState
           icon={Receipt}
           title="Chưa có hoá đơn"
-          description={`Bấm "Tạo HĐ" để tự tạo cho tất cả HĐ đang hoạt động.`}
+          description="Chưa có hoá đơn nào trong tháng này."
         />
       ) : (
         <>
