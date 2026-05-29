@@ -36,6 +36,7 @@ export function RevenueExpenseChart({ series }: { series: Point[] }) {
                 <span className="flex gap-3">
                   <span style={{ color: SAGE }}>{formatVND(p.income)}</span>
                   <span style={{ color: EARTHY }}>{formatVND(p.expense)}</span>
+                  <span style={{ color: p.income - p.expense >= 0 ? SAGE : EARTHY }}>{formatVND(p.income - p.expense)}</span>
                 </span>
               </div>
               <div className="space-y-0.5">
