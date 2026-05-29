@@ -67,14 +67,14 @@ export function PnLBreakdownTable({
               <div className="text-[10px] text-slate-500 mt-0.5 ml-4">{pct.toFixed(1)}%</div>
             </button>
             {isOpen && (
-              <div className="bg-slate-50/40 border-t">
-                <table className="w-full text-xs">
+              <div className="bg-slate-50/40 border-t overflow-x-auto">
+                <table className="w-full text-xs min-w-[480px]">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                      <th className="px-4 py-1.5 text-left">Ngày tạo phiếu</th>
-                      <th className="px-2 py-1.5 text-left">Phòng / Đối tượng</th>
-                      <th className="px-2 py-1.5 text-left">Nội dung</th>
-                      <th className="px-4 py-1.5 text-right">Số tiền</th>
+                      <th className="px-4 py-1.5 text-left whitespace-nowrap">Ngày tạo phiếu</th>
+                      <th className="px-2 py-1.5 text-left min-w-[110px]">Phòng / Đối tượng</th>
+                      <th className="px-2 py-1.5 text-left min-w-[180px]">Nội dung</th>
+                      <th className="px-4 py-1.5 text-right whitespace-nowrap">Số tiền</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -89,7 +89,7 @@ export function PnLBreakdownTable({
                           </div>
                         </td>
                         <td className="px-2 py-1.5">
-                          <div className="line-clamp-2">
+                          <div>
                             {d.invoiceId && d.invoiceCode ? (
                               <>
                                 <span className="text-slate-600">{d.content.replace(d.invoiceCode, "").trim() || "Hoá đơn"} · </span>
