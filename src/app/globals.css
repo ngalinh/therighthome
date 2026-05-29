@@ -414,12 +414,15 @@
   .stat:hover .lbl-ico { transform: rotate(-8deg) scale(1.08); }
   .stat-value {
     font-family: var(--font-sans), sans-serif;
-    font-size: 36px; font-weight: 700;
+    font-size: 28px; font-weight: 700;
     line-height: 1; letter-spacing: -0.025em;
     margin-top: 16px; color: var(--text);
     font-variant-numeric: tabular-nums;
     position: relative; z-index: 1;
     white-space: nowrap;
+  }
+  @media (min-width: 1024px) {
+    .stat-value { font-size: 36px; }
   }
   .stat-value sup {
     font-size: 16px; color: var(--text-3); margin-left: 3px;
