@@ -299,14 +299,14 @@ export async function PnLTab({
 
       <div className="grid grid-cols-3 gap-3">
         <div className="stat sage flex flex-col justify-center min-h-[100px]">
-          <div className="stat-label">Tổng thu<br />(BCKD)</div>
+          <div className="stat-label"><span className="hidden lg:inline">Tổng thu (BCKD)</span><span className="lg:hidden">Tổng thu<br />(BCKD)</span></div>
           <div className="stat-value text-base lg:text-xl break-words">
             <span className="lg:hidden">{formatVNDCompact(grandIn)}</span>
             <span className="hidden lg:inline">{formatVND(grandIn)}</span>
           </div>
         </div>
         <div className="stat accent flex flex-col justify-center min-h-[100px]">
-          <div className="stat-label">Tổng chi<br />(BCKD)</div>
+          <div className="stat-label"><span className="hidden lg:inline">Tổng chi (BCKD)</span><span className="lg:hidden">Tổng chi<br />(BCKD)</span></div>
           <div className="stat-value text-base lg:text-xl break-words">
             <span className="lg:hidden">{formatVNDCompact(grandOut)}</span>
             <span className="hidden lg:inline">{formatVND(grandOut)}</span>
