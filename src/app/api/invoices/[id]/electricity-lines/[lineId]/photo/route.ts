@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { saveFile } from "@/lib/storage";
+import { extractMeterReading } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 
@@ -24,12 +25,22 @@ export async function POST(
   if (!f || !["start", "end"].includes(which)) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  const url = await saveFile("electricity", f);
+  const [url, reading] = await Promise.all([
+    saveFile("electricity", f),
+    (async () => {
+      try {
+        const buf = Buffer.from(await f.arrayBuffer());
+        return await extractMeterReading({ mimeType: f.type || "image/jpeg", data: buf.toString("base64") });
+      } catch {
+        return null;
+      }
+    })(),
+  ]);
   await prisma.invoiceElectricityLine.update({
     where: { id: lineId },
     data: which === "start" ? { startPhotoUrl: url } : { endPhotoUrl: url },
   });
-  return NextResponse.json({ url });
+  return NextResponse.json({ url, reading });
 }
 
 export async function DELETE(
