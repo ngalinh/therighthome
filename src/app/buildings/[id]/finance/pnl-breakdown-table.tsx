@@ -71,7 +71,7 @@ export function PnLBreakdownTable({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                      <th className="px-4 py-1.5 text-left">Ngày</th>
+                      <th className="px-4 py-1.5 text-left">Ngày tạo phiếu</th>
                       <th className="px-2 py-1.5 text-left">Phòng / Đối tượng</th>
                       <th className="px-2 py-1.5 text-left">Nội dung</th>
                       <th className="px-4 py-1.5 text-right">Số tiền</th>
