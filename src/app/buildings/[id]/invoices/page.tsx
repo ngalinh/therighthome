@@ -72,7 +72,9 @@ export default async function InvoicesPage({
     const ba = STATUS_BUCKET[a.status] ?? 9;
     const bb = STATUS_BUCKET[b.status] ?? 9;
     if (ba !== bb) return ba - bb;
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    const ra = a.contract?.room?.number ?? "";
+    const rb = b.contract?.room?.number ?? "";
+    return ra.localeCompare(rb, "vi", { numeric: true });
   });
 
   const paymentMethods = await prisma.paymentMethod.findMany({
