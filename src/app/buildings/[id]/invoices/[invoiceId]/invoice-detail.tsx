@@ -1136,9 +1136,15 @@ function ElecLinePhotoField({
     try {
       const res = await fetch(`/api/invoices/${invoiceId}/electricity-lines/${lineId}/photo`, { method: "POST", body: fd });
       if (!res.ok) { toast.error("Upload thất bại"); return; }
-      const { url } = await res.json();
+      const { url, reading } = await res.json();
       setLocalPhoto(url);
-      toast.success("Đã upload ảnh");
+      if (reading != null) {
+        onChange(String(reading));
+        await saveValue(String(reading));
+        toast.success(`AI đọc được số: ${reading}`);
+      } else {
+        toast.success("Đã upload ảnh");
+      }
       router.refresh();
     } catch { toast.error("Lỗi mạng. Thử lại."); }
     finally { setUploading(false); e.target.value = ""; }
@@ -1228,9 +1234,14 @@ function PhotoUploadField({
         toast.error(err.error || `Upload thất bại (${res.status})`);
         return;
       }
-      const { url } = await res.json();
+      const { url, reading } = await res.json();
       setLocalPhoto(url);
-      toast.success("Đã upload ảnh");
+      if (reading != null) {
+        onChange(String(reading));
+        toast.success(`AI đọc được số: ${reading}`);
+      } else {
+        toast.success("Đã upload ảnh");
+      }
       router.refresh();
     } catch (err) {
       toast.error("Lỗi mạng. Thử lại.");
