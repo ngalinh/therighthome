@@ -84,17 +84,32 @@ export default async function InvoiceDetailPage({
         orderBy: { name: "asc" },
       });
   const pm = specific ?? fallback;
-  const paymentMethod = pm
-    ? {
-        id: pm.id,
-        name: pm.name,
-        bankName: pm.bankName,
-        bankBin: pm.bankBin,
-        accountHolder: pm.accountHolder,
-        accountNumber: pm.accountNumber,
-        qrCodeUrl: pm.qrCodeUrl,
-      }
-    : null;
+  const primaryCustomer =
+    inv.contract?.customers.find((c) => c.isPrimary)?.customer ??
+    inv.contract?.customers[0]?.customer;
+  const isIndividual = primaryCustomer?.type === "INDIVIDUAL";
+  const paymentMethod =
+    building.type === "VP" && isIndividual
+      ? {
+          id: "vp-individual",
+          name: "ACB",
+          bankName: "ACB",
+          bankBin: null,
+          accountHolder: "TRAN THI TU LAN",
+          accountNumber: "22558",
+          qrCodeUrl: null,
+        }
+      : pm
+      ? {
+          id: pm.id,
+          name: pm.name,
+          bankName: pm.bankName,
+          bankBin: pm.bankBin,
+          accountHolder: pm.accountHolder,
+          accountNumber: pm.accountNumber,
+          qrCodeUrl: pm.qrCodeUrl,
+        }
+      : null;
 
   return (
     <AppShell
