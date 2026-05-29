@@ -68,12 +68,26 @@ export default async function InvoicesPage({
   const STATUS_BUCKET: Record<string, number> = {
     OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, CANCELLED: 3,
   };
+  // Extract floor number so "Lầu 5" (floor 5) sorts after "P302" (floor 3),
+  // even though "L" < "P" alphabetically.
+  // "Lầu X"  → floor = X,      sub = 0  (Lầu X precedes any PXyz on same floor)
+  // "PXyz"   → floor = X,      sub = 1
+  // others   → floor = 999
+  function roomFloorKey(num: string): number {
+    const lau = num.match(/^lầu\s*(\d+)/i);
+    if (lau) return parseInt(lau[1]) * 10000;
+    const p = num.match(/^[Pp](\d)/);
+    if (p) return parseInt(p[1]) * 10000 + 1;
+    return 999 * 10000;
+  }
   invoices.sort((a, b) => {
     const ba = STATUS_BUCKET[a.status] ?? 9;
     const bb = STATUS_BUCKET[b.status] ?? 9;
     if (ba !== bb) return ba - bb;
     const ra = a.contract?.room?.number ?? "";
     const rb = b.contract?.room?.number ?? "";
+    const fa = roomFloorKey(ra), fb = roomFloorKey(rb);
+    if (fa !== fb) return fa - fb;
     return ra.localeCompare(rb, "vi", { numeric: true });
   });
 
