@@ -510,7 +510,7 @@ function InvoiceCard({ inv, canWrite, canSend, onPay, showCheckbox, selected, on
           </div>
           <div className="flex gap-1.5 items-center justify-end sm:justify-start flex-wrap">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer">Chi tiết</Link>
+              <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
             </Button>
             {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
               <Button onClick={onPay} variant="gradient" size="sm">
