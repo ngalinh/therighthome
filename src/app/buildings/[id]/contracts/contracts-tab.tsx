@@ -109,6 +109,8 @@ export function ContractsTab({
               key={c.id}
               href={`/buildings/${buildingId}/contracts/${c.id}/edit`}
               className="flex overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               {/* Brand left bar */}
               <div
@@ -180,7 +182,7 @@ export function ContractsTab({
               return (
                 <tr key={c.id} className="border-t hover:bg-slate-50/60">
                   <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">
-                    <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`} className="text-primary hover:underline">
+                    <Link href={`/buildings/${buildingId}/contracts/${c.id}/edit`} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                       {c.code}
                     </Link>
                   </td>

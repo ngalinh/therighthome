@@ -499,7 +499,7 @@ function InvoiceTable({
           return (
             <tr key={inv.id} className="border-t hover:bg-slate-50/60">
               <td className="px-3 py-2.5 whitespace-nowrap">
-                <Link href={`/buildings/${buildingId}/invoices/${inv.id}`} className="block hover:underline">
+                <Link href={`/buildings/${buildingId}/invoices/${inv.id}`} className="block hover:underline" target="_blank" rel="noopener noreferrer">
                   <div className="font-semibold text-sm text-slate-900">{inv.contract.room.number}</div>
                   <div className="font-mono text-[11px] text-primary">{inv.code}</div>
                 </Link>
@@ -607,7 +607,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
           </div>
           <div className="flex gap-1.5 items-center justify-end sm:justify-start flex-wrap">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/buildings/${buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
+              <Link href={`/buildings/${buildingId}/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer">Chi tiết</Link>
             </Button>
             {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
               <Button onClick={onPay} variant="gradient" size="sm">

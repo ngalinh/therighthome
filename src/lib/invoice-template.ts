@@ -144,16 +144,6 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
 
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
-<<<<<<< HEAD
-    <div style="display:table;width:100%">
-      <div style="display:table-cell;vertical-align:middle;width:60px">${KEY_ICON_SVG}</div>
-      <div style="display:table-cell;vertical-align:middle;padding-left:12px">
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.2em;opacity:0.9;color:#fff;margin-bottom:2px">THE RIGHT HOME</div>
-        <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2">${d.buildingName}</div>
-        <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
-      </div>
-    </div>
-=======
     <table style="border-collapse:collapse;width:100%"><tr>
       <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG}</td>
       <td style="vertical-align:middle;padding-left:12px">
@@ -162,7 +152,6 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
         <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
       </td>
     </tr></table>
->>>>>>> 7aa42c7 (feat: VP invoices — K300 Office branding, email icon fix, sort by dueDate+building, bulk email send)
     <div style="margin-top:16px;display:table;width:100%">
       <div style="display:table-cell;vertical-align:bottom">
         <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Phiếu thanh toán</div>
