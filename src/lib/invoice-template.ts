@@ -47,7 +47,7 @@ export type InvoiceEmailData = {
 };
 
 const KEY_ICON_SVG = (baseUrl: string) =>
-  `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:28px;height:28px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle"><img src="${baseUrl}/key-icon.svg" width="28" height="28" alt="" style="display:block;border:0" /></td></tr></table>`;
+  `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:28px;height:28px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.2);text-align:center;vertical-align:middle"><img src="${baseUrl}/key-icon.svg" width="28" height="28" alt="" style="display:block;border:0" /></td></tr></table>`;
 
 function costRow(label: string, value: string, bold = false, positive = false, danger = false) {
   const valueStyle = [
@@ -138,99 +138,81 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f1f5f9;margin:0;padding:24px">
 <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-
-  <!-- Header -->
-  <div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
-    <table style="border-collapse:collapse;width:100%"><tr>
-      <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG(appBaseUrl)}</td>
-      <td style="vertical-align:middle;padding-left:12px">
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.2em;opacity:0.9;color:#fff;margin-bottom:2px">${d.buildingType === "VP" ? "K300 OFFICE" : "THE RIGHT HOME"}</div>
-        <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2">${d.buildingName}</div>
-        <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
-      </td>
-    </tr></table>
-    <div style="margin-top:16px;display:table;width:100%">
-      <div style="display:table-cell;vertical-align:bottom">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Phiếu thanh toán</div>
-        <div style="font-size:15px;font-weight:600;color:#fff">Tháng ${String(d.month).padStart(2, "0")}/${d.year}</div>
-      </div>
-      <div style="display:table-cell;text-align:right;vertical-align:bottom">
-        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Mã hoá đơn</div>
-        <div style="font-family:monospace;font-size:13px;font-weight:600;color:#fff">${d.invoiceCode}</div>
-      </div>
+<div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
+  <table style="border-collapse:collapse;width:100%"><tr>
+    <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG(appBaseUrl)}</td>
+    <td style="vertical-align:middle;padding-left:12px">
+      <div style="font-size:10px;font-weight:600;letter-spacing:0.2em;opacity:0.9;color:#fff;margin-bottom:2px">${d.buildingType === "VP" ? "K300 OFFICE" : "THE RIGHT HOME"}</div>
+      <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2">${d.buildingName}</div>
+      <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
+    </td>
+  </tr></table>
+  <div style="margin-top:16px;display:table;width:100%">
+    <div style="display:table-cell;vertical-align:bottom">
+      <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Phiếu thanh toán</div>
+      <div style="font-size:15px;font-weight:600;color:#fff">Tháng ${String(d.month).padStart(2, "0")}/${d.year}</div>
+    </div>
+    <div style="display:table-cell;text-align:right;vertical-align:bottom">
+      <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Mã hoá đơn</div>
+      <div style="font-family:monospace;font-size:13px;font-weight:600;color:#fff">${d.invoiceCode}</div>
     </div>
   </div>
-
-  <!-- Customer info -->
-  <div style="padding:16px 28px;border-bottom:1px solid #e2e8f0;background:#fafafa">
-    <table width="100%" style="border-collapse:collapse">
-      <tr>
-        <td style="padding:0 12px 10px 0;vertical-align:top;width:50%">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Khách hàng</div>
-          <div style="font-size:13px;font-weight:600;color:#1e293b">${d.customerName}</div>
-        </td>
-        <td style="padding:0 0 10px 0;vertical-align:top;width:50%">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Phòng</div>
-          <div style="font-size:13px;font-weight:600;color:#1e293b">${d.roomNumber}</div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:0 12px 0 0;vertical-align:top">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Hạn thanh toán</div>
-          <div style="font-size:13px;font-weight:600;color:#1e293b">${formatDateVN(d.dueDate)}</div>
-        </td>
-        <td style="vertical-align:top">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Loại</div>
-          <div style="font-size:13px;font-weight:600;color:#1e293b">${d.buildingType === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"}</div>
-        </td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- Cost breakdown -->
-  <div style="padding:20px 28px">
-    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Chi tiết chi phí</div>
-    <table width="100%" style="border-collapse:collapse">
-      <tbody>
-        ${costRows}
-      </tbody>
-      <tfoot>
-        <tr><td colspan="2" style="padding:6px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>
-        ${costRow("Tổng phải thu", formatVND(d.totalAmount), true)}
-        ${d.paidAmount > 0n ? costRow("Đã thu", formatVND(d.paidAmount), false, true) : ""}
-        ${remaining > 0n ? costRow("Còn lại", formatVND(remaining), true, false, true) : ""}
-      </tfoot>
-    </table>
-    ${d.notes ? `<div style="margin-top:12px;padding:10px 12px;background:#fef9ec;border-radius:8px;font-size:12px;color:#78350f;border-left:3px solid #f59e0b"><strong>Ghi chú:</strong> ${d.notes}</div>` : ""}
-  </div>
-
-  ${d.paymentMethod ? `
-  <div style="padding:16px 28px 20px">
-    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Thông tin chuyển khoản</div>
-    <table width="100%" style="border-collapse:collapse">
-      <tr>
-        <td style="vertical-align:top">
-          <table style="border-collapse:collapse;font-size:13px">
-            ${d.paymentMethod.bankName ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0;min-width:130px">Ngân hàng:</td><td style="font-weight:600;color:#1e293b">${d.paymentMethod.bankName}</td></tr>` : ""}
-            ${d.paymentMethod.accountHolder ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0">Chủ tài khoản:</td><td style="font-weight:600;color:#1e293b">${d.paymentMethod.accountHolder}</td></tr>` : ""}
-            ${d.paymentMethod.accountNumber ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0">Số tài khoản:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${d.paymentMethod.accountNumber}</td></tr>` : ""}
-            <tr><td style="color:#64748b;padding:3px 16px 3px 0">Nội dung CK:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${transferContent}</td></tr>
-            <tr><td style="color:#64748b;padding:3px 16px 3px 0">Số tiền CK:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${formatVND(amountForQr)}</td></tr>
-          </table>
-        </td>
-        ${qrSrc ? `<td style="text-align:center;vertical-align:top;padding-left:16px;width:160px">
-          <img src="${qrSrc}" alt="QR chuyển khoản" width="140" height="140" style="display:block;border-radius:8px" />
-          <div style="font-size:10px;color:#94a3b8;margin-top:4px">Quét để chuyển khoản</div>
-        </td>` : ""}
-      </tr>
-    </table>
-  </div>` : ""}
-
-  <!-- Footer -->
-  <div style="padding:14px 28px;text-align:center;border-top:1px solid #e2e8f0">
-    <p style="margin:0;font-size:11px;color:#94a3b8">Cảm ơn quý khách đã sử dụng dịch vụ của ${d.buildingType === "VP" ? "K300 Office" : "The Right Home"}</p>
-  </div>
-
+</div>
+<div style="padding:16px 28px;border-bottom:1px solid #e2e8f0;background:#fafafa">
+  <table width="100%" style="border-collapse:collapse">
+    <tr>
+      <td style="padding:0 12px 10px 0;vertical-align:top;width:50%">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Khách hàng</div>
+        <div style="font-size:13px;font-weight:600;color:#1e293b">${d.customerName}</div>
+      </td>
+      <td style="padding:0 0 10px 0;vertical-align:top;width:50%">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Phòng</div>
+        <div style="font-size:13px;font-weight:600;color:#1e293b">${d.roomNumber}</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 12px 0 0;vertical-align:top">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Hạn thanh toán</div>
+        <div style="font-size:13px;font-weight:600;color:#1e293b">${formatDateVN(d.dueDate)}</div>
+      </td>
+      <td style="vertical-align:top">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:3px">Loại</div>
+        <div style="font-size:13px;font-weight:600;color:#1e293b">${d.buildingType === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"}</div>
+      </td>
+    </tr>
+  </table>
+</div>
+<div style="padding:20px 28px">
+  <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Chi tiết chi phí</div>
+  <table width="100%" style="border-collapse:collapse">
+    <tbody>${costRows}</tbody>
+    <tfoot>
+      <tr><td colspan="2" style="padding:6px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>
+      ${costRow("Tổng phải thu", formatVND(d.totalAmount), true)}
+      ${d.paidAmount > 0n ? costRow("Đã thu", formatVND(d.paidAmount), false, true) : ""}
+      ${remaining > 0n ? costRow("Còn lại", formatVND(remaining), true, false, true) : ""}
+    </tfoot>
+  </table>
+  ${d.notes ? `<div style="margin-top:12px;padding:10px 12px;background:#fef9ec;border-radius:8px;font-size:12px;color:#78350f;border-left:3px solid #f59e0b"><strong>Ghi chú:</strong> ${d.notes}</div>` : ""}
+</div>
+${d.paymentMethod ? `<div style="padding:16px 28px 20px">
+  <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Thông tin chuyển khoản</div>
+  <table width="100%" style="border-collapse:collapse"><tr>
+    <td style="vertical-align:top">
+      <table style="border-collapse:collapse;font-size:13px">
+        ${d.paymentMethod.bankName ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0;min-width:130px">Ngân hàng:</td><td style="font-weight:600;color:#1e293b">${d.paymentMethod.bankName}</td></tr>` : ""}
+        ${d.paymentMethod.accountHolder ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0">Chủ tài khoản:</td><td style="font-weight:600;color:#1e293b">${d.paymentMethod.accountHolder}</td></tr>` : ""}
+        ${d.paymentMethod.accountNumber ? `<tr><td style="color:#64748b;padding:3px 16px 3px 0">Số tài khoản:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${d.paymentMethod.accountNumber}</td></tr>` : ""}
+        <tr><td style="color:#64748b;padding:3px 16px 3px 0">Nội dung CK:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${transferContent}</td></tr>
+        <tr><td style="color:#64748b;padding:3px 16px 3px 0">Số tiền CK:</td><td style="font-family:monospace;font-weight:600;color:#1e293b">${formatVND(amountForQr)}</td></tr>
+      </table>
+    </td>
+    ${qrSrc ? `<td style="text-align:center;vertical-align:top;padding-left:16px;width:160px"><img src="${qrSrc}" alt="QR" width="140" height="140" style="display:block;border-radius:8px" /><div style="font-size:10px;color:#94a3b8;margin-top:4px">Quét để chuyển khoản</div></td>` : ""}
+  </tr></table>
+</div>` : ""}
+<div style="padding:14px 28px;text-align:center;border-top:1px solid #e2e8f0">
+  <p style="margin:0;font-size:11px;color:#94a3b8">Cảm ơn quý khách đã sử dụng dịch vụ của ${d.buildingType === "VP" ? "K300 Office" : "The Right Home"}</p>
+</div>
 </div>
 </body></html>`;
 }

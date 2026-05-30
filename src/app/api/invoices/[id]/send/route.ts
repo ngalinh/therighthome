@@ -116,6 +116,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       to: primary.email,
       subject: `Hoá đơn ${String(inv.month).padStart(2, "0")}/${inv.year} — Phòng ${room?.number ?? ""} — ${inv.building.name}`,
       html,
+      headers: { "X-Entity-Ref-ID": inv.id },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

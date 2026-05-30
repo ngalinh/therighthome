@@ -29,6 +29,7 @@ export async function sendEmail(args: {
   html: string;
   text?: string;
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  headers?: Record<string, string>;
 }) {
   const t = getTransporter();
   return t.sendMail({
@@ -38,6 +39,7 @@ export async function sendEmail(args: {
     html: args.html,
     text: args.text,
     attachments: args.attachments,
+    headers: args.headers,
   });
 }
 
