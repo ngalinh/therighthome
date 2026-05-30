@@ -209,7 +209,11 @@ export async function ManageTypePage({
     const ba = STATUS_BUCKET[a.status] ?? 9;
     const bb = STATUS_BUCKET[b.status] ?? 9;
     if (ba !== bb) return ba - bb;
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    const dateDiff = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    const buildingDiff = a.building.name.localeCompare(b.building.name, "vi");
+    if (buildingDiff !== 0) return buildingDiff;
+    return a.contract.room.number.localeCompare(b.contract.room.number, "vi");
   });
 
   // Payment methods for invoice payment dialog.

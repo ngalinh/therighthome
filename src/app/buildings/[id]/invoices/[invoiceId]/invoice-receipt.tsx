@@ -276,7 +276,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
             <KeyRoundIcon />
           </div>
           <div className="min-w-0 leading-snug">
-            <div className="text-[10px] font-semibold tracking-[0.2em] opacity-90 mb-1">THE RIGHT HOME</div>
+            <div className="text-[10px] font-semibold tracking-[0.2em] opacity-90 mb-1">{data.buildingType === "VP" ? "K300 OFFICE" : "THE RIGHT HOME"}</div>
             <div className="text-lg font-bold mb-1">{data.buildingName}</div>
             <div className="text-[11px] opacity-90">{data.buildingAddress}</div>
           </div>

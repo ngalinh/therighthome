@@ -78,7 +78,6 @@ export function AggregatedInvoicesView({
 }) {
   const router = useRouter();
   const [payOpen, setPayOpen] = useState<Invoice | null>(null);
-  const [sending, setSending] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
 
@@ -124,20 +123,6 @@ export function AggregatedInvoicesView({
     } else {
       setSelectedIds(new Set(selectableInvoices.map((i) => i.id)));
     }
-  }
-
-  async function send(inv: Invoice) {
-    const primary = inv.contract.customers[0]?.customer;
-    if (!primary?.email) return toast.error("Khách thuê chưa có email");
-    setSending(inv.id);
-    const res = await fetch(`/api/invoices/${inv.id}/send`, { method: "POST" });
-    setSending(null);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return toast.error(err.error || "Gửi thất bại");
-    }
-    toast.success("Đã gửi email");
-    router.refresh();
   }
 
   async function bulkSend() {
@@ -269,8 +254,6 @@ export function AggregatedInvoicesView({
                 inv={inv}
                 canWrite={canWrite}
                 canSend={canSend}
-                sending={sending === inv.id}
-                onSend={() => send(inv)}
                 onPay={() => setPayOpen(inv)}
                 showCheckbox={isVP && canSend}
                 selected={selectedIds.has(inv.id)}
@@ -287,8 +270,6 @@ export function AggregatedInvoicesView({
                 isVP={isVP}
                 canWrite={canWrite}
                 canSend={canSend}
-                sending={sending}
-                onSend={send}
                 onPay={(inv) => setPayOpen(inv)}
                 showCheckbox={isVP && canSend}
                 selectedIds={selectedIds}
@@ -329,15 +310,13 @@ function GradStat({ label, mobileValue, desktopValue, variant }: {
 }
 
 function InvoiceTable({
-  invoices, isVP, canWrite, canSend, sending, onSend, onPay,
+  invoices, isVP, canWrite, canSend, onPay,
   showCheckbox, selectedIds, onToggleSelect, onToggleSelectAll, selectableCount,
 }: {
   invoices: Invoice[];
   isVP: boolean;
   canWrite: boolean;
   canSend: boolean;
-  sending: string | null;
-  onSend: (inv: Invoice) => void;
   onPay: (inv: Invoice) => void;
   showCheckbox: boolean;
   selectedIds: Set<string>;
@@ -465,11 +444,6 @@ function InvoiceTable({
                       <DollarSign className="h-3 w-3" />
                     </Button>
                   )}
-                  {canSend && primary?.email && inv.status !== "CANCELLED" && (
-                    <Button onClick={() => onSend(inv)} variant="ghost" size="sm" className="h-7 px-2" disabled={sending === inv.id}>
-                      {sending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                    </Button>
-                  )}
                 </div>
               </td>
             </tr>
@@ -480,12 +454,10 @@ function InvoiceTable({
   );
 }
 
-function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay, showCheckbox, selected, onToggleSelect }: {
+function InvoiceCard({ inv, canWrite, canSend, onPay, showCheckbox, selected, onToggleSelect }: {
   inv: Invoice;
   canWrite: boolean;
   canSend: boolean;
-  sending: boolean;
-  onSend: () => void;
   onPay: () => void;
   showCheckbox: boolean;
   selected: boolean;
@@ -543,11 +515,6 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay, showCheck
             {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
               <Button onClick={onPay} variant="gradient" size="sm">
                 <DollarSign className="h-3.5 w-3.5" /> Ghi nhận
-              </Button>
-            )}
-            {canSend && primary?.email && inv.status !== "CANCELLED" && (
-              <Button onClick={onSend} variant="ghost" size="sm" disabled={sending}>
-                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               </Button>
             )}
           </div>
