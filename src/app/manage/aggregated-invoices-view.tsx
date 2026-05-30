@@ -69,8 +69,8 @@ export function AggregatedInvoicesView({
   month: number;
   year: number;
   status: string;
-  buildingFilter: string; // "ALL" or buildingId
-  roomFilter: string; // "ALL" or roomId
+  buildingFilter: string;
+  roomFilter: string;
   invoices: Invoice[];
   paymentMethods: { id: string; name: string }[];
   canWrite: boolean;
@@ -79,10 +79,19 @@ export function AggregatedInvoicesView({
   const router = useRouter();
   const [payOpen, setPayOpen] = useState<Invoice | null>(null);
   const [sending, setSending] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
+
+  const isVP = buildingType === "VP";
 
   const filteredRooms = useMemo(
     () => buildingFilter === "ALL" ? [] : rooms.filter((r) => r.buildingId === buildingFilter),
     [rooms, buildingFilter],
+  );
+
+  const selectableInvoices = useMemo(
+    () => invoices.filter((inv) => inv.contract.customers[0]?.customer?.email && inv.status !== "CANCELLED"),
+    [invoices],
   );
 
   function navigate(next: Partial<{ month: number; year: number; status: string; building: string; room: string }>) {
@@ -100,6 +109,23 @@ export function AggregatedInvoicesView({
     router.push(`${base}?${sp.toString()}`);
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === selectableInvoices.length && selectableInvoices.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableInvoices.map((i) => i.id)));
+    }
+  }
+
   async function send(inv: Invoice) {
     const primary = inv.contract.customers[0]?.customer;
     if (!primary?.email) return toast.error("Khách thuê chưa có email");
@@ -114,11 +140,26 @@ export function AggregatedInvoicesView({
     router.refresh();
   }
 
+  async function bulkSend() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBulkSending(true);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
+      if (res.ok) ok++;
+      else fail++;
+    }
+    setBulkSending(false);
+    setSelectedIds(new Set());
+    if (fail === 0) toast.success(`Đã gửi ${ok} hoá đơn`);
+    else toast.warning(`Gửi thành công ${ok}, thất bại ${fail}`);
+    router.refresh();
+  }
+
   const totalDue = invoices.reduce((s, i) => s + Number(i.totalAmount), 0);
   const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length;
-
-  const isVP = buildingType === "VP";
 
   return (
     <div className="space-y-4">
@@ -159,7 +200,13 @@ export function AggregatedInvoicesView({
             </SelectContent>
           </Select>
         )}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 items-center">
+          {isVP && canSend && selectedIds.size > 0 && (
+            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending}>
+              {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Gửi qua email ({selectedIds.size})
+            </Button>
+          )}
           <ExportExcelButton
             filename={`hoa-don-${buildingType.toLowerCase()}-${month}-${year}.xlsx`}
             sheets={() => [{
@@ -216,6 +263,9 @@ export function AggregatedInvoicesView({
                 sending={sending === inv.id}
                 onSend={() => send(inv)}
                 onPay={() => setPayOpen(inv)}
+                showCheckbox={isVP && canSend}
+                selected={selectedIds.has(inv.id)}
+                onToggleSelect={() => toggleSelect(inv.id)}
               />
             ))}
           </div>
@@ -231,6 +281,11 @@ export function AggregatedInvoicesView({
                 sending={sending}
                 onSend={send}
                 onPay={(inv) => setPayOpen(inv)}
+                showCheckbox={isVP && canSend}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                selectableCount={selectableInvoices.length}
               />
             </CardContent>
           </Card>
@@ -266,6 +321,7 @@ function GradStat({ label, mobileValue, desktopValue, variant }: {
 
 function InvoiceTable({
   invoices, isVP, canWrite, canSend, sending, onSend, onPay,
+  showCheckbox, selectedIds, onToggleSelect, onToggleSelectAll, selectableCount,
 }: {
   invoices: Invoice[];
   isVP: boolean;
@@ -274,6 +330,11 @@ function InvoiceTable({
   sending: string | null;
   onSend: (inv: Invoice) => void;
   onPay: (inv: Invoice) => void;
+  showCheckbox: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  selectableCount: number;
 }) {
   const activeInvoices = invoices.filter((i) => i.status !== "CANCELLED");
   const totRent = activeInvoices.reduce((s, i) => s + BigInt(i.rentAmount), 0n);
@@ -286,10 +347,25 @@ function InvoiceTable({
     - activeInvoices.reduce((s, i) => s + BigInt(i.repairFee) + BigInt(i.extraParkingFee) + BigInt(i.serviceFee) + BigInt(i.waterFee), 0n);
   const totRemaining = totTotal - totPaid;
 
+  const allSelected = selectableCount > 0 && selectedIds.size === selectableCount;
+  const someSelected = !allSelected && selectedIds.size > 0;
+
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+          {showCheckbox && (
+            <th className="pl-3 py-2.5 text-center w-8">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                onChange={onToggleSelectAll}
+                className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer"
+                title="Chọn tất cả"
+              />
+            </th>
+          )}
           <th className="px-3 py-2.5 text-left">Toà nhà</th>
           <th className="px-3 py-2.5 text-left">Phòng / Mã HĐ</th>
           <th className="px-3 py-2.5 text-left">Khách thuê</th>
@@ -307,7 +383,7 @@ function InvoiceTable({
       </thead>
       <tbody>
         <tr className="border-b-2 font-semibold text-slate-700" style={{ background: "linear-gradient(135deg, #fef2e8 0%, #fbddc8 100%)", borderBottomColor: "#f8d0b8" }}>
-          <td className="px-3 py-2.5 font-semibold text-slate-700" colSpan={4}>Tổng cộng ({invoices.length} HĐ)</td>
+          <td className="px-3 py-2.5 font-semibold text-slate-700" colSpan={showCheckbox ? 5 : 4}>Tổng cộng ({invoices.length} HĐ)</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRent)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totElec)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totParking)}</td>
@@ -326,8 +402,21 @@ function InvoiceTable({
           const overdueDays = inv.status === "OVERDUE"
             ? Math.max(1, Math.ceil((Date.now() - new Date(inv.dueDate).getTime()) / (24 * 3600 * 1000)))
             : null;
+          const selectable = showCheckbox && !!primary?.email && inv.status !== "CANCELLED";
           return (
             <tr key={inv.id} className="border-t hover:bg-slate-50/60">
+              {showCheckbox && (
+                <td className="pl-3 py-2.5 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(inv.id)}
+                    onChange={() => onToggleSelect(inv.id)}
+                    disabled={!selectable}
+                    className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={selectable ? undefined : "Khách chưa có email"}
+                  />
+                </td>
+              )}
               <td className="px-3 py-2.5">
                 <div className="line-clamp-2 break-words" style={{ maxWidth: 180, minWidth: 140 }} title={inv.building.name}>{inv.building.name}</div>
               </td>
@@ -382,19 +471,23 @@ function InvoiceTable({
   );
 }
 
-function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
+function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay, showCheckbox, selected, onToggleSelect }: {
   inv: Invoice;
   canWrite: boolean;
   canSend: boolean;
   sending: boolean;
   onSend: () => void;
   onPay: () => void;
+  showCheckbox: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const primary = inv.contract.customers[0]?.customer;
   const name = customerDisplayName(primary);
   const st = STATUS[inv.status] ?? { label: inv.status, variant: "secondary" as const };
   const remaining = BigInt(inv.totalAmount) - BigInt(inv.paidAmount);
   const overdueDays = inv.status === "OVERDUE" ? Math.max(1, Math.ceil((Date.now() - new Date(inv.dueDate).getTime()) / (24 * 3600 * 1000))) : null;
+  const selectable = showCheckbox && !!primary?.email && inv.status !== "CANCELLED";
 
   return (
     <Card>
@@ -402,6 +495,16 @@ function InvoiceCard({ inv, canWrite, canSend, sending, onSend, onPay }: {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {showCheckbox && (
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={onToggleSelect}
+                  disabled={!selectable}
+                  className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  title={selectable ? undefined : "Khách chưa có email"}
+                />
+              )}
               <span className="text-xs font-mono text-slate-500">{inv.code}</span>
               <Badge variant={st.variant}>
                 {st.label}
