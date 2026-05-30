@@ -144,16 +144,25 @@ export function AggregatedInvoicesView({
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     setBulkSending(true);
-    let ok = 0, fail = 0;
+    let ok = 0;
+    const errors: string[] = [];
     for (const id of ids) {
       const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
-      if (res.ok) ok++;
-      else fail++;
+      if (res.ok) {
+        ok++;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        errors.push(err.error || `Lỗi ${res.status}`);
+      }
     }
     setBulkSending(false);
     setSelectedIds(new Set());
-    if (fail === 0) toast.success(`Đã gửi ${ok} hoá đơn`);
-    else toast.warning(`Gửi thành công ${ok}, thất bại ${fail}`);
+    if (errors.length === 0) {
+      toast.success(`Đã gửi ${ok} hoá đơn`);
+    } else {
+      toast.error(errors[0]);
+      if (ok > 0) toast.success(`Đã gửi thêm ${ok} hoá đơn`);
+    }
     router.refresh();
   }
 

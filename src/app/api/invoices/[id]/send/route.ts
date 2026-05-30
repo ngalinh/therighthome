@@ -67,11 +67,17 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     })),
   });
 
-  await sendEmail({
-    to: primary.email,
-    subject: `Hoá đơn ${String(inv.month).padStart(2, "0")}/${inv.year} — Phòng ${room?.number ?? ""} — ${inv.building.name}`,
-    html,
-  });
+  try {
+    await sendEmail({
+      to: primary.email,
+      subject: `Hoá đơn ${String(inv.month).padStart(2, "0")}/${inv.year} — Phòng ${room?.number ?? ""} — ${inv.building.name}`,
+      html,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[invoice/send] SMTP error:", msg);
+    return NextResponse.json({ error: `Gửi email thất bại: ${msg}` }, { status: 500 });
+  }
 
   await prisma.invoice.update({ where: { id }, data: { sentAt: new Date() } });
   await prisma.auditLog.create({
