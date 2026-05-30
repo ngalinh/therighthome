@@ -138,8 +138,14 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
   }
 
   return `<!doctype html>
-<html><body style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f1f5f9;margin:0;padding:24px">
-<div style="max-width:540px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap');</style>
+</head>
+<body style="font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f1f5f9;margin:0;padding:24px">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
 <div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
   <table style="border-collapse:collapse;width:100%"><tr>
     <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG(appBaseUrl)}</td>

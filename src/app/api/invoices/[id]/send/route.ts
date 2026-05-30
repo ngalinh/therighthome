@@ -74,7 +74,9 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     buildingName: inv.building.name,
     buildingAddress: inv.building.address,
     buildingType: inv.building.type as "CHDV" | "VP",
-    customerName: primary.fullName || primary.companyName || "Khách thuê",
+    customerName: primary.type === "COMPANY"
+      ? (primary.companyName || primary.fullName || "Khách thuê")
+      : (primary.fullName || primary.companyName || "Khách thuê"),
     customerPhone: primary.phone ?? null,
     roomNumber: room?.number ?? "—",
     invoiceCode: inv.code,
