@@ -46,12 +46,7 @@ export type InvoiceEmailData = {
   } | null;
 };
 
-const KEY_ICON_SVG = `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle;padding:10px">
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff7e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">
-    <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
-    <circle cx="16.5" cy="7.5" r=".5" fill="#fff7e8" />
-  </svg>
-</td></tr></table>`;
+const KEY_ICON_SVG = `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle;font-size:24px;line-height:1">🔑</td></tr></table>`;
 
 function costRow(label: string, value: string, bold = false, positive = false, danger = false) {
   const valueStyle = [
@@ -119,7 +114,7 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       d.repairFee > 0n ? costRow("Phí sửa chữa", formatVND(d.repairFee)) : "",
       d.extraParkingFee > 0n ? costRow("Phí xe lẻ", formatVND(d.extraParkingFee)) : "",
       `<tr><td colspan="2" style="padding:4px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>`,
-      costRow("Cộng chưa VAT", formatVND(subtotal)),
+      costRow("Tổng chưa VAT", formatVND(subtotal)),
       costRow(`VAT (${vatPct}%)`, formatVND(totalVat)),
     ].join("");
   } else {

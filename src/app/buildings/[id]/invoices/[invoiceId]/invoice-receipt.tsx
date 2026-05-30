@@ -345,7 +345,7 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                     {data.repairFee > 0n && <CostRow label="Phí sửa chữa" value={formatVND(data.repairFee)} />}
                     {data.extraParkingFee > 0n && <CostRow label="Phí xe lẻ" value={formatVND(data.extraParkingFee)} />}
                     <tr><td colSpan={2} style={{ paddingTop: 4, paddingBottom: 4 }}><div className="border-t border-slate-200" /></td></tr>
-                    <CostRow label="Cộng chưa VAT" value={formatVND(subtotal)} />
+                    <CostRow label="Tổng chưa VAT" value={formatVND(subtotal)} />
                     <CostRow label={`VAT (${vatPct}%)`} value={formatVND(totalVat)} />
                   </>
                 );
