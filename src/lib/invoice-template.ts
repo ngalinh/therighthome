@@ -1,4 +1,4 @@
-import { formatVND, formatDateVN, rentPeriodLabel } from "@/lib/utils";
+import { formatVND, formatDateVN } from "@/lib/utils";
 import { vietQrUrl } from "@/lib/vn-banks";
 
 export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
@@ -46,12 +46,12 @@ export type InvoiceEmailData = {
   } | null;
 };
 
-const KEY_ICON_SVG = `<div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff7e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+const KEY_ICON_SVG = `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle;padding:10px">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff7e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">
     <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 0 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
     <circle cx="16.5" cy="7.5" r=".5" fill="#fff7e8" />
   </svg>
-</div>`;
+</td></tr></table>`;
 
 function costRow(label: string, value: string, bold = false, positive = false, danger = false) {
   const valueStyle = [
@@ -144,6 +144,7 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
 
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
+<<<<<<< HEAD
     <div style="display:table;width:100%">
       <div style="display:table-cell;vertical-align:middle;width:60px">${KEY_ICON_SVG}</div>
       <div style="display:table-cell;vertical-align:middle;padding-left:12px">
@@ -152,6 +153,16 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
         <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
       </div>
     </div>
+=======
+    <table style="border-collapse:collapse;width:100%"><tr>
+      <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG}</td>
+      <td style="vertical-align:middle;padding-left:12px">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.2em;opacity:0.9;color:#fff;margin-bottom:2px">${d.buildingType === "VP" ? "K300 OFFICE" : "THE RIGHT HOME"}</div>
+        <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2">${d.buildingName}</div>
+        <div style="font-size:11px;opacity:0.9;color:#fff;margin-top:2px">${d.buildingAddress}</div>
+      </td>
+    </tr></table>
+>>>>>>> 7aa42c7 (feat: VP invoices — K300 Office branding, email icon fix, sort by dueDate+building, bulk email send)
     <div style="margin-top:16px;display:table;width:100%">
       <div style="display:table-cell;vertical-align:bottom">
         <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.8)">Phiếu thanh toán</div>
