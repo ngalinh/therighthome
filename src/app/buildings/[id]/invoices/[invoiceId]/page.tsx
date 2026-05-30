@@ -117,8 +117,7 @@ export default async function InvoiceDetailPage({
       buildingNav={{ buildingId: id, buildingName: building.name, type: building.type }}
     >
       <PageHeader
-        eyebrow={inv.code}
-        title="Hoá đơn"
+        title={`Hoá đơn ${inv.code}`}
         description={`${building.name} · Tháng ${inv.month}/${inv.year}`}
         gradient={building.type === "CHDV" ? "chdv" : "vp"}
       />
