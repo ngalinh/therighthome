@@ -238,9 +238,9 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
   // invoiceCode + room number (room.number already includes any P prefix the
   // user wants) if no phone is on file.
   const phoneDigits = (data.customer?.phone ?? "").replace(/\D/g, "");
-  const transferContent = phoneDigits
-    ? `DT${phoneDigits}`
-    : `${data.invoiceCode} ${data.roomNumber}`;
+  const transferContent = data.buildingType === "VP"
+    ? `${data.roomNumber} ${data.buildingName}`
+    : (phoneDigits ? `DT${phoneDigits}` : `${data.invoiceCode} ${data.roomNumber}`);
 
   // VietQR auto-render: if the payment method has a bank BIN selected, build
   // a vietqr.io image URL with this invoice's outstanding amount + the

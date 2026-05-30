@@ -58,7 +58,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   const isIndividual = primary.type === "INDIVIDUAL";
   const paymentMethod =
     inv.building.type === "VP" && isIndividual
-      ? { bankName: "ACB", bankBin: null, accountHolder: "TRAN THI TU LAN", accountNumber: "22558", qrCodeUrl: null }
+      ? { bankName: "ACB", bankBin: "970416", accountHolder: "TRAN THI TU LAN", accountNumber: "22558", qrCodeUrl: null }
       : pm
       ? { bankName: pm.bankName, bankBin: pm.bankBin, accountHolder: pm.accountHolder, accountNumber: pm.accountNumber, qrCodeUrl: pm.qrCodeUrl }
       : null;

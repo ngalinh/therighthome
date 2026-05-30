@@ -94,7 +94,7 @@ export default async function InvoiceDetailPage({
           id: "vp-individual",
           name: "ACB",
           bankName: "ACB",
-          bankBin: null,
+          bankBin: "970416",
           accountHolder: "TRAN THI TU LAN",
           accountNumber: "22558",
           qrCodeUrl: null,

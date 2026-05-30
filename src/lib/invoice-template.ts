@@ -77,7 +77,9 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
 
   // Transfer info
   const phoneDigits = (d.customerPhone ?? "").replace(/\D/g, "");
-  const transferContent = phoneDigits ? `DT${phoneDigits}` : `${d.invoiceCode} ${d.roomNumber}`;
+  const transferContent = d.buildingType === "VP"
+    ? `${d.roomNumber} ${d.buildingName}`
+    : (phoneDigits ? `DT${phoneDigits}` : `${d.invoiceCode} ${d.roomNumber}`);
   const amountForQr = remaining > 0n ? remaining : d.totalAmount;
   const qrSrc = vietQrUrl({
     bankBin: d.paymentMethod?.bankBin,
