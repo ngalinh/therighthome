@@ -46,7 +46,8 @@ export type InvoiceEmailData = {
   } | null;
 };
 
-const KEY_ICON_SVG = `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle;font-size:24px;line-height:1">🔑</td></tr></table>`;
+const KEY_ICON_SVG = (baseUrl: string) =>
+  `<table style="border-collapse:collapse;display:inline-table"><tr><td style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);text-align:center;vertical-align:middle;padding:10px"><img src="${baseUrl}/key-icon.svg" width="28" height="28" alt="" style="display:block;border:0" /></td></tr></table>`;
 
 function costRow(label: string, value: string, bold = false, positive = false, danger = false) {
   const valueStyle = [
@@ -68,6 +69,7 @@ function feeCostRow(label: string, base: bigint, withVat: boolean, vatRate: numb
 }
 
 export function renderInvoiceEmail(d: InvoiceEmailData): string {
+  const appBaseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   const remaining = d.totalAmount - d.paidAmount;
   const kwh = d.electricityStart !== null && d.electricityEnd !== null && d.electricityEnd > d.electricityStart
     ? d.electricityEnd - d.electricityStart : 0;
@@ -140,7 +142,7 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#c96442 0%,#d5866c 100%);padding:24px 28px">
     <table style="border-collapse:collapse;width:100%"><tr>
-      <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG}</td>
+      <td style="vertical-align:middle;width:60px">${KEY_ICON_SVG(appBaseUrl)}</td>
       <td style="vertical-align:middle;padding-left:12px">
         <div style="font-size:10px;font-weight:600;letter-spacing:0.2em;opacity:0.9;color:#fff;margin-bottom:2px">${d.buildingType === "VP" ? "K300 OFFICE" : "THE RIGHT HOME"}</div>
         <div style="font-size:18px;font-weight:700;color:#fff;line-height:1.2">${d.buildingName}</div>
@@ -185,25 +187,8 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
     </table>
   </div>
 
-  <!-- Cost breakdown -->
-  <div style="padding:20px 28px">
-    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Chi tiết chi phí</div>
-    <table width="100%" style="border-collapse:collapse">
-      <tbody>
-        ${costRows}
-      </tbody>
-      <tfoot>
-        <tr><td colspan="2" style="padding:6px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>
-        ${costRow("Tổng phải thu", formatVND(d.totalAmount), true)}
-        ${d.paidAmount > 0n ? costRow("Đã thu", formatVND(d.paidAmount), false, true) : ""}
-        ${remaining > 0n ? costRow("Còn lại", formatVND(remaining), true, false, true) : ""}
-      </tfoot>
-    </table>
-    ${d.notes ? `<div style="margin-top:12px;padding:10px 12px;background:#fef9ec;border-radius:8px;font-size:12px;color:#78350f;border-left:3px solid #f59e0b"><strong>Ghi chú:</strong> ${d.notes}</div>` : ""}
-  </div>
-
   ${d.paymentMethod ? `
-  <!-- Bank transfer -->
+  <!-- Bank transfer — shown BEFORE cost breakdown so it is never clipped by Gmail -->
   <div style="padding:16px 28px 20px;border-top:1px solid #e2e8f0;background:#f8fafc">
     <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Thông tin chuyển khoản</div>
     <table width="100%" style="border-collapse:collapse">
@@ -224,6 +209,23 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       </tr>
     </table>
   </div>` : ""}
+
+  <!-- Cost breakdown -->
+  <div style="padding:20px 28px">
+    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Chi tiết chi phí</div>
+    <table width="100%" style="border-collapse:collapse">
+      <tbody>
+        ${costRows}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="2" style="padding:6px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>
+        ${costRow("Tổng phải thu", formatVND(d.totalAmount), true)}
+        ${d.paidAmount > 0n ? costRow("Đã thu", formatVND(d.paidAmount), false, true) : ""}
+        ${remaining > 0n ? costRow("Còn lại", formatVND(remaining), true, false, true) : ""}
+      </tfoot>
+    </table>
+    ${d.notes ? `<div style="margin-top:12px;padding:10px 12px;background:#fef9ec;border-radius:8px;font-size:12px;color:#78350f;border-left:3px solid #f59e0b"><strong>Ghi chú:</strong> ${d.notes}</div>` : ""}
+  </div>
 
   <!-- Footer -->
   <div style="padding:14px 28px;text-align:center;border-top:1px solid #e2e8f0">
