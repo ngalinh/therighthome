@@ -311,8 +311,8 @@
     animation: dotPulse 2s var(--ease) infinite;
   }
   .page-title {
-    font-family: var(--font-serif), Georgia, serif;
-    font-weight: 400; font-size: 56px;
+    font-family: var(--font-sans), sans-serif;
+    font-weight: 600; font-size: 56px;
     line-height: .96; letter-spacing: -0.025em;
     margin: 14px 0 14px; color: var(--text);
   }
