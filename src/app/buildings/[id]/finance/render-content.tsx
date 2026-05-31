@@ -57,5 +57,5 @@ export function renderContentWithLinks({
     lastIdx = m.index + m[0].length;
   }
   if (lastIdx < content.length) parts.push(content.slice(lastIdx));
-  return <>{parts}</>;
+  return <span className="whitespace-pre-wrap">{parts}</span>;
 }
