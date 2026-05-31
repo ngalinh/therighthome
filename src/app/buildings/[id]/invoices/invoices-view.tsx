@@ -264,6 +264,9 @@ function CreateManualInvoiceDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const now = new Date();
+  const [month, setMonth] = useState<number>(now.getMonth() + 1);
+  const [year, setYear] = useState<number>(now.getFullYear());
   const [contractId, setContractId] = useState<string>("");
   const [lines, setLines] = useState<{ categoryId: string; content: string; amount: string }[]>([
     { categoryId: "", content: "", amount: "" },
@@ -274,6 +277,9 @@ function CreateManualInvoiceDialog({
   const total = lines.reduce((s, l) => s + parseVNDInput(l.amount), 0n);
 
   function reset() {
+    const n = new Date();
+    setMonth(n.getMonth() + 1);
+    setYear(n.getFullYear());
     setContractId("");
     setLines([{ categoryId: "", content: "", amount: "" }]);
   }
@@ -303,6 +309,8 @@ function CreateManualInvoiceDialog({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contractId,
+        month,
+        year,
         lineItems: cleanLines.map((l) => ({
           categoryId: l.categoryId || null,
           content: l.content.trim(),
@@ -329,6 +337,30 @@ function CreateManualInvoiceDialog({
           <DialogTitle>Tạo hoá đơn</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tháng</Label>
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Năm</Label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Số phòng</Label>
