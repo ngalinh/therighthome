@@ -90,6 +90,7 @@ services:
     volumes:
       - ./secrets:/app/secrets:ro
       - ./backups:/app/backups
+      - ./storage:/app/storage:ro
     networks: [app-net]
 
 volumes:
