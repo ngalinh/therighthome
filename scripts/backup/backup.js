@@ -1,5 +1,5 @@
-// Daily backup: pg_dump → upload to Google Drive folder.
-// Runs forever; sleeps to next 02:00 Asia/Ho_Chi_Minh.
+// Backup every 3 days: pg_dump + storage archive → upload to Google Drive folder.
+// Runs immediately on start, then sleeps 3 days between runs.
 const { exec } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -13,9 +13,12 @@ const {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
   GOOGLE_OAUTH_REFRESH_TOKEN,
+  STORAGE_PATH = "/app/storage",
 } = process.env;
 
 const BACKUP_DIR = "/app/backups";
+const INTERVAL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
 fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
 function ts() {
@@ -31,19 +34,36 @@ function pgDump(file) {
   });
 }
 
-async function uploadToDrive(filePath) {
+function tarStorage(file) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(STORAGE_PATH)) {
+      console.log(`[backup] storage path ${STORAGE_PATH} not found, skipping`);
+      return resolve(null);
+    }
+    const cmd = `tar -czf ${file} -C ${path.dirname(STORAGE_PATH)} ${path.basename(STORAGE_PATH)}`;
+    exec(cmd, (err, _stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(file)));
+  });
+}
+
+function driveClient() {
   if (
     !GOOGLE_DRIVE_BACKUP_FOLDER_ID ||
     !GOOGLE_OAUTH_CLIENT_ID ||
     !GOOGLE_OAUTH_CLIENT_SECRET ||
     !GOOGLE_OAUTH_REFRESH_TOKEN
   ) {
-    console.log("[backup] Drive not configured, skipping upload (file kept locally)");
-    return;
+    return null;
   }
   const auth = new google.auth.OAuth2(GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET);
   auth.setCredentials({ refresh_token: GOOGLE_OAUTH_REFRESH_TOKEN });
-  const drive = google.drive({ version: "v3", auth });
+  return google.drive({ version: "v3", auth });
+}
+
+async function uploadToDrive(drive, filePath) {
+  if (!drive) {
+    console.log("[backup] Drive not configured, skipping upload (file kept locally)");
+    return;
+  }
   const res = await drive.files.create({
     requestBody: {
       name: path.basename(filePath),
@@ -55,33 +75,39 @@ async function uploadToDrive(filePath) {
     },
     fields: "id",
   });
-  console.log(`[backup] uploaded to Drive id=${res.data.id}`);
+  console.log(`[backup] uploaded ${path.basename(filePath)} to Drive id=${res.data.id}`);
 }
 
-function pruneOld(days = 14) {
+function pruneOld(days = 30) {
   const cutoff = Date.now() - days * 24 * 3600 * 1000;
   for (const f of fs.readdirSync(BACKUP_DIR)) {
     const p = path.join(BACKUP_DIR, f);
     const st = fs.statSync(p);
-    if (st.mtimeMs < cutoff) fs.unlinkSync(p);
+    if (st.mtimeMs < cutoff) {
+      fs.unlinkSync(p);
+      console.log(`[backup] pruned old file: ${f}`);
+    }
   }
 }
 
 async function runOnce() {
-  const file = path.join(BACKUP_DIR, `${POSTGRES_DB}-${ts()}.dump`);
-  console.log(`[backup] starting dump → ${file}`);
-  await pgDump(file);
-  console.log("[backup] dump done");
-  await uploadToDrive(file);
-  pruneOld();
-}
+  const stamp = ts();
+  const dbFile = path.join(BACKUP_DIR, `${POSTGRES_DB}-${stamp}.dump`);
+  const storageFile = path.join(BACKUP_DIR, `storage-${stamp}.tar.gz`);
 
-function msUntilNext0200() {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(2, 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
-  return next - now;
+  console.log(`[backup] starting database dump → ${dbFile}`);
+  await pgDump(dbFile);
+  console.log("[backup] database dump done");
+
+  console.log(`[backup] starting storage archive → ${storageFile}`);
+  const storageResult = await tarStorage(storageFile);
+  if (storageResult) console.log("[backup] storage archive done");
+
+  const drive = driveClient();
+  await uploadToDrive(drive, dbFile);
+  if (storageResult) await uploadToDrive(drive, storageFile);
+
+  pruneOld(30);
 }
 
 async function loop() {
@@ -91,9 +117,8 @@ async function loop() {
     } catch (e) {
       console.error("[backup] failed:", e.message);
     }
-    const wait = msUntilNext0200();
-    console.log(`[backup] sleep ${Math.round(wait / 60000)} min`);
-    await new Promise((r) => setTimeout(r, wait));
+    console.log(`[backup] next run in 3 days`);
+    await new Promise((r) => setTimeout(r, INTERVAL_MS));
   }
 }
 
