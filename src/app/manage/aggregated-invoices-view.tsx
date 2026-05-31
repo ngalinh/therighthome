@@ -82,6 +82,8 @@ export function AggregatedInvoicesView({
   const [bulkSending, setBulkSending] = useState(false);
   const [rowSending, setRowSending] = useState<string | null>(null);
   const [sentInfo, setSentInfo] = useState<{ building: string; room: string; email: string } | null>(null);
+  const [noSelectionAlert, setNoSelectionAlert] = useState(false);
+  const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
 
   const isVP = buildingType === "VP";
 
@@ -143,7 +145,10 @@ export function AggregatedInvoicesView({
 
   async function bulkSend() {
     const ids = [...selectedIds];
-    if (ids.length === 0) return;
+    if (ids.length === 0) {
+      setNoSelectionAlert(true);
+      return;
+    }
     setBulkSending(true);
     let ok = 0;
     const errors: string[] = [];
@@ -158,12 +163,8 @@ export function AggregatedInvoicesView({
     }
     setBulkSending(false);
     setSelectedIds(new Set());
-    if (errors.length === 0) {
-      toast.success(`Đã gửi ${ok} hoá đơn`);
-    } else {
-      toast.error(errors[0]);
-      if (ok > 0) toast.success(`Đã gửi thêm ${ok} hoá đơn`);
-    }
+    if (errors.length > 0) toast.error(errors[0]);
+    if (ok > 0) setBulkSentCount(ok);
     router.refresh();
   }
 
@@ -212,7 +213,7 @@ export function AggregatedInvoicesView({
         )}
         <div className="ml-auto flex gap-2 items-center">
           {isVP && canSend && (
-            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending || selectedIds.size === 0}>
+            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending}>
               {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {selectedIds.size > 0 ? `Gửi email (${selectedIds.size})` : "Gửi email"}
             </Button>
@@ -321,6 +322,30 @@ export function AggregatedInvoicesView({
           </div>
           <DialogFooter>
             <Button variant="gradient" onClick={() => setSentInfo(null)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={noSelectionAlert} onOpenChange={(o) => !o && setNoSelectionAlert(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chưa chọn hoá đơn</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600">Vui lòng chọn hoá đơn để gửi email.</p>
+          <DialogFooter>
+            <Button variant="gradient" onClick={() => setNoSelectionAlert(false)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkSentCount !== null} onOpenChange={(o) => !o && setBulkSentCount(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đã gửi email thành công</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600">Đã gửi email thành công <strong>{bulkSentCount}</strong> hoá đơn.</p>
+          <DialogFooter>
+            <Button variant="gradient" onClick={() => setBulkSentCount(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
