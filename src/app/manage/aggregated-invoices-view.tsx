@@ -80,6 +80,8 @@ export function AggregatedInvoicesView({
   const [payOpen, setPayOpen] = useState<Invoice | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
+  const [rowSending, setRowSending] = useState<string | null>(null);
+  const [sentInfo, setSentInfo] = useState<{ building: string; room: string; email: string } | null>(null);
 
   const isVP = buildingType === "VP";
 
@@ -123,6 +125,20 @@ export function AggregatedInvoicesView({
     } else {
       setSelectedIds(new Set(selectableInvoices.map((i) => i.id)));
     }
+  }
+
+  async function sendSingle(inv: Invoice) {
+    const primary = inv.contract.customers[0]?.customer;
+    if (!primary?.email) return;
+    setRowSending(inv.id);
+    const res = await fetch(`/api/invoices/${inv.id}/send`, { method: "POST" });
+    setRowSending(null);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi khi gửi email");
+    }
+    setSentInfo({ building: inv.building.name, room: inv.contract.room.number, email: primary.email });
+    router.refresh();
   }
 
   async function bulkSend() {
@@ -195,10 +211,10 @@ export function AggregatedInvoicesView({
           </Select>
         )}
         <div className="ml-auto flex gap-2 items-center">
-          {isVP && canSend && selectedIds.size > 0 && (
-            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending}>
+          {isVP && canSend && (
+            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending || selectedIds.size === 0}>
               {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Gửi qua email ({selectedIds.size})
+              {selectedIds.size > 0 ? `Gửi email (${selectedIds.size})` : "Gửi email"}
             </Button>
           )}
           <ExportExcelButton
@@ -255,6 +271,8 @@ export function AggregatedInvoicesView({
                 canWrite={canWrite}
                 canSend={canSend}
                 onPay={() => setPayOpen(inv)}
+                onSend={() => sendSingle(inv)}
+                sending={rowSending === inv.id}
                 showCheckbox={isVP && canSend}
                 selected={selectedIds.has(inv.id)}
                 onToggleSelect={() => toggleSelect(inv.id)}
@@ -271,6 +289,8 @@ export function AggregatedInvoicesView({
                 canWrite={canWrite}
                 canSend={canSend}
                 onPay={(inv) => setPayOpen(inv)}
+                onSend={sendSingle}
+                rowSending={rowSending}
                 showCheckbox={isVP && canSend}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
@@ -288,6 +308,22 @@ export function AggregatedInvoicesView({
         onClose={() => setPayOpen(null)}
         onSuccess={() => { setPayOpen(null); router.refresh(); }}
       />
+
+      <Dialog open={!!sentInfo} onOpenChange={(o) => !o && setSentInfo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đã gửi email thành công</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 text-sm text-slate-700">
+            <div><span className="text-slate-500">Toà nhà:</span> {sentInfo?.building}</div>
+            <div><span className="text-slate-500">Phòng:</span> {sentInfo?.room}</div>
+            <div><span className="text-slate-500">Email nhận:</span> {sentInfo?.email}</div>
+          </div>
+          <DialogFooter>
+            <Button variant="gradient" onClick={() => setSentInfo(null)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -310,7 +346,7 @@ function GradStat({ label, mobileValue, desktopValue, variant }: {
 }
 
 function InvoiceTable({
-  invoices, isVP, canWrite, canSend, onPay,
+  invoices, isVP, canWrite, canSend, onPay, onSend, rowSending,
   showCheckbox, selectedIds, onToggleSelect, onToggleSelectAll, selectableCount,
 }: {
   invoices: Invoice[];
@@ -318,6 +354,8 @@ function InvoiceTable({
   canWrite: boolean;
   canSend: boolean;
   onPay: (inv: Invoice) => void;
+  onSend: (inv: Invoice) => void;
+  rowSending: string | null;
   showCheckbox: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -439,6 +477,11 @@ function InvoiceTable({
               </td>
               <td className="px-3 py-2.5 text-right">
                 <div className="flex gap-1 justify-end">
+                  {canSend && primary?.email && inv.status !== "CANCELLED" && (
+                    <Button onClick={() => onSend(inv)} variant="ghost" size="sm" className="h-7 px-2" disabled={rowSending === inv.id}>
+                      {rowSending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                    </Button>
+                  )}
                   {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                     <Button onClick={() => onPay(inv)} variant="gradient" size="sm" className="h-7 px-2">
                       <DollarSign className="h-3 w-3" />
@@ -454,11 +497,13 @@ function InvoiceTable({
   );
 }
 
-function InvoiceCard({ inv, canWrite, canSend, onPay, showCheckbox, selected, onToggleSelect }: {
+function InvoiceCard({ inv, canWrite, canSend, onPay, onSend, sending, showCheckbox, selected, onToggleSelect }: {
   inv: Invoice;
   canWrite: boolean;
   canSend: boolean;
   onPay: () => void;
+  onSend: () => void;
+  sending: boolean;
   showCheckbox: boolean;
   selected: boolean;
   onToggleSelect: () => void;
@@ -512,6 +557,11 @@ function InvoiceCard({ inv, canWrite, canSend, onPay, showCheckbox, selected, on
             <Button asChild variant="outline" size="sm">
               <Link href={`/buildings/${inv.buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
             </Button>
+            {canSend && primary?.email && inv.status !== "CANCELLED" && (
+              <Button onClick={onSend} variant="ghost" size="sm" disabled={sending}>
+                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            )}
             {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
               <Button onClick={onPay} variant="gradient" size="sm">
                 <DollarSign className="h-3.5 w-3.5" /> Ghi nhận
