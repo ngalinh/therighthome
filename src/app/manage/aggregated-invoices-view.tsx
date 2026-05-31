@@ -81,9 +81,7 @@ export function AggregatedInvoicesView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [rowSending, setRowSending] = useState<string | null>(null);
-  const [sentInfo, setSentInfo] = useState<{ building: string; room: string; email: string } | null>(null);
-  const [noSelectionAlert, setNoSelectionAlert] = useState(false);
-  const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
+  const [sentInfo, setSentInfo] = useState<{ building: string; room: string; email: string }[] | null>(null);
 
   const isVP = buildingType === "VP";
 
@@ -139,23 +137,27 @@ export function AggregatedInvoicesView({
       const err = await res.json().catch(() => ({}));
       return toast.error(err.error || "Có lỗi khi gửi email");
     }
-    setSentInfo({ building: inv.building.name, room: inv.contract.room.number, email: primary.email });
+    setSentInfo([{ building: inv.building.name, room: inv.contract.room.number, email: primary.email }]);
     router.refresh();
   }
 
   async function bulkSend() {
     const ids = [...selectedIds];
     if (ids.length === 0) {
-      setNoSelectionAlert(true);
+      toast.error("Vui lòng chọn hoá đơn để gửi email");
       return;
     }
     setBulkSending(true);
-    let ok = 0;
+    const sent: { building: string; room: string; email: string }[] = [];
     const errors: string[] = [];
     for (const id of ids) {
+      const inv = invoices.find((i) => i.id === id);
       const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
       if (res.ok) {
-        ok++;
+        if (inv) {
+          const email = inv.contract.customers[0]?.customer?.email ?? "";
+          sent.push({ building: inv.building.name, room: inv.contract.room.number, email });
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         errors.push(err.error || `Lỗi ${res.status}`);
@@ -164,7 +166,7 @@ export function AggregatedInvoicesView({
     setBulkSending(false);
     setSelectedIds(new Set());
     if (errors.length > 0) toast.error(errors[0]);
-    if (ok > 0) setBulkSentCount(ok);
+    if (sent.length > 0) setSentInfo(sent);
     router.refresh();
   }
 
@@ -315,37 +317,17 @@ export function AggregatedInvoicesView({
           <DialogHeader>
             <DialogTitle>Đã gửi email thành công</DialogTitle>
           </DialogHeader>
-          <div className="space-y-1.5 text-sm text-slate-700">
-            <div><span className="text-slate-500">Toà nhà:</span> {sentInfo?.building}</div>
-            <div><span className="text-slate-500">Phòng:</span> {sentInfo?.room}</div>
-            <div><span className="text-slate-500">Email nhận:</span> {sentInfo?.email}</div>
+          <div className="space-y-2 text-sm max-h-72 overflow-y-auto">
+            {sentInfo?.map((item, i) => (
+              <div key={i} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0 space-y-0.5 text-slate-700">
+                <div><span className="text-slate-500">Toà nhà:</span> {item.building}</div>
+                <div><span className="text-slate-500">Phòng:</span> {item.room}</div>
+                <div><span className="text-slate-500">Email nhận:</span> {item.email}</div>
+              </div>
+            ))}
           </div>
           <DialogFooter>
             <Button variant="gradient" onClick={() => setSentInfo(null)}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={noSelectionAlert} onOpenChange={(o) => !o && setNoSelectionAlert(false)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Chưa chọn hoá đơn</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">Vui lòng chọn hoá đơn để gửi email.</p>
-          <DialogFooter>
-            <Button variant="gradient" onClick={() => setNoSelectionAlert(false)}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={bulkSentCount !== null} onOpenChange={(o) => !o && setBulkSentCount(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Đã gửi email thành công</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">Đã gửi email thành công <strong>{bulkSentCount}</strong> hoá đơn.</p>
-          <DialogFooter>
-            <Button variant="gradient" onClick={() => setBulkSentCount(null)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
