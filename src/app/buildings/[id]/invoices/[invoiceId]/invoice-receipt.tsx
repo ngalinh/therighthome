@@ -94,104 +94,76 @@ export function InvoiceReceiptDialog({
 
 function ReceiptBody({ data }: { data: ReceiptData }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [sharing, setSharing] = useState(false);
+  const [sharingPdf, setSharingPdf] = useState(false);
+  const [sharingImg, setSharingImg] = useState(false);
+
+  async function captureCanvas() {
+    const node = cardRef.current!;
+    await preloadImagesAsDataUrls(node);
+    const CAPTURE_WIDTH = 720;
+    const offscreen = document.createElement("div");
+    offscreen.style.cssText = [
+      "position: fixed",
+      "left: -10000px",
+      "top: 0",
+      `width: ${CAPTURE_WIDTH}px`,
+      "background: #ffffff",
+      "pointer-events: none",
+      "z-index: -1",
+    ].join("; ");
+    const clone = node.cloneNode(true) as HTMLElement;
+    clone.style.width = `${CAPTURE_WIDTH}px`;
+    offscreen.appendChild(clone);
+    document.body.appendChild(offscreen);
+    const { default: html2canvas } = await import("html2canvas-pro");
+    try {
+      return await html2canvas(clone, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        width: CAPTURE_WIDTH,
+        windowWidth: CAPTURE_WIDTH,
+        useCORS: false,
+        allowTaint: false,
+        logging: false,
+        imageTimeout: 15000,
+      });
+    } finally {
+      document.body.removeChild(offscreen);
+    }
+  }
+
+  const shareCaption = () => {
+    const customerName = customerDisplayName(data.customer);
+    return [
+      `Phiếu thanh toán ${data.invoiceCode}`,
+      `${data.roomNumber}${customerName && customerName !== "—" ? ` - ${customerName}` : ""}`,
+      "Quý khách vui lòng kiểm tra và thanh toán đúng hạn. Xin cảm ơn!",
+    ].join("\n");
+  };
 
   async function sharePdf() {
     if (!cardRef.current) return;
-    setSharing(true);
+    setSharingPdf(true);
     try {
-      const node = cardRef.current;
-
-      // Pre-fetch every <img> as a data URL and substitute its src in place.
-      // /api/files/* is auth-protected; doing the fetch ourselves with
-      // credentials: "same-origin" avoids the silent fetch failures we
-      // hit with html-to-image's internal pipeline on mobile Safari.
-      await preloadImagesAsDataUrls(node);
-
-      // Clone the card into an off-screen container at a fixed desktop-ish
-      // width. This makes the captured layout deterministic — at narrow
-      // viewports the live card was being captured at the mobile width
-      // (≈360 px) which then got stretched to fit the PDF page, producing
-      // misaligned text. The clone keeps the live UI untouched.
-      const CAPTURE_WIDTH = 720;
-      const offscreen = document.createElement("div");
-      offscreen.style.cssText = [
-        "position: fixed",
-        "left: -10000px",
-        "top: 0",
-        `width: ${CAPTURE_WIDTH}px`,
-        "background: #ffffff",
-        "pointer-events: none",
-        "z-index: -1",
-      ].join("; ");
-      const clone = node.cloneNode(true) as HTMLElement;
-      clone.style.width = `${CAPTURE_WIDTH}px`;
-      offscreen.appendChild(clone);
-      document.body.appendChild(offscreen);
-
-      // html2canvas (canvas-drawing approach) is more reliable than
-      // html-to-image's SVG/foreignObject route on iOS Safari, which is
-      // where embedded <img> elements were rendering as blank boxes.
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import("html2canvas-pro"),
-        import("jspdf"),
-      ]);
-
-      let canvas: HTMLCanvasElement;
-      try {
-        canvas = await html2canvas(clone, {
-          backgroundColor: "#ffffff",
-          scale: 2,
-          width: CAPTURE_WIDTH,
-          windowWidth: CAPTURE_WIDTH,
-          useCORS: false,
-          allowTaint: false,
-          logging: false,
-          imageTimeout: 15000,
-        });
-      } finally {
-        document.body.removeChild(offscreen);
-      }
+      const canvas = await captureCanvas();
       const dataUrl = canvas.toDataURL("image/png");
-
-      // Custom page size matches the rendered image's aspect ratio so the PDF
-      // fills mobile viewers edge-to-edge without letterboxing/whitespace.
-      const pageW = 600; // pt
+      const pageW = 600;
       const pageH = (pageW * canvas.height) / canvas.width;
-      const pdf = new jsPDF({
-        unit: "pt",
-        format: [pageW, pageH],
-        orientation: pageH >= pageW ? "portrait" : "landscape",
-      });
+      const { default: jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ unit: "pt", format: [pageW, pageH], orientation: pageH >= pageW ? "portrait" : "landscape" });
       pdf.addImage(dataUrl, "PNG", 0, 0, pageW, pageH);
-
       const filename = `${data.invoiceCode}.pdf`;
       const blob = pdf.output("blob");
       const file = new File([blob], filename, { type: "application/pdf" });
-
-      const customerName = customerDisplayName(data.customer);
-      const caption = [
-        `Phiếu thanh toán ${data.invoiceCode}`,
-        `${data.roomNumber}${customerName && customerName !== "—" ? ` - ${customerName}` : ""}`,
-        "Quý khách vui lòng kiểm tra và thanh toán đúng hạn. Xin cảm ơn!",
-      ].join("\n");
-
       const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
       if (nav.canShare?.({ files: [file] })) {
         try {
-          await nav.share({
-            files: [file],
-            title: `Phiếu thanh toán ${data.invoiceCode}`,
-            text: caption,
-          });
+          await nav.share({ files: [file], title: `Phiếu thanh toán ${data.invoiceCode}`, text: shareCaption() });
           return;
         } catch (err) {
           if ((err as DOMException)?.name === "AbortError") return;
-          // Other errors → fall through to download
         }
       }
-
-      // Desktop / fallback: download the PDF
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = filename;
@@ -203,16 +175,56 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       console.error(err);
       toast.error("Không share được. Hãy thử lại.");
     } finally {
-      setSharing(false);
+      setSharingPdf(false);
     }
   }
 
+  async function shareImage() {
+    if (!cardRef.current) return;
+    setSharingImg(true);
+    try {
+      const canvas = await captureCanvas();
+      const filename = `${data.invoiceCode}.png`;
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"),
+      );
+      const file = new File([blob], filename, { type: "image/png" });
+      const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
+      if (nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: `Phiếu thanh toán ${data.invoiceCode}`, text: shareCaption() });
+          return;
+        } catch (err) {
+          if ((err as DOMException)?.name === "AbortError") return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Đã tải ảnh");
+    } catch (err) {
+      console.error(err);
+      toast.error("Không share được. Hãy thử lại.");
+    } finally {
+      setSharingImg(false);
+    }
+  }
+
+  const busy = sharingPdf || sharingImg;
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end max-w-[720px] mx-auto w-full">
-        <Button variant="gradient" onClick={sharePdf} disabled={sharing} size="sm">
-          {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-          Share
+      <div className="flex justify-end gap-2 max-w-[720px] mx-auto w-full">
+        <Button variant="outline" onClick={shareImage} disabled={busy} size="sm">
+          {sharingImg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+          Ảnh
+        </Button>
+        <Button variant="gradient" onClick={sharePdf} disabled={busy} size="sm">
+          {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+          PDF
         </Button>
       </div>
       <div className="max-w-[720px] mx-auto w-full">
