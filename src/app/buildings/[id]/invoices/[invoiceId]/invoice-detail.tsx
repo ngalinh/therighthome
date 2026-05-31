@@ -803,7 +803,7 @@ export function InvoiceDetail({
             {canSend && primary?.email && (
               <Button variant="gradient" className="w-full" onClick={send} disabled={sending}>
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Gửi qua email
+                Gửi email
               </Button>
             )}
           </CardContent>
