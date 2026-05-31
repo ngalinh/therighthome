@@ -13,6 +13,8 @@ const lineSchema = z.object({
 
 const createSchema = z.object({
   contractId: z.string(),
+  month: z.number().int().min(1).max(12).optional(),
+  year: z.number().int().min(2000).max(2100).optional(),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
   lineItems: z.array(lineSchema).min(1),
@@ -59,8 +61,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const month = d.month ?? (now.getMonth() + 1);
+  const year = d.year ?? now.getFullYear();
   const dueDate = d.dueDate
     ? new Date(d.dueDate)
     : new Date(year, month - 1, Math.min(contract.paymentDay || 5, 28));
