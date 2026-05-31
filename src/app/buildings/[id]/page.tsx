@@ -10,7 +10,6 @@ import {
 import Link from "next/link";
 import { formatVND, formatVNDCompact, compareRooms } from "@/lib/utils";
 import { RoomsManager } from "./rooms-manager";
-import { DeleteBuildingButton } from "./delete-building-button";
 import { RevenueExpenseChart } from "./revenue-expense-chart";
 
 export default async function BuildingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -89,20 +88,6 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
               <MapPin className="h-3.5 w-3.5 shrink-0" /> {building.address}
             </p>
           </div>
-          {session.user.role === "ADMIN" && (
-            <div className="flex flex-wrap gap-2.5">
-              <DeleteBuildingButton
-                buildingId={building.id}
-                buildingName={building.name}
-                counts={{
-                  rooms: building.rooms.length,
-                  contracts: totalContracts,
-                  invoices: totalInvoices,
-                  transactions: totalTransactions,
-                }}
-              />
-            </div>
-          )}
         </header>
 
         {/* Stats */}
