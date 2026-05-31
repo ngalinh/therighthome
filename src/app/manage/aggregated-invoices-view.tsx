@@ -214,12 +214,6 @@ export function AggregatedInvoicesView({
           </Select>
         )}
         <div className="ml-auto flex gap-2 items-center">
-          {isVP && canSend && (
-            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending}>
-              {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {selectedIds.size > 0 ? `Gửi email (${selectedIds.size})` : "Gửi email"}
-            </Button>
-          )}
           <ExportExcelButton
             filename={`hoa-don-${buildingType.toLowerCase()}-${month}-${year}.xlsx`}
             sheets={() => [{
@@ -246,6 +240,12 @@ export function AggregatedInvoicesView({
               }),
             }]}
           />
+          {isVP && canSend && (
+            <Button onClick={bulkSend} variant="gradient" disabled={bulkSending}>
+              {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {selectedIds.size > 0 ? `Gửi email (${selectedIds.size})` : "Gửi email"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -317,12 +317,10 @@ export function AggregatedInvoicesView({
           <DialogHeader>
             <DialogTitle>Đã gửi email thành công</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 text-sm max-h-72 overflow-y-auto">
+          <div className="space-y-1.5 text-sm max-h-72 overflow-y-auto">
             {sentInfo?.map((item, i) => (
-              <div key={i} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0 space-y-0.5 text-slate-700">
-                <div><span className="text-slate-500">Toà nhà:</span> {item.building}</div>
-                <div><span className="text-slate-500">Phòng:</span> {item.room}</div>
-                <div><span className="text-slate-500">Email nhận:</span> {item.email}</div>
+              <div key={i} className="text-slate-700">
+                {i + 1}. Toà nhà: {item.building} - {item.room} - Email nhận: {item.email}
               </div>
             ))}
           </div>
