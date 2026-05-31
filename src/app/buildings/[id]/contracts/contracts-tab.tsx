@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty";
 import { ExportExcelButton } from "@/components/ui/export-button";
-import { FileText, Download, Calendar, Receipt } from "lucide-react";
+import { FileText, Calendar, Receipt } from "lucide-react";
 import { formatDateVN, formatVND, compareRooms, customerDisplayName } from "@/lib/utils";
 
 type Contract = {
@@ -135,16 +135,6 @@ export function ContractsTab({
                     {vatPct > 0 && <span className="text-slate-500 font-normal">(VAT {vatPct}%)</span>}
                   </span>
                   {deposit > 0n && <span className="text-slate-600">Cọc: <strong>{formatVND(deposit)}</strong></span>}
-                  {(c.generatedDocxUrl || c.contractFileUrl) && (
-                    <span className="flex gap-2 ml-auto">
-                      {c.generatedDocxUrl && (
-                        <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><Download className="h-3.5 w-3.5" /></a>
-                      )}
-                      {c.contractFileUrl && (
-                        <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary" onClick={(e) => e.stopPropagation()}><FileText className="h-3.5 w-3.5" /></a>
-                      )}
-                    </span>
-                  )}
                 </div>
               </div>
             </Link>
@@ -166,7 +156,6 @@ export function ContractsTab({
               <th className="px-3 py-2.5">Giá thuê</th>
               <th className="px-3 py-2.5">Cọc</th>
               {buildingType === "CHDV" && <th className="px-3 py-2.5">Tạm trú</th>}
-              <th className="px-3 py-2.5">File</th>
             </tr>
           </thead>
           <tbody>
@@ -217,20 +206,6 @@ export function ContractsTab({
                       )}
                     </td>
                   )}
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <div className="flex gap-2 text-xs">
-                      {c.generatedDocxUrl && (
-                        <a href={c.generatedDocxUrl} target="_blank" rel="noopener" className="text-primary hover:underline" title="HĐ.docx">
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      {c.contractFileUrl && (
-                        <a href={c.contractFileUrl} target="_blank" rel="noopener" className="text-primary hover:underline" title="HĐ ký">
-                          <FileText className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  </td>
                 </tr>
               );
             })}
