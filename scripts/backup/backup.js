@@ -90,6 +90,27 @@ function pruneOld(days = 30) {
   }
 }
 
+async function pruneOldDrive(drive, days = 30) {
+  if (!drive) return;
+  const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+  let pageToken = null;
+  let deleted = 0;
+  do {
+    const res = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_BACKUP_FOLDER_ID}' in parents and createdTime < '${cutoff}' and trashed = false`,
+      fields: "nextPageToken, files(id, name)",
+      pageToken: pageToken || undefined,
+    });
+    for (const file of res.data.files || []) {
+      await drive.files.delete({ fileId: file.id });
+      console.log(`[backup] Drive: pruned old file: ${file.name}`);
+      deleted++;
+    }
+    pageToken = res.data.nextPageToken;
+  } while (pageToken);
+  if (deleted === 0) console.log("[backup] Drive: no old files to prune");
+}
+
 async function runOnce() {
   const stamp = ts();
   const dbFile = path.join(BACKUP_DIR, `${POSTGRES_DB}-${stamp}.dump`);
@@ -108,6 +129,7 @@ async function runOnce() {
   if (storageResult) await uploadToDrive(drive, storageFile);
 
   pruneOld(30);
+  await pruneOldDrive(drive, 30);
 }
 
 async function loop() {
