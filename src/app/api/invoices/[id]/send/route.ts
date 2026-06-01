@@ -5,6 +5,24 @@ import { can } from "@/lib/permissions";
 import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { renderInvoiceEmail } from "@/lib/invoice-template";
 import { rentPeriodLabel } from "@/lib/utils";
+import { readStoredFile, isValidBucket } from "@/lib/storage";
+
+async function photoToDataUrl(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  try {
+    // url format: /api/files/<bucket>/<filename>
+    const parts = url.split("/");
+    const bucket = parts[3];
+    const filename = parts[4];
+    if (!bucket || !filename || !isValidBucket(bucket)) return null;
+    const buf = await readStoredFile(bucket, filename);
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg";
+    const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -70,6 +88,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     inv.contract.rentPaymentCycleMonths ?? 1,
   );
 
+  const [electricityStartPhotoData, electricityEndPhotoData] = inv.building.type === "VP"
+    ? await Promise.all([photoToDataUrl(inv.electricityStartPhoto), photoToDataUrl(inv.electricityEndPhoto)])
+    : [null, null];
+
   const html = renderInvoiceEmail({
     buildingName: inv.building.name,
     buildingAddress: inv.building.address,
@@ -105,6 +127,8 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     vatApplicableFees: (inv.contract.vatApplicableFees ?? []) as ("electricity" | "parking" | "overtime" | "repair" | "extraParking")[],
     notes: inv.notes,
     isManual: inv.isManual,
+    electricityStartPhotoData,
+    electricityEndPhotoData,
     lineItems: inv.lineItems.map((l) => ({
       content: l.content,
       categoryName: l.category?.name ?? null,

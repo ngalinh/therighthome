@@ -37,6 +37,8 @@ export type InvoiceEmailData = {
   notes?: string | null;
   isManual?: boolean;
   lineItems?: { content: string; categoryName: string | null; amount: bigint }[];
+  electricityStartPhotoData?: string | null;
+  electricityEndPhotoData?: string | null;
   paymentMethod: {
     bankName: string | null;
     bankBin: string | null;
@@ -203,6 +205,19 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
   </table>
   ${d.notes ? `<div style="margin-top:12px;padding:10px 12px;background:#fef9ec;border-radius:8px;font-size:12px;color:#78350f;border-left:3px solid #f59e0b"><strong>Ghi chú:</strong> ${d.notes}</div>` : ""}
 </div>
+${d.buildingType === "VP" && (d.electricityStartPhotoData || d.electricityEndPhotoData) ? `<div style="padding:0 28px 20px">
+  <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Ảnh công tơ điện</div>
+  <table width="100%" style="border-collapse:collapse"><tr>
+    ${d.electricityStartPhotoData ? `<td style="width:50%;padding-right:8px;vertical-align:top">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">ĐẦU KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${d.electricityStart ?? ""}</strong></div>
+      <img src="${d.electricityStartPhotoData}" alt="Đầu kỳ" style="width:100%;border-radius:8px;display:block" />
+    </td>` : "<td></td>"}
+    ${d.electricityEndPhotoData ? `<td style="width:50%;padding-left:8px;vertical-align:top">
+      <div style="font-size:10px;color:#64748b;margin-bottom:4px">CUỐI KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${d.electricityEnd ?? ""}</strong></div>
+      <img src="${d.electricityEndPhotoData}" alt="Cuối kỳ" style="width:100%;border-radius:8px;display:block" />
+    </td>` : "<td></td>"}
+  </tr></table>
+</div>` : ""}
 ${d.paymentMethod ? `<div style="padding:16px 28px 20px">
   <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Thông tin chuyển khoản</div>
   <table width="100%" style="border-collapse:collapse"><tr>
