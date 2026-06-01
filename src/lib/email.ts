@@ -28,7 +28,7 @@ export async function sendEmail(args: {
   subject: string;
   html: string;
   text?: string;
-  attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  attachments?: { filename: string; content: Buffer; contentType?: string; cid?: string }[];
   headers?: Record<string, string>;
 }) {
   const t = getTransporter();

@@ -6,19 +6,19 @@ import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { renderInvoiceEmail } from "@/lib/invoice-template";
 import { rentPeriodLabel } from "@/lib/utils";
 import { readStoredFile, isValidBucket } from "@/lib/storage";
+import path from "node:path";
 
-async function photoToDataUrl(url: string | null): Promise<string | null> {
+async function readPhotoBuffer(url: string | null): Promise<{ buf: Buffer; filename: string; mime: string } | null> {
   if (!url) return null;
   try {
-    // url format: /api/files/<bucket>/<filename>
     const parts = url.split("/");
     const bucket = parts[3];
     const filename = parts[4];
     if (!bucket || !filename || !isValidBucket(bucket)) return null;
     const buf = await readStoredFile(bucket, filename);
-    const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg";
-    const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
+    const ext = path.extname(filename).toLowerCase();
+    const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+    return { buf, filename, mime };
   } catch {
     return null;
   }
@@ -88,9 +88,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     inv.contract.rentPaymentCycleMonths ?? 1,
   );
 
-  const [electricityStartPhotoData, electricityEndPhotoData] = inv.building.type === "VP"
-    ? await Promise.all([photoToDataUrl(inv.electricityStartPhoto), photoToDataUrl(inv.electricityEndPhoto)])
+  const [startPhoto, endPhoto] = inv.building.type === "VP"
+    ? await Promise.all([readPhotoBuffer(inv.electricityStartPhoto), readPhotoBuffer(inv.electricityEndPhoto)])
     : [null, null];
+
+  const electricityStartPhotoData = startPhoto ? `cid:elec-start@invoice` : null;
+  const electricityEndPhotoData = endPhoto ? `cid:elec-end@invoice` : null;
 
   const html = renderInvoiceEmail({
     buildingName: inv.building.name,
@@ -137,11 +140,17 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     paymentMethod,
   });
 
+  const photoAttachments = [
+    startPhoto ? { filename: startPhoto.filename, content: startPhoto.buf, contentType: startPhoto.mime, cid: "elec-start@invoice" } : null,
+    endPhoto ? { filename: endPhoto.filename, content: endPhoto.buf, contentType: endPhoto.mime, cid: "elec-end@invoice" } : null,
+  ].filter((a): a is NonNullable<typeof a> => a !== null);
+
   try {
     await sendEmail({
       to: primary.email,
       subject: `Hoá đơn ${String(inv.month).padStart(2, "0")}/${inv.year} — Phòng ${room?.number ?? ""} — ${inv.building.name}`,
       html,
+      attachments: photoAttachments.length > 0 ? photoAttachments : undefined,
       headers: { "X-Entity-Ref-ID": inv.id },
     });
   } catch (e) {
