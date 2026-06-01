@@ -227,8 +227,8 @@ export async function generateInvoiceForContract(
     const prevLines = prev?.electricityLines ?? [];
     const primaryRoom = await prisma.room.findUnique({ where: { id: c.roomId }, select: { number: true } });
     const rooms = [
-      { label: `P${primaryRoom?.number ?? "?"}`, sortOrder: 0 },
-      ...c.secondaryRooms.map((sr, idx) => ({ label: `P${sr.room.number}`, sortOrder: idx + 1 })),
+      { label: primaryRoom?.number ?? "?", sortOrder: 0 },
+      ...c.secondaryRooms.map((sr, idx) => ({ label: sr.room.number, sortOrder: idx + 1 })),
     ];
 
     await prisma.invoiceElectricityLine.createMany({
