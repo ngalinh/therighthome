@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty";
-import { Receipt, Send, Loader2, DollarSign } from "lucide-react";
+import { Receipt, Send, Loader2, DollarSign, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatVNDCompact, formatNumber, parseVNDInput, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/ui/export-button";
@@ -481,7 +481,12 @@ function InvoiceTable({
                 {formatVND(remaining)}
               </td>
               <td className="px-3 py-2.5 text-right">
-                <div className="flex gap-1 justify-end">
+                <div className="flex gap-1 justify-end items-center">
+                  {isVP && inv.sentAt && (
+                    <span title={`Đã gửi lúc ${new Date(inv.sentAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`}>
+                      <MailCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    </span>
+                  )}
                   {canSend && primary?.email && inv.status !== "CANCELLED" && (
                     <Button onClick={() => onSend(inv)} variant="ghost" size="sm" className="h-7 px-2" disabled={rowSending === inv.id}>
                       {rowSending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
