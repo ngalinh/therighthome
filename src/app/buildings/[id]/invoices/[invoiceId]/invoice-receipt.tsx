@@ -589,11 +589,11 @@ function MeterPhoto({ label, reading, src }: { label: string; reading: number | 
           <span className="text-xs font-bold text-slate-800 tabular-nums">{reading}</span>
         )}
       </div>
-      <div className="aspect-[3/2] rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+      <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
         {/* No crossOrigin: the file route doesn't set CORS headers, so adding
             crossOrigin="anonymous" makes same-origin auth-protected images
             fail to load — they'd show up as empty boxes in the PDF capture. */}
-        <img src={src} alt={label} className="w-full h-full object-cover" />
+        <img src={src} alt={label} className="w-full h-auto" />
       </div>
     </div>
   );
