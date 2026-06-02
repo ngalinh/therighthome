@@ -1173,9 +1173,9 @@ function ElecLinePhotoField({
         placeholder="0"
       />
       {localPhoto ? (
-        <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 group">
-          <button type="button" onClick={() => setZoom(true)} className="block w-full h-full cursor-zoom-in">
-            <img src={localPhoto} alt={label} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
+        <div className="relative rounded-lg overflow-hidden border bg-slate-50 group">
+          <button type="button" onClick={() => setZoom(true)} className="block w-full cursor-zoom-in">
+            <img src={localPhoto} alt={label} className="w-full h-auto group-hover:opacity-90 transition-opacity" />
           </button>
           {!disabled && (
             <button type="button" onClick={removePhoto} disabled={removing}
