@@ -405,7 +405,7 @@ function InvoiceTable({
           <th className="px-3 py-2.5 text-right">Tiền điện</th>
           <th className="px-3 py-2.5 text-right">Phí xe</th>
           <th className="px-3 py-2.5 text-right">{isVP ? "Phí ngoài giờ" : "Phí DV"}</th>
-          {isVP && <th className="px-3 py-2.5 text-right">VAT phí</th>}
+          {isVP && <th className="px-3 py-2.5 text-right">VAT</th>}
           <th className="px-3 py-2.5 text-right">Tổng</th>
           <th className="px-3 py-2.5 text-right">Đã thu</th>
           <th className="px-3 py-2.5 text-right">Còn lại</th>
