@@ -210,11 +210,11 @@ ${d.buildingType === "VP" && (d.electricityStartPhotoData || d.electricityEndPho
   <table width="100%" style="border-collapse:collapse"><tr>
     ${d.electricityStartPhotoData ? `<td style="width:50%;padding-right:8px;vertical-align:top">
       <div style="font-size:10px;color:#64748b;margin-bottom:4px">ĐẦU KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${d.electricityStart ?? ""}</strong></div>
-      <img src="${d.electricityStartPhotoData}" alt="Đầu kỳ" style="width:100%;height:200px;object-fit:cover;border-radius:8px;display:block" />
+      <img src="${d.electricityStartPhotoData}" alt="Đầu kỳ" style="width:100%;height:280px;object-fit:contain;background:#f8fafc;border-radius:8px;display:block" />
     </td>` : "<td></td>"}
     ${d.electricityEndPhotoData ? `<td style="width:50%;padding-left:8px;vertical-align:top">
       <div style="font-size:10px;color:#64748b;margin-bottom:4px">CUỐI KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${d.electricityEnd ?? ""}</strong></div>
-      <img src="${d.electricityEndPhotoData}" alt="Cuối kỳ" style="width:100%;height:200px;object-fit:cover;border-radius:8px;display:block" />
+      <img src="${d.electricityEndPhotoData}" alt="Cuối kỳ" style="width:100%;height:280px;object-fit:contain;background:#f8fafc;border-radius:8px;display:block" />
     </td>` : "<td></td>"}
   </tr></table>
 </div>` : ""}

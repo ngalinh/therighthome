@@ -1174,8 +1174,8 @@ function ElecLinePhotoField({
       />
       {localPhoto ? (
         <div className="relative rounded-lg overflow-hidden border bg-slate-50 group">
-          <button type="button" onClick={() => setZoom(true)} className="block w-full cursor-zoom-in">
-            <img src={localPhoto} alt={label} className="w-full h-auto group-hover:opacity-90 transition-opacity" />
+          <button type="button" onClick={() => setZoom(true)} className="block w-full cursor-zoom-in h-[280px] flex items-center justify-center">
+            <img src={localPhoto} alt={label} className="w-full h-full object-contain group-hover:opacity-90 transition-opacity" />
           </button>
           {!disabled && (
             <button type="button" onClick={removePhoto} disabled={removing}
@@ -1274,9 +1274,9 @@ function PhotoUploadField({
           <button
             type="button"
             onClick={() => setZoom(true)}
-            className="block w-full cursor-zoom-in"
+            className="block w-full cursor-zoom-in h-[280px] flex items-center justify-center"
           >
-            <img src={localPhoto} alt={label} className="w-full h-auto group-hover:opacity-90 transition-opacity" />
+            <img src={localPhoto} alt={label} className="w-full h-full object-contain group-hover:opacity-90 transition-opacity" />
           </button>
           {!disabled && (
             <button
