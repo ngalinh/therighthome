@@ -481,8 +481,10 @@ function InvoiceTable({
   const totExtraParking = activeInvoices.reduce((s, i) => s + BigInt(i.extraParkingFee), 0n);
   const totTotal = activeInvoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
   const totPaid = activeInvoices.reduce((s, i) => s + BigInt(i.paidAmount), 0n);
-  const totFeeVat = totTotal - totRent - totElec - totParking - totFee - totRepair - totExtraParking
-    - activeInvoices.reduce((s, i) => s + BigInt(i.serviceFee) + BigInt(i.waterFee), 0n);
+  const totFeeVat = activeInvoices.reduce((s, i) => {
+    if (i.isManual) return s;
+    return s + BigInt(i.totalAmount) - BigInt(i.rentAmount) - BigInt(i.electricityFee) - BigInt(i.parkingFee) - BigInt(i.overtimeFee) - BigInt(i.repairFee) - BigInt(i.extraParkingFee) - BigInt(i.serviceFee) - BigInt(i.waterFee);
+  }, 0n);
   const totRemaining = totTotal - totPaid;
 
   return (
@@ -553,7 +555,7 @@ function InvoiceTable({
               </td>
               {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.repairFee))}</td>}
               {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.extraParkingFee))}</td>}
-              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.totalAmount) - BigInt(inv.rentAmount) - BigInt(inv.electricityFee) - BigInt(inv.parkingFee) - BigInt(inv.overtimeFee) - BigInt(inv.repairFee) - BigInt(inv.extraParkingFee) - BigInt(inv.serviceFee) - BigInt(inv.waterFee))}</td>}
+              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(inv.isManual ? 0n : BigInt(inv.totalAmount) - BigInt(inv.rentAmount) - BigInt(inv.electricityFee) - BigInt(inv.parkingFee) - BigInt(inv.overtimeFee) - BigInt(inv.repairFee) - BigInt(inv.extraParkingFee) - BigInt(inv.serviceFee) - BigInt(inv.waterFee))}</td>}
               <td className="px-3 py-2.5 text-right font-semibold whitespace-nowrap text-emerald-700">
                 {formatVND(BigInt(inv.totalAmount))}
               </td>
