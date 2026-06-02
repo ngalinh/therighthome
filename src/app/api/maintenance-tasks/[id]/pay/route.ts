@@ -8,6 +8,7 @@ import { nextTransactionCode } from "@/lib/codes";
 const paySchema = z.object({
   paymentMethodId: z.string().optional().nullable(),
   categoryId: z.string().optional().nullable(),
+  paymentDate: z.string().optional().nullable(),
 });
 
 // Creates an EXPENSE transaction for the maintenance task, links it back.
@@ -43,12 +44,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   const paymentMethodId = parsed.data.paymentMethodId || task.paymentMethodId || undefined;
+  const txDate = parsed.data.paymentDate ? new Date(parsed.data.paymentDate) : task.date;
   const code = await nextTransactionCode(task.buildingId, "EXPENSE");
   const tx = await prisma.transaction.create({
     data: {
       buildingId: task.buildingId,
       code,
-      date: task.date,
+      date: txDate,
       type: "EXPENSE",
       amount: task.cost,
       content: task.taskName,
@@ -59,8 +61,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       partyId: task.partyId || undefined,
       customerId: task.customerId || undefined,
       countInBR: true,
-      accountingMonth: task.date.getMonth() + 1,
-      accountingYear: task.date.getFullYear(),
+      accountingMonth: txDate.getMonth() + 1,
+      accountingYear: txDate.getFullYear(),
       createdById: session.user.id,
     },
   });

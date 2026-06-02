@@ -283,6 +283,10 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
 }) {
   const router = useRouter();
   const [pmId, setPmId] = useState(task.paymentMethodId ?? "");
+  const [payDate, setPayDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [saving, setSaving] = useState(false);
 
   async function submit() {
@@ -291,7 +295,7 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
     const res = await fetch(`/api/maintenance-tasks/${task.id}/pay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentMethodId: pmId }),
+      body: JSON.stringify({ paymentMethodId: pmId, paymentDate: payDate }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -315,14 +319,20 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
             <div className="truncate"><span className="text-slate-500">Công việc:</span> {task.taskName}</div>
             <div><span className="text-slate-500">Số tiền:</span> <span className="font-semibold">{formatVND(BigInt(task.cost))}</span></div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tài khoản TT <span className="text-rose-500">*</span></Label>
-            <Select value={pmId} onValueChange={setPmId}>
-              <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
-              <SelectContent>
-                {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tài khoản TT <span className="text-rose-500">*</span></Label>
+              <Select value={pmId} onValueChange={setPmId}>
+                <SelectTrigger><SelectValue placeholder="Chọn" /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ngày thanh toán</Label>
+              <DateInput value={payDate} onChange={setPayDate} />
+            </div>
           </div>
         </div>
         <DialogFooter>
