@@ -1270,16 +1270,13 @@ function PhotoUploadField({
       <Label className="text-xs">{label}</Label>
       <Input type="number" inputMode="numeric" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="0" />
       {localPhoto ? (
-        <div className="relative aspect-video rounded-lg overflow-hidden border bg-slate-50 group">
+        <div className="relative rounded-lg overflow-hidden border bg-slate-50 group">
           <button
             type="button"
             onClick={() => setZoom(true)}
-            className="block w-full h-full cursor-zoom-in"
+            className="block w-full cursor-zoom-in"
           >
-            <img src={localPhoto} alt={label} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" />
-            <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
-              <span className="text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">Click để xem to</span>
-            </div>
+            <img src={localPhoto} alt={label} className="w-full h-auto group-hover:opacity-90 transition-opacity" />
           </button>
           {!disabled && (
             <button
