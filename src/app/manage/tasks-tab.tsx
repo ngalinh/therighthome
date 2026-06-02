@@ -331,7 +331,7 @@ function PayDialog({ task, paymentMethods, open, onClose }: {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Ngày thanh toán</Label>
-              <DateInput value={payDate} onChange={setPayDate} />
+              <DateInput value={payDate} onChange={(e) => setPayDate(e.target.value)} />
             </div>
           </div>
         </div>
