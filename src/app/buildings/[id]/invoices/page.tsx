@@ -59,6 +59,9 @@ export default async function InvoicesPage({
           customers: { include: { customer: true }, where: { isPrimary: true } },
         },
       },
+      lineItems: {
+        select: { amount: true, category: { select: { name: true } } },
+      },
     },
     orderBy: [{ dueDate: "asc" }],
   });
