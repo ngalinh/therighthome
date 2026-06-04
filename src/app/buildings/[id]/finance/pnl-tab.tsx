@@ -91,6 +91,8 @@ export async function PnLTab({
           parkingFee: true,
           serviceFee: true,
           overtimeFee: true,
+          repairFee: true,
+          extraParkingFee: true,
           vatAmount: true,
           contract: { select: { room: { select: { number: true } } } },
           lineItems: {
@@ -141,21 +143,33 @@ export async function PnLTab({
       const inv = t.invoice;
       // Auto invoice: split the payment proportionally across the structured
       // fee fields so KQKD reflects what's actually rent vs điện vs nước etc.
+      // For VP invoices (vatAmount > 0): exclude VAT from KQKD — use pre-VAT
+      // rent and skip feeVatAmount so only operating revenue is recorded.
+      const hasVat = inv.vatAmount > 0n;
+      const feeVatAmount = hasVat
+        ? inv.totalAmount - inv.rentAmount - inv.electricityFee - inv.waterFee
+          - inv.parkingFee - inv.serviceFee - inv.overtimeFee - inv.repairFee - inv.extraParkingFee
+        : 0n;
+      const nonVatTotal = inv.totalAmount - inv.vatAmount - feeVatAmount;
       const breakdown = [
-        ["Tiền phòng", inv.rentAmount],
+        ["Tiền phòng", hasVat ? inv.rentAmount - inv.vatAmount : inv.rentAmount],
         ["Tiền điện", inv.electricityFee],
         ["Tiền nước", inv.waterFee],
         ["Phí gửi xe", inv.parkingFee],
         ["Phí dịch vụ", inv.serviceFee],
         ["Phí ngoài giờ", inv.overtimeFee],
-        ["VAT", inv.vatAmount],
+        ["Phí sửa chữa", inv.repairFee],
+        ["Phí xe lẻ", inv.extraParkingFee],
       ].filter(([, v]) => (v as bigint) > 0n) as [string, bigint][];
       if (breakdown.length > 0) {
+        // Proportional split against inv.totalAmount (for VAT invoices the sum
+        // will be < t.amount — the VAT portion is intentionally excluded).
         let allocated = 0n;
         for (let i = 0; i < breakdown.length; i++) {
           const [name, fee] = breakdown[i];
-          const amt = i === breakdown.length - 1
-            ? t.amount - allocated
+          const isLast = i === breakdown.length - 1;
+          const amt = isLast
+            ? (hasVat ? nonVatTotal * t.amount / inv.totalAmount - allocated : t.amount - allocated)
             : (fee * t.amount) / inv.totalAmount;
           if (amt > 0n) {
             add(map, name, amt, {
