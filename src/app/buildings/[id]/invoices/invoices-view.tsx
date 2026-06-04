@@ -521,6 +521,7 @@ function InvoiceTable({
   const totElec = resolvedFields.reduce((s, f) => s + f.electricityFee, 0n);
   const totParking = resolvedFields.reduce((s, f) => s + f.parkingFee, 0n);
   const totFee = resolvedFields.reduce((s, f) => s + (isVP ? f.overtimeFee : f.serviceFee), 0n);
+  const totWater = resolvedFields.reduce((s, f) => s + f.waterFee, 0n);
   const totRepair = resolvedFields.reduce((s, f) => s + f.repairFee, 0n);
   const totExtraParking = resolvedFields.reduce((s, f) => s + f.extraParkingFee, 0n);
   const totTotal = activeInvoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
@@ -542,6 +543,7 @@ function InvoiceTable({
           <th className="px-3 py-2.5 text-right">Tiền điện</th>
           <th className="px-3 py-2.5 text-right">Phí xe</th>
           <th className="px-3 py-2.5 text-right">{isVP ? "Phí ngoài giờ" : "Phí DV"}</th>
+          {!isVP && <th className="px-3 py-2.5 text-right">Tiền nước</th>}
           {isVP && <th className="px-3 py-2.5 text-right">Phí sửa chữa</th>}
           {isVP && <th className="px-3 py-2.5 text-right">Phí xe lẻ</th>}
           {isVP && <th className="px-3 py-2.5 text-right">VAT</th>}
@@ -558,6 +560,7 @@ function InvoiceTable({
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totElec)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totParking)}</td>
           <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totFee)}</td>
+          {!isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totWater)}</td>}
           {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totRepair)}</td>}
           {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totExtraParking)}</td>}
           {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(totFeeVat)}</td>}
@@ -599,6 +602,7 @@ function InvoiceTable({
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.electricityFee)}</td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.parkingFee)}</td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(isVP ? f.overtimeFee : f.serviceFee)}</td>
+                  {!isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.waterFee)}</td>}
                   {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.repairFee)}</td>}
                   {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.extraParkingFee)}</td>}
                   {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(vatAmt)}</td>}
