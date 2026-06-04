@@ -134,11 +134,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   if (d.notes !== undefined || d.dueDate) {
+    const newDueDate = d.dueDate ? new Date(d.dueDate) : undefined;
+    const shouldResetOverdue = newDueDate && newDueDate > new Date() && inv.status === "OVERDUE";
     await prisma.invoice.update({
       where: { id },
       data: {
         ...(d.notes !== undefined ? { notes: d.notes } : {}),
-        ...(d.dueDate ? { dueDate: new Date(d.dueDate) } : {}),
+        ...(newDueDate ? { dueDate: newDueDate } : {}),
+        ...(shouldResetOverdue ? { status: "PENDING" } : {}),
       },
     });
   }
