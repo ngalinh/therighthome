@@ -546,7 +546,7 @@ function InvoiceTable({
           {!isVP && <th className="px-3 py-2.5 text-right">Tiền nước</th>}
           {isVP && <th className="px-3 py-2.5 text-right">Phí sửa chữa</th>}
           {isVP && <th className="px-3 py-2.5 text-right">Phí xe lẻ</th>}
-          {isVP && <th className="px-3 py-2.5 text-right">VAT</th>}
+          {isVP && <th className="px-3 py-2.5 text-right">VAT Phí DV</th>}
           <th className="px-3 py-2.5 text-right">Tổng</th>
           <th className="px-3 py-2.5 text-right">Đã thu</th>
           <th className="px-3 py-2.5 text-right">Còn lại</th>
