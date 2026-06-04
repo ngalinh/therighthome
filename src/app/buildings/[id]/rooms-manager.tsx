@@ -154,7 +154,11 @@ function FloorGroupedRooms({
     if (!byFloor.has(f)) byFloor.set(f, []);
     byFloor.get(f)!.push(r);
   }
+  const isStdFloor = (f: string) => f === "G" || /^\d+$/.test(f);
   const floors = Array.from(byFloor.keys()).sort((a, b) => {
+    const aStd = isStdFloor(a), bStd = isStdFloor(b);
+    if (!aStd && bStd) return -1;
+    if (aStd && !bStd) return 1;
     if (a === "G") return -1;
     if (b === "G") return 1;
     return Number(a) - Number(b);
