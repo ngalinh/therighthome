@@ -27,6 +27,7 @@ type Invoice = {
   year: number;
   dueDate: string;
   status: string;
+  isManual: boolean;
   rentAmount: string;
   vatAmount: string;
   electricityFee: string;
@@ -47,7 +48,50 @@ type Invoice = {
     room: { number: string };
     customers: { customer: { type: string; fullName: string | null; companyName: string | null; email: string | null } }[];
   };
+  lineItems: { amount: string; category: { name: string } | null }[];
 };
+
+// Maps manual invoice line items to the same fields as auto-generated invoices.
+// Category names that don't match known columns are summed into "other".
+const CATEGORY_TO_FIELD: Record<string, keyof ReturnType<typeof resolveInvoiceFields>> = {
+  "tiền thuê phòng": "rentAmount",
+  "tiền thuê vp": "rentAmount",
+  "tiền điện": "electricityFee",
+  "tiền nước": "waterFee",
+  "phí gửi xe": "parkingFee",
+  "phí dịch vụ": "serviceFee",
+  "phí làm ngoài giờ": "overtimeFee",
+  "phí sửa chữa": "repairFee",
+  "phí xe lẻ": "extraParkingFee",
+};
+
+function resolveInvoiceFields(inv: Invoice) {
+  if (!inv.isManual) {
+    return {
+      rentAmount: BigInt(inv.rentAmount),
+      electricityFee: BigInt(inv.electricityFee),
+      parkingFee: BigInt(inv.parkingFee),
+      overtimeFee: BigInt(inv.overtimeFee),
+      repairFee: BigInt(inv.repairFee),
+      extraParkingFee: BigInt(inv.extraParkingFee),
+      serviceFee: BigInt(inv.serviceFee),
+      waterFee: BigInt(inv.waterFee),
+      otherFee: 0n,
+    };
+  }
+  const fields = {
+    rentAmount: 0n, electricityFee: 0n, parkingFee: 0n,
+    overtimeFee: 0n, repairFee: 0n, extraParkingFee: 0n,
+    serviceFee: 0n, waterFee: 0n, otherFee: 0n,
+  };
+  for (const item of inv.lineItems) {
+    const amt = BigInt(item.amount);
+    const key = item.category ? CATEGORY_TO_FIELD[item.category.name.trim().toLowerCase()] : undefined;
+    if (key) fields[key] += amt;
+    else fields.otherFee += amt;
+  }
+  return fields;
+}
 
 const STATUS: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "destructive" }> = {
   PENDING: { label: "Chờ thanh toán", variant: "warning" },
@@ -370,17 +414,18 @@ function InvoiceTable({
   selectableCount: number;
 }) {
   const activeInvoices = invoices.filter((i) => i.status !== "CANCELLED");
-  const totRent = activeInvoices.reduce((s, i) => s + BigInt(i.rentAmount), 0n);
-  const totElec = activeInvoices.reduce((s, i) => s + BigInt(i.electricityFee), 0n);
-  const totParking = activeInvoices.reduce((s, i) => s + BigInt(i.parkingFee), 0n);
-  const totFee = activeInvoices.reduce((s, i) => s + BigInt(isVP ? i.overtimeFee : i.serviceFee), 0n);
-  const totRepair = activeInvoices.reduce((s, i) => s + BigInt(i.repairFee), 0n);
-  const totExtraParking = activeInvoices.reduce((s, i) => s + BigInt(i.extraParkingFee), 0n);
+  const resolvedFields = activeInvoices.map(resolveInvoiceFields);
+  const totRent = resolvedFields.reduce((s, f) => s + f.rentAmount, 0n);
+  const totElec = resolvedFields.reduce((s, f) => s + f.electricityFee, 0n);
+  const totParking = resolvedFields.reduce((s, f) => s + f.parkingFee, 0n);
+  const totFee = resolvedFields.reduce((s, f) => s + (isVP ? f.overtimeFee : f.serviceFee), 0n);
+  const totRepair = resolvedFields.reduce((s, f) => s + f.repairFee, 0n);
+  const totExtraParking = resolvedFields.reduce((s, f) => s + f.extraParkingFee, 0n);
   const totServiceTotal = totElec + totParking + totFee + totRepair + totExtraParking;
   const totTotal = activeInvoices.reduce((s, i) => s + BigInt(i.totalAmount), 0n);
   const totPaid = activeInvoices.reduce((s, i) => s + BigInt(i.paidAmount), 0n);
   const totFeeVat = totTotal - totRent - totElec - totParking - totFee
-    - activeInvoices.reduce((s, i) => s + BigInt(i.repairFee) + BigInt(i.extraParkingFee) + BigInt(i.serviceFee) + BigInt(i.waterFee), 0n);
+    - resolvedFields.reduce((s, f) => s + f.repairFee + f.extraParkingFee + f.serviceFee + f.waterFee, 0n);
   const totRemaining = totTotal - totPaid;
 
   const allSelected = selectableCount > 0 && selectedIds.size === selectableCount;
@@ -477,16 +522,20 @@ function InvoiceTable({
                   {st.label}{overdueDays !== null && ` ${overdueDays}d`}
                 </Badge>
               </td>
-              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.rentAmount))}</td>
-              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.electricityFee))}</td>
-              <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.parkingFee))}</td>
-              <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                {formatVND(BigInt(isVP ? inv.overtimeFee : inv.serviceFee))}
-              </td>
-              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.repairFee))}</td>}
-              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.extraParkingFee))}</td>}
-              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold">{formatVND(BigInt(inv.electricityFee) + BigInt(inv.parkingFee) + BigInt(inv.overtimeFee) + BigInt(inv.repairFee) + BigInt(inv.extraParkingFee))}</td>}
-              {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(inv.totalAmount) - BigInt(inv.rentAmount) - BigInt(inv.electricityFee) - BigInt(inv.parkingFee) - BigInt(inv.overtimeFee) - BigInt(inv.repairFee) - BigInt(inv.extraParkingFee) - BigInt(inv.serviceFee) - BigInt(inv.waterFee))}</td>}
+              {(() => {
+                const f = resolveInvoiceFields(inv);
+                const vatAmt = BigInt(inv.totalAmount) - f.rentAmount - f.electricityFee - f.parkingFee - f.overtimeFee - f.repairFee - f.extraParkingFee - f.serviceFee - f.waterFee - f.otherFee;
+                return (<>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.rentAmount)}</td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.electricityFee)}</td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.parkingFee)}</td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(isVP ? f.overtimeFee : f.serviceFee)}</td>
+                  {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.repairFee)}</td>}
+                  {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(f.extraParkingFee)}</td>}
+                  {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold">{formatVND(f.electricityFee + f.parkingFee + f.overtimeFee + f.repairFee + f.extraParkingFee)}</td>}
+                  {isVP && <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(vatAmt)}</td>}
+                </>);
+              })()}
               <td className="px-3 py-2.5 text-right font-semibold whitespace-nowrap text-emerald-700">
                 {formatVND(BigInt(inv.totalAmount))}
               </td>
