@@ -53,6 +53,7 @@ export type ReceiptData = {
   electricityPricePerKwh: bigint;
   electricityStartPhoto: string | null;
   electricityEndPhoto: string | null;
+  electricityLines?: { roomLabel: string; start: number | null; end: number | null; startPhotoUrl: string | null; endPhotoUrl: string | null }[];
   parkingCount: number;
   parkingFee: bigint;
   overtimeFee: bigint;
@@ -447,26 +448,33 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
         )}
       </div>
 
-      {/* Electricity meter photos */}
-      {(data.electricityStartPhoto || data.electricityEndPhoto) && (
+      {/* Electricity meter photos — single-room */}
+      {!data.electricityLines?.length && (data.electricityStartPhoto || data.electricityEndPhoto) && (
         <div className="px-6 pb-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Ảnh công tơ điện</h4>
           <div className="grid grid-cols-2 gap-3">
             {data.electricityStartPhoto && (
-              <MeterPhoto
-                label="Đầu kỳ"
-                reading={data.electricityStart}
-                src={data.electricityStartPhoto}
-              />
+              <MeterPhoto label="Đầu kỳ" reading={data.electricityStart} src={data.electricityStartPhoto} />
             )}
             {data.electricityEndPhoto && (
-              <MeterPhoto
-                label="Cuối kỳ"
-                reading={data.electricityEnd}
-                src={data.electricityEndPhoto}
-              />
+              <MeterPhoto label="Cuối kỳ" reading={data.electricityEnd} src={data.electricityEndPhoto} />
             )}
           </div>
+        </div>
+      )}
+      {/* Electricity meter photos — multi-room */}
+      {data.electricityLines?.some((l) => l.startPhotoUrl || l.endPhotoUrl) && (
+        <div className="px-6 pb-4 space-y-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ảnh công tơ điện</h4>
+          {data.electricityLines.filter((l) => l.startPhotoUrl || l.endPhotoUrl).map((line) => (
+            <div key={line.roomLabel}>
+              <div className="text-xs font-medium text-slate-600 mb-1.5">{line.roomLabel}</div>
+              <div className="grid grid-cols-2 gap-3">
+                {line.startPhotoUrl && <MeterPhoto label="Đầu kỳ" reading={line.start} src={line.startPhotoUrl} />}
+                {line.endPhotoUrl && <MeterPhoto label="Cuối kỳ" reading={line.end} src={line.endPhotoUrl} />}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

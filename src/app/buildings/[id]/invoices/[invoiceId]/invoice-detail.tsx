@@ -377,6 +377,7 @@ export function InvoiceDetail({
     electricityPricePerKwh: BigInt(invoice.electricityPricePerKwh),
     electricityStartPhoto: invoice.electricityStartPhoto,
     electricityEndPhoto: invoice.electricityEndPhoto,
+    electricityLines: invoice.electricityLines,
     parkingCount: invoice.parkingCount,
     parkingFee: BigInt(invoice.parkingFee),
     overtimeFee: BigInt(invoice.overtimeFee),
