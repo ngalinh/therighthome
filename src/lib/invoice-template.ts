@@ -39,6 +39,7 @@ export type InvoiceEmailData = {
   lineItems?: { content: string; categoryName: string | null; amount: bigint }[];
   electricityStartPhotoData?: string | null;
   electricityEndPhotoData?: string | null;
+  electricityLinePhotos?: { roomLabel: string; start: number | null; end: number | null; startCid: string | null; endCid: string | null }[];
   paymentMethod: {
     bankName: string | null;
     bankBin: string | null;
@@ -217,6 +218,23 @@ ${d.buildingType === "VP" && (d.electricityStartPhotoData || d.electricityEndPho
       <img src="${d.electricityEndPhotoData}" alt="Cuối kỳ" style="width:100%;height:280px;object-fit:contain;background:#f8fafc;border-radius:8px;display:block" />
     </td>` : "<td></td>"}
   </tr></table>
+</div>` : ""}
+${d.buildingType === "VP" && d.electricityLinePhotos?.some((l) => l.startCid || l.endCid) ? `<div style="padding:0 28px 20px">
+  <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Ảnh công tơ điện</div>
+  ${d.electricityLinePhotos.filter((l) => l.startCid || l.endCid).map((l) => `
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:6px">${l.roomLabel}</div>
+    <table width="100%" style="border-collapse:collapse"><tr>
+      ${l.startCid ? `<td style="width:50%;padding-right:8px;vertical-align:top">
+        <div style="font-size:10px;color:#64748b;margin-bottom:4px">ĐẦU KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${l.start ?? ""}</strong></div>
+        <img src="cid:${l.startCid}" alt="Đầu kỳ" style="width:100%;height:280px;object-fit:contain;background:#f8fafc;border-radius:8px;display:block" />
+      </td>` : "<td></td>"}
+      ${l.endCid ? `<td style="width:50%;padding-left:8px;vertical-align:top">
+        <div style="font-size:10px;color:#64748b;margin-bottom:4px">CUỐI KỲ&nbsp;&nbsp;<strong style="color:#1e293b">${l.end ?? ""}</strong></div>
+        <img src="cid:${l.endCid}" alt="Cuối kỳ" style="width:100%;height:280px;object-fit:contain;background:#f8fafc;border-radius:8px;display:block" />
+      </td>` : "<td></td>"}
+    </tr></table>
+  </div>`).join("")}
 </div>` : ""}
 ${d.paymentMethod ? `<div style="padding:16px 28px 20px">
   <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:12px">Thông tin chuyển khoản</div>

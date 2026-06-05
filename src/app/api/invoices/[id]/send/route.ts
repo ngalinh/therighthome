@@ -43,6 +43,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         include: { category: { select: { name: true } } },
         orderBy: { sortOrder: "asc" },
       },
+      electricityLines: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -88,12 +89,33 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     inv.contract.rentPaymentCycleMonths ?? 1,
   );
 
-  const [startPhoto, endPhoto] = inv.building.type === "VP"
+  const isMultiRoom = inv.electricityLines.length > 0;
+
+  const [startPhoto, endPhoto] = inv.building.type === "VP" && !isMultiRoom
     ? await Promise.all([readPhotoBuffer(inv.electricityStartPhoto), readPhotoBuffer(inv.electricityEndPhoto)])
     : [null, null];
 
   const electricityStartPhotoData = startPhoto ? `cid:elec-start@invoice` : null;
   const electricityEndPhotoData = endPhoto ? `cid:elec-end@invoice` : null;
+
+  // Multi-room: fetch per-line photos
+  const linePhotoBuffers: { roomLabel: string; start: number | null; end: number | null; startBuf: Awaited<ReturnType<typeof readPhotoBuffer>>; endBuf: Awaited<ReturnType<typeof readPhotoBuffer>> }[] = [];
+  if (inv.building.type === "VP" && isMultiRoom) {
+    for (const line of inv.electricityLines) {
+      const [s, e] = await Promise.all([readPhotoBuffer(line.startPhotoUrl), readPhotoBuffer(line.endPhotoUrl)]);
+      if (s || e) {
+        linePhotoBuffers.push({ roomLabel: line.roomLabel, start: line.start, end: line.end, startBuf: s, endBuf: e });
+      }
+    }
+  }
+
+  const electricityLinePhotos = linePhotoBuffers.map((l, i) => ({
+    roomLabel: l.roomLabel,
+    start: l.start,
+    end: l.end,
+    startCid: l.startBuf ? `elec-line-${i}-start@invoice` : null,
+    endCid: l.endBuf ? `elec-line-${i}-end@invoice` : null,
+  }));
 
   const html = renderInvoiceEmail({
     buildingName: inv.building.name,
@@ -132,6 +154,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     isManual: inv.isManual,
     electricityStartPhotoData,
     electricityEndPhotoData,
+    electricityLinePhotos: electricityLinePhotos.length > 0 ? electricityLinePhotos : undefined,
     lineItems: inv.lineItems.map((l) => ({
       content: l.content,
       categoryName: l.category?.name ?? null,
@@ -143,6 +166,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   const photoAttachments = [
     startPhoto ? { filename: startPhoto.filename, content: startPhoto.buf, contentType: startPhoto.mime, cid: "elec-start@invoice" } : null,
     endPhoto ? { filename: endPhoto.filename, content: endPhoto.buf, contentType: endPhoto.mime, cid: "elec-end@invoice" } : null,
+    ...linePhotoBuffers.flatMap((l, i) => [
+      l.startBuf ? { filename: l.startBuf.filename, content: l.startBuf.buf, contentType: l.startBuf.mime, cid: `elec-line-${i}-start@invoice` } : null,
+      l.endBuf ? { filename: l.endBuf.filename, content: l.endBuf.buf, contentType: l.endBuf.mime, cid: `elec-line-${i}-end@invoice` } : null,
+    ]),
   ].filter((a): a is NonNullable<typeof a> => a !== null);
 
   try {
