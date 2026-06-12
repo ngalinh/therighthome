@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -331,7 +331,7 @@ export function AggregatedInvoicesView({
 
           {/* Desktop table */}
           <Card className="hidden lg:block">
-            <StickyScrollTable>
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
               <InvoiceTable
                 invoices={invoices}
                 isVP={isVP}
@@ -346,7 +346,7 @@ export function AggregatedInvoicesView({
                 onToggleSelectAll={toggleSelectAll}
                 selectableCount={selectableInvoices.length}
               />
-            </StickyScrollTable>
+            </div>
           </Card>
         </>
       )}
@@ -729,55 +729,5 @@ function PayDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Wraps a horizontally-scrollable table and mirrors its scrollbar to a sticky
-// bar fixed at the bottom of the viewport, so users don't need to scroll to
-// the bottom of a long table to access the horizontal scrollbar.
-function StickyScrollTable({ children }: { children: React.ReactNode }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const ghostRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const scroll = scrollRef.current;
-    const sticky = stickyRef.current;
-    const ghost = ghostRef.current;
-    if (!scroll || !sticky || !ghost) return;
-
-    const syncFromScroll = () => { sticky.scrollLeft = scroll.scrollLeft; };
-    const syncFromSticky = () => { scroll.scrollLeft = sticky.scrollLeft; };
-
-    const updateGhostWidth = () => {
-      ghost.style.width = scroll.scrollWidth + "px";
-    };
-
-    const ro = new ResizeObserver(updateGhostWidth);
-    ro.observe(scroll);
-    updateGhostWidth();
-
-    scroll.addEventListener("scroll", syncFromScroll);
-    sticky.addEventListener("scroll", syncFromSticky);
-    return () => {
-      scroll.removeEventListener("scroll", syncFromScroll);
-      sticky.removeEventListener("scroll", syncFromSticky);
-      ro.disconnect();
-    };
-  }, []);
-
-  return (
-    <div className="relative">
-      <div ref={scrollRef} className="p-0 overflow-x-auto">
-        {children}
-      </div>
-      {/* Sticky scrollbar fixed at bottom of viewport */}
-      <div
-        ref={stickyRef}
-        className="sticky bottom-0 overflow-x-auto overflow-y-hidden h-3 z-10 bg-white border-t border-gray-100"
-      >
-        <div ref={ghostRef} className="h-px" />
-      </div>
-    </div>
   );
 }
