@@ -199,6 +199,11 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
           if ((err as DOMException)?.name === "AbortError") return;
         }
       }
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast.success("Đã sao chép ảnh. Dán vào Zalo để gửi.");
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = filename;
