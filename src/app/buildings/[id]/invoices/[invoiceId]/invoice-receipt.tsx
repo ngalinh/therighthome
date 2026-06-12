@@ -2,7 +2,8 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Loader2, Share2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Loader2, Share2, Copy, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
 import { vietQrUrl } from "@/lib/vn-banks";
@@ -180,24 +181,45 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
     }
   }
 
-  async function shareImage() {
+  const isMobile = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
+  async function buildImageBlob() {
+    const canvas = await captureCanvas();
+    const filename = `${data.invoiceCode}.png`;
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"),
+    );
+    return { blob, filename };
+  }
+
+  async function shareImageMobile() {
     if (!cardRef.current) return;
     setSharingImg(true);
     try {
-      const canvas = await captureCanvas();
-      const filename = `${data.invoiceCode}.png`;
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"),
-      );
+      const { blob, filename } = await buildImageBlob();
       const file = new File([blob], filename, { type: "image/png" });
       const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean };
       if (nav.canShare?.({ files: [file] })) {
-        try {
-          await nav.share({ files: [file], title: `Phiếu thanh toán ${data.invoiceCode}`, text: shareCaption() });
-          return;
-        } catch (err) {
-          if ((err as DOMException)?.name === "AbortError") return;
-        }
+        await nav.share({ files: [file], title: `Phiếu thanh toán ${data.invoiceCode}`, text: shareCaption() });
+      }
+    } catch (err) {
+      if ((err as DOMException)?.name === "AbortError") return;
+      console.error(err);
+      toast.error("Không share được. Hãy thử lại.");
+    } finally {
+      setSharingImg(false);
+    }
+  }
+
+  async function copyImage() {
+    if (!cardRef.current) return;
+    setSharingImg(true);
+    try {
+      const { blob, filename } = await buildImageBlob();
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast.success("Đã sao chép ảnh. Dán vào Zalo để gửi.");
+        return;
       }
       if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
@@ -213,7 +235,7 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
       toast.success("Đã tải ảnh");
     } catch (err) {
       console.error(err);
-      toast.error("Không share được. Hãy thử lại.");
+      toast.error("Không sao chép được. Hãy thử lại.");
     } finally {
       setSharingImg(false);
     }
@@ -224,10 +246,32 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
   return (
     <div className="space-y-3">
       <div className="flex justify-end gap-2 max-w-[720px] mx-auto w-full">
-        <Button variant="outline" onClick={shareImage} disabled={busy} size="sm">
-          {sharingImg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-          Ảnh
-        </Button>
+        {isMobile() ? (
+          <Button variant="outline" onClick={shareImageMobile} disabled={busy} size="sm">
+            {sharingImg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            Ảnh
+          </Button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={busy} size="sm">
+                {sharingImg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                Ảnh
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={copyImage}>
+                <Copy className="h-4 w-4 mr-2" />
+                Sao chép ảnh
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={shareImageMobile}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Chia sẻ
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Button variant="gradient" onClick={sharePdf} disabled={busy} size="sm">
           {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           PDF
