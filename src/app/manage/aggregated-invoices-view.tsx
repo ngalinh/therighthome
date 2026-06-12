@@ -774,7 +774,7 @@ function StickyScrollTable({ children }: { children: React.ReactNode }) {
       {/* Sticky scrollbar fixed at bottom of viewport */}
       <div
         ref={stickyRef}
-        className="sticky bottom-0 overflow-x-auto overflow-y-hidden h-4 z-10 bg-transparent"
+        className="sticky bottom-0 overflow-x-auto overflow-y-hidden h-3 z-10 bg-white border-t border-gray-100"
       >
         <div ref={ghostRef} className="h-px" />
       </div>
