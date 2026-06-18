@@ -218,7 +218,7 @@ function TaskRow({ task, onEdit, paymentMethods }: { task: Task; onEdit: () => v
       <td className="px-3 py-2.5 truncate max-w-[180px]">{task.building.name}</td>
       <td className="px-3 py-2.5">{task.room?.number ?? "—"}</td>
       <td className="px-3 py-2.5 truncate max-w-[160px]">{task.party?.name ?? "—"}</td>
-      <td className="px-3 py-2.5">{task.taskName}</td>
+      <td className="px-3 py-2.5 min-w-[260px] whitespace-normal break-words">{task.taskName}</td>
       <td className="px-3 py-2.5"><StatusBadge status={task.status} /></td>
       <td className="px-3 py-2.5 text-right whitespace-nowrap">{formatVND(BigInt(task.cost))}</td>
       <td className="px-3 py-2.5 text-right">
