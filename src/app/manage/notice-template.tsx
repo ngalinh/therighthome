@@ -199,12 +199,12 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
                     <div className="room-num-block">
                       {r.floor && <div className="floor">{r.floor}</div>}
                       <div className="num">{r.number}</div>
+                      {r.availabilityLabel && (
+                        <div className={`avail-badge ${r.availabilityLabel === "Trống sẵn" ? "avail-now" : "avail-soon"}`}>
+                          {r.availabilityLabel}
+                        </div>
+                      )}
                     </div>
-                    {r.availabilityLabel && (
-                      <div className={`avail-badge ${r.availabilityLabel === "Trống sẵn" ? "avail-now" : "avail-soon"}`}>
-                        {r.availabilityLabel}
-                      </div>
-                    )}
                     <div className="room-info">
                       {r.title && <div className="room-title">{r.title}</div>}
                       {r.features.length > 0 && (
@@ -554,12 +554,12 @@ const NOTICE_CSS = `
 .notice-root .room-tag.hot { background: var(--nc-accent); color: white; }
 .notice-root .room-tag.new { background: var(--nc-sage); color: white; }
 .notice-root .avail-badge {
-  display: inline-block; margin: 6px 0 2px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-  padding: 3px 10px; border-radius: 999px;
+  margin-top: 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 999px; display: inline-block;
 }
-.notice-root .avail-badge.avail-now { background: #dcfce7; color: #15803d; }
-.notice-root .avail-badge.avail-soon { background: #fef9c3; color: #92400e; }
+.notice-root .avail-badge.avail-now { background: rgba(255,255,255,0.22); color: #fff7eb; }
+.notice-root .avail-badge.avail-soon { background: rgba(255,220,150,0.30); color: #ffe4b0; }
 .notice-root .policy-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
   gap: 16px; margin-top: 28px;
