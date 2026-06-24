@@ -129,7 +129,76 @@ export async function ManageTypePage({
     expectedRent: r.expectedRent?.toString() ?? null,
     vacancyNotes: r.vacancyNotes,
     previousRent: r.contracts[0]?.monthlyRent.toString() ?? null,
+    soonVacantDate: null as string | null,
   }));
+
+  // Rooms with active contracts expiring within 14 days — shown in the vacant
+  // tab as "sắp trống" so sales can start looking for new tenants early.
+  const soonVacantThreshold = new Date(now);
+  soonVacantThreshold.setDate(soonVacantThreshold.getDate() + 14);
+  const soonVacantRaw = await prisma.room.findMany({
+    where: {
+      buildingId: { in: buildingIds },
+      OR: [
+        {
+          contracts: {
+            some: {
+              status: "ACTIVE",
+              isOpenEnded: false,
+              endDate: { lte: soonVacantThreshold },
+            },
+          },
+        },
+        {
+          contractRooms: {
+            some: {
+              contract: {
+                status: "ACTIVE",
+                isOpenEnded: false,
+                endDate: { lte: soonVacantThreshold },
+              },
+            },
+          },
+        },
+      ],
+    },
+    orderBy: [{ buildingId: "asc" }, { number: "asc" }],
+    select: {
+      id: true,
+      buildingId: true,
+      number: true,
+      info: true,
+      expectedRent: true,
+      vacancyNotes: true,
+      contracts: {
+        where: { status: "ACTIVE", isOpenEnded: false },
+        orderBy: { endDate: "asc" },
+        take: 1,
+        select: { monthlyRent: true, endDate: true },
+      },
+      contractRooms: {
+        where: { contract: { status: "ACTIVE", isOpenEnded: false } },
+        orderBy: { contract: { endDate: "asc" } },
+        take: 1,
+        select: { contract: { select: { monthlyRent: true, endDate: true } } },
+      },
+    },
+  });
+  const soonVacantRooms = soonVacantRaw.map((r) => {
+    const primaryContract = r.contracts[0];
+    const secondaryContract = r.contractRooms[0]?.contract;
+    const activeContract = primaryContract ?? secondaryContract;
+    return {
+      id: r.id,
+      buildingId: r.buildingId,
+      number: r.number,
+      info: r.info,
+      expectedRent: r.expectedRent?.toString() ?? null,
+      vacancyNotes: r.vacancyNotes,
+      previousRent: activeContract?.monthlyRent.toString() ?? null,
+      soonVacantDate: activeContract?.endDate.toISOString() ?? null,
+    };
+  });
   const buildingsForVacant = buildings.map((b) => ({
     id: b.id,
     name: b.name,
@@ -300,7 +369,7 @@ export async function ManageTypePage({
             />
           </TabsContent>
           <TabsContent value="vacant">
-            <VacantRoomsTab buildings={buildingsForVacant} rooms={vacantRooms} />
+            <VacantRoomsTab buildings={buildingsForVacant} rooms={vacantRooms} soonVacantRooms={soonVacantRooms} />
           </TabsContent>
           <TabsContent value="invoices">
             <AggregatedInvoicesView
