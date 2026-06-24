@@ -26,6 +26,7 @@ type VacantRoom = {
   expectedRent: string | null;
   vacancyNotes: string | null;
   previousRent: string | null;
+  soonVacantDate: string | null;
 };
 
 type Group = { building: Building; rooms: VacantRoom[] };
@@ -242,6 +243,12 @@ function applySaved(base: NoticeData, saved: SavedTemplate | null): NoticeData {
   };
 }
 
+function buildAvailabilityLabel(soonVacantDate: string | null): string {
+  if (!soonVacantDate) return "Trống sẵn";
+  const d = new Date(soonVacantDate);
+  return `Trống từ ${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function buildInitialRoom(r: VacantRoom): NoticeRoom {
   const features = (r.info ?? "")
     .split("\n")
@@ -260,6 +267,7 @@ function buildInitialRoom(r: VacantRoom): NoticeRoom {
     price,
     priceUnit: r.expectedRent ? "VNĐ / tháng" : "Báo giá riêng",
     featured: false,
+    availabilityLabel: buildAvailabilityLabel(r.soonVacantDate ?? null),
   };
 }
 

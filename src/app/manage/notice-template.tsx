@@ -13,6 +13,7 @@ export type NoticeRoom = {
   price: string;        // already formatted, or "Liên hệ"
   priceUnit: string;
   featured: boolean;
+  availabilityLabel: string; // "Trống sẵn" or "Trống từ DD/MM"
 };
 
 export type NoticeBuilding = {
@@ -199,6 +200,11 @@ export function NoticeTemplate({ data, refProp }: { data: NoticeData; refProp?: 
                       {r.floor && <div className="floor">{r.floor}</div>}
                       <div className="num">{r.number}</div>
                     </div>
+                    {r.availabilityLabel && (
+                      <div className={`avail-badge ${r.availabilityLabel === "Trống sẵn" ? "avail-now" : "avail-soon"}`}>
+                        {r.availabilityLabel}
+                      </div>
+                    )}
                     <div className="room-info">
                       {r.title && <div className="room-title">{r.title}</div>}
                       {r.features.length > 0 && (
@@ -547,6 +553,13 @@ const NOTICE_CSS = `
 }
 .notice-root .room-tag.hot { background: var(--nc-accent); color: white; }
 .notice-root .room-tag.new { background: var(--nc-sage); color: white; }
+.notice-root .avail-badge {
+  display: inline-block; margin: 6px 0 2px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 10px; border-radius: 999px;
+}
+.notice-root .avail-badge.avail-now { background: #dcfce7; color: #15803d; }
+.notice-root .avail-badge.avail-soon { background: #fef9c3; color: #92400e; }
 .notice-root .policy-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
   gap: 16px; margin-top: 28px;
