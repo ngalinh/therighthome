@@ -559,7 +559,7 @@ const NOTICE_CSS = `
   padding: 3px 7px; border-radius: 999px; display: inline-block;
 }
 .notice-root .avail-badge.avail-now { background: rgba(255,255,255,0.22); color: #fff7eb; }
-.notice-root .avail-badge.avail-soon { background: rgba(255,220,150,0.30); color: #ffe4b0; }
+.notice-root .avail-badge.avail-soon { background: rgba(255,255,255,0.22); color: #fff7eb; }
 .notice-root .policy-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
   gap: 16px; margin-top: 28px;
