@@ -52,7 +52,7 @@ function StatusBadge({ room }: { room: VacantRoom }) {
   const color = days <= 3 ? "bg-red-100 text-red-700" : days <= 7 ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700";
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${color}`}>
-      Trống từ {dateLabel} · còn {days}d
+      Trống từ {dateLabel}
     </span>
   );
 }
