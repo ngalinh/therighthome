@@ -28,9 +28,10 @@ type VacantRoom = {
   expectedRent: string | null;
   vacancyNotes: string | null;
   previousRent: string | null;
+  soonVacantDate: string | null;
 };
 
-export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; rooms: VacantRoom[] }) {
+export function VacantRoomsTab({ buildings, rooms, soonVacantRooms }: { buildings: Building[]; rooms: VacantRoom[]; soonVacantRooms: VacantRoom[] }) {
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [noticeOpen, setNoticeOpen] = useState(false);
@@ -39,6 +40,11 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
   const filteredRooms = useMemo(
     () => rooms.filter((r) => buildingFilter === "ALL" || r.buildingId === buildingFilter),
     [rooms, buildingFilter],
+  );
+
+  const filteredSoonVacant = useMemo(
+    () => soonVacantRooms.filter((r) => buildingFilter === "ALL" || r.buildingId === buildingFilter),
+    [soonVacantRooms, buildingFilter],
   );
 
   function toggle(id: string) {
@@ -100,9 +106,47 @@ export function VacantRoomsTab({ buildings, rooms }: { buildings: Building[]; ro
         </div>
       </div>
 
-      {filteredRooms.length === 0 ? (
+      {filteredSoonVacant.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-orange-700 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />
+            {filteredSoonVacant.length} phòng sắp trống (trong 14 ngày tới)
+          </h3>
+          {/* Mobile cards */}
+          <div className="space-y-2 lg:hidden">
+            {filteredSoonVacant.map((r) => {
+              const b = buildingById.get(r.buildingId);
+              if (!b) return null;
+              return <SoonVacantCard key={r.id} building={b} room={r} />;
+            })}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden lg:block rounded-2xl border border-orange-200 bg-orange-50/30 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-orange-50 text-orange-700 text-xs uppercase">
+                <tr>
+                  <th className="text-left px-3 py-2.5">Toà nhà</th>
+                  <th className="text-left px-3 py-2.5">Số phòng</th>
+                  <th className="text-left px-3 py-2.5 min-w-[180px]">Thông tin phòng</th>
+                  <th className="text-right px-3 py-2.5 whitespace-nowrap">Giá thuê hiện tại</th>
+                  <th className="text-left px-3 py-2.5">Hết hạn HĐ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSoonVacant.map((r) => {
+                  const b = buildingById.get(r.buildingId);
+                  if (!b) return null;
+                  return <SoonVacantRow key={r.id} building={b} room={r} />;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {filteredRooms.length === 0 && filteredSoonVacant.length === 0 ? (
         <EmptyState icon={DoorOpen} title="Không có phòng trống" description="Tất cả phòng đang có hợp đồng đang hoạt động." />
-      ) : (
+      ) : filteredRooms.length === 0 ? null : (
         <>
           {/* Mobile cards */}
           <div className="space-y-2 lg:hidden">
@@ -362,5 +406,62 @@ function VacancyNotesInput({ roomId, buildingId, value }: { roomId: string; buil
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedFlash ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5" />}
       </button>
     </div>
+  );
+}
+
+function daysUntil(isoDate: string): number {
+  const end = new Date(isoDate);
+  end.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((end.getTime() - today.getTime()) / 86400000);
+}
+
+function SoonVacantRow({ building, room }: { building: Building; room: VacantRoom }) {
+  const days = room.soonVacantDate ? daysUntil(room.soonVacantDate) : null;
+  const endLabel = room.soonVacantDate
+    ? new Date(room.soonVacantDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+  const badgeColor = days !== null && days <= 3 ? "bg-red-100 text-red-700" : days !== null && days <= 7 ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700";
+  return (
+    <tr className="border-t border-orange-100 align-top hover:bg-orange-50/40">
+      <td className="px-3 py-2.5 whitespace-nowrap font-medium">{building.name}</td>
+      <td className="px-3 py-2.5 whitespace-nowrap font-semibold">{formatRoomNumber(room.number)}</td>
+      <td className="px-3 py-2.5 text-xs text-slate-600">
+        <div className="line-clamp-3 whitespace-pre-line">{room.info || <span className="text-slate-400">—</span>}</div>
+      </td>
+      <td className="px-3 py-2.5 text-right whitespace-nowrap text-slate-600">
+        {room.previousRent ? formatVND(BigInt(room.previousRent)) : <span className="text-slate-400">—</span>}
+      </td>
+      <td className="px-3 py-2.5">
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
+          {endLabel}{days !== null ? ` · còn ${days}d` : ""}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+function SoonVacantCard({ building, room }: { building: Building; room: VacantRoom }) {
+  const days = room.soonVacantDate ? daysUntil(room.soonVacantDate) : null;
+  const endLabel = room.soonVacantDate
+    ? new Date(room.soonVacantDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+  const badgeColor = days !== null && days <= 3 ? "bg-red-100 text-red-700" : days !== null && days <= 7 ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700";
+  return (
+    <Card className="border-orange-200">
+      <CardContent className="p-4 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-semibold text-sm">{building.name} · Phòng {room.number}</div>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
+            {endLabel}{days !== null ? ` · còn ${days}d` : ""}
+          </span>
+        </div>
+        {room.info && <p className="text-xs text-slate-600 whitespace-pre-line line-clamp-3">{room.info}</p>}
+        <div className="text-xs text-slate-500">
+          Giá thuê hiện tại: <span className="font-medium text-slate-700">{room.previousRent ? formatVND(BigInt(room.previousRent)) : "—"}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
