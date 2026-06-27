@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Share2, ChevronDown, Save } from "lucide-react";
+import { Download, Loader2, Share2, ChevronDown, Save, Copy } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { formatVND, formatNumber, parseVNDInput, formatRoomNumber, roomFloor } from "@/lib/utils";
 import { NoticeTemplate, type NoticeData, type NoticeBuilding, type NoticeRoom } from "./notice-template";
@@ -500,6 +501,34 @@ export function VacancyNoticeDialog({
     }
   }
 
+  async function copyImage() {
+    setExporting(true);
+    try {
+      const blob = await generateBlob();
+      if (!blob) throw new Error("Không tạo được hình");
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast.success("Đã sao chép ảnh. Dán vào Zalo để gửi.");
+      } else {
+        // Clipboard image write unsupported — fall back to a download.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileLabel;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("Đã tải hình ảnh");
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      toast.error(e instanceof Error ? e.message : "Không sao chép được");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-7xl max-h-[94vh] overflow-y-auto sm:p-5">
@@ -674,22 +703,30 @@ export function VacancyNoticeDialog({
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "Đang lưu…" : savedFlash ? "Đã lưu" : "Lưu mẫu"}
           </Button>
-          {/* On iOS, <a download> can't save to Photos — both Chia sẻ and Tải
-              hình route through the same share sheet, so we drop the duplicate
-              and keep only Chia sẻ as the primary gradient action. */}
-          {isIos ? (
-            <Button variant="gradient" onClick={share} disabled={exporting}>
-              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={share} disabled={exporting}>
+          {/* "Chia sẻ" is a dropdown offering "Sao chép ảnh" (clipboard) and
+              "Chia sẻ" (Web Share), mirroring the invoice receipt. On iOS,
+              <a download> can't save to Photos, so the share dropdown is the
+              primary gradient action and the separate "Tải hình" is dropped. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={isIos ? "gradient" : "outline"} disabled={exporting}>
                 {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} Chia sẻ
+                <ChevronDown className="h-3 w-3 ml-1" />
               </Button>
-              <Button variant="gradient" onClick={download} disabled={exporting}>
-                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Tải hình
-              </Button>
-            </>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={copyImage}>
+                <Copy className="h-4 w-4 mr-2" /> Sao chép ảnh
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={share}>
+                <Share2 className="h-4 w-4 mr-2" /> Chia sẻ
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {!isIos && (
+            <Button variant="gradient" onClick={download} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Tải hình
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>
