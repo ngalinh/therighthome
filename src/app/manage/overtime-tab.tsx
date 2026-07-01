@@ -150,7 +150,7 @@ function OtActions({ ot, onEdit }: { ot: Overtime; onEdit: () => void }) {
 
   async function pay() {
     if (ot.invoiceId) return toast.info("Đã ghi vào hoá đơn rồi");
-    if (!confirm(`Cộng phí ${formatVND(BigInt(ot.fee))} vào hoá đơn tháng này?`)) return;
+    if (!confirm(`Cộng phí ${formatVND(BigInt(ot.fee))} vào hoá đơn tháng sau?`)) return;
     setBusy(true);
     const res = await fetch(`/api/overtime-requests/${ot.id}/invoice`, { method: "POST" });
     setBusy(false);
