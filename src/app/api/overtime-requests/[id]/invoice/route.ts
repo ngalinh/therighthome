@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 
-// $ button: fold the OT fee into the invoice for the (room, month) of the OT date.
+// $ button: fold the OT fee into the invoice for the room, billed in the month
+// AFTER the OT date (e.g. June overtime is collected on the July invoice).
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,8 +24,10 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Phí ngoài giờ phải lớn hơn 0" }, { status: 400 });
   }
 
-  const month = ot.date.getMonth() + 1;
-  const year = ot.date.getFullYear();
+  // Bill overtime on the following month's invoice.
+  const otMonth = ot.date.getMonth() + 1;
+  const month = otMonth === 12 ? 1 : otMonth + 1;
+  const year = otMonth === 12 ? ot.date.getFullYear() + 1 : ot.date.getFullYear();
 
   // Find the active contract on the OT date for this room.
   const contract = await prisma.contract.findFirst({
@@ -42,7 +45,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     where: { contractId: contract.id, month, year },
   });
   if (!invoice) {
-    return NextResponse.json({ error: "Chưa có hoá đơn tháng này — tạo hoá đơn trước" }, { status: 400 });
+    return NextResponse.json({ error: `Chưa có hoá đơn tháng ${month}/${year} — tạo hoá đơn trước` }, { status: 400 });
   }
 
   const newOt = invoice.overtimeFee + ot.fee;
