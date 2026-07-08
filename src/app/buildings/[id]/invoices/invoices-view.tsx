@@ -99,6 +99,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
   PAID: { label: "Đã thanh toán", variant: "success" },
   OVERDUE: { label: "Quá hạn", variant: "destructive" },
   CANCELLED: { label: "Đã huỷ", variant: "secondary" },
+  WAIVED: { label: "Không phát sinh", variant: "secondary" },
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -617,7 +618,7 @@ function InvoiceTable({
               </td>
               <td className="px-3 py-2.5 text-right">
                 <div className="flex gap-1 justify-end">
-                  {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                  {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && inv.status !== "WAIVED" && (
                     <Button onClick={() => onPay(inv)} variant="gradient" size="sm" className="h-7 px-2">
                       <DollarSign className="h-3 w-3" />
                     </Button>
@@ -695,7 +696,7 @@ function InvoiceRow({ inv, canWrite, canSend, sending, buildingId, onSend, onPay
             <Button asChild variant="outline" size="sm">
               <Link href={`/buildings/${buildingId}/invoices/${inv.id}`}>Chi tiết</Link>
             </Button>
-            {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+            {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && inv.status !== "WAIVED" && (
               <Button onClick={onPay} variant="gradient" size="sm">
                 <DollarSign className="h-3.5 w-3.5" /> Ghi nhận
               </Button>

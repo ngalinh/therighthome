@@ -69,7 +69,7 @@ export default async function InvoicesPage({
   // Re-sort: OVERDUE first (oldest dueDate → most overdue at top), then
   // PENDING/PARTIAL by dueDate, then PAID, then CANCELLED.
   const STATUS_BUCKET: Record<string, number> = {
-    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, CANCELLED: 3,
+    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, WAIVED: 2, CANCELLED: 3,
   };
   // Extract floor number so "Lầu 5" (floor 5) sorts after "P302" (floor 3),
   // even though "L" < "P" alphabetically.

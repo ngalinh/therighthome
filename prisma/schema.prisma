@@ -316,6 +316,7 @@ enum InvoiceStatus {
   PAID // Đã thanh toán
   OVERDUE // Quá hạn (computed by cron)
   CANCELLED // Đã huỷ
+  WAIVED // Không phát sinh (hoá đơn 0đ, kế toán đánh dấu thủ công)
 }
 
 model Invoice {

@@ -275,7 +275,7 @@ export async function ManageTypePage({
   // Sort: OVERDUE oldest-first, then PENDING/PARTIAL by dueDate, then PAID,
   // then CANCELLED — surfaces the most overdue invoices at the top.
   const STATUS_BUCKET: Record<string, number> = {
-    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, CANCELLED: 3,
+    OVERDUE: 0, PENDING: 1, PARTIAL: 1, PAID: 2, WAIVED: 2, CANCELLED: 3,
   };
   invoices.sort((a, b) => {
     const ba = STATUS_BUCKET[a.status] ?? 9;
