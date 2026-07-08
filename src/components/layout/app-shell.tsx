@@ -780,6 +780,7 @@ function invoiceStatusLabel(s: string): string {
     case "PENDING": return "Chờ thanh toán";
     case "OVERDUE": return "Quá hạn";
     case "CANCELLED": return "Đã huỷ";
+    case "WAIVED": return "Không phát sinh";
     default: return s;
   }
 }

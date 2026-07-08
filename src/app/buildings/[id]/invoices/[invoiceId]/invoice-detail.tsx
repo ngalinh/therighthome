@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus, DollarSign, RotateCcw } from "lucide-react";
+import { Loader2, Camera, Send, X as XIcon, Save, Trash2, FileText, Edit2, Check, Plus, DollarSign, RotateCcw, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { formatVND, formatNumber, parseVNDInput, formatDateVN, customerDisplayName, rentPeriodLabel } from "@/lib/utils";
@@ -107,6 +107,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
   PAID: { label: "Đã thanh toán", variant: "success" },
   OVERDUE: { label: "Quá hạn", variant: "destructive" },
   CANCELLED: { label: "Đã huỷ", variant: "secondary" },
+  WAIVED: { label: "Không phát sinh", variant: "secondary" },
 };
 
 export function InvoiceDetail({
@@ -343,10 +344,24 @@ export function InvoiceDetail({
     router.refresh();
   }
 
+  async function waive() {
+    if (!confirm("Đánh dấu hoá đơn này Không phát sinh? Hãy chắc chắn đã nhập đủ tiền điện và các khoản phí (nếu có).")) return;
+    setSaving(true);
+    const res = await fetch(`/api/invoices/${invoice.id}/waive`, { method: "POST" });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error || "Có lỗi");
+    }
+    toast.success("Đã đánh dấu không phát sinh");
+    router.refresh();
+  }
+
   const headerGradient =
     invoice.status === "OVERDUE" ? "from-orange-500 via-rose-500 to-rose-600" :
     invoice.status === "PAID"    ? "from-emerald-500 to-teal-500" :
     invoice.status === "PARTIAL" ? "from-amber-400 to-orange-500" :
+    invoice.status === "WAIVED"  ? "from-slate-400 to-slate-600" :
     "from-slate-500 to-slate-700";
 
   // Build receipt data from current invoice values (use saved snapshots, not
@@ -779,7 +794,12 @@ export function InvoiceDetail({
                 <RotateCcw className="h-4 w-4" /> Mở lại
               </Button>
             )}
-            {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
+            {BigInt(invoice.totalAmount) === 0n && invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.status !== "WAIVED" && (
+              <Button variant="outline" onClick={waive} disabled={saving}>
+                <Ban className="h-4 w-4" /> Không phát sinh
+              </Button>
+            )}
+            {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.status !== "WAIVED" && (
               <Button variant="outline" onClick={() => setPayOpen(true)}>
                 <DollarSign className="h-4 w-4" /> Thanh toán
               </Button>

@@ -99,6 +99,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
   PAID: { label: "Đã thanh toán", variant: "success" },
   OVERDUE: { label: "Quá hạn", variant: "destructive" },
   CANCELLED: { label: "Đã huỷ", variant: "secondary" },
+  WAIVED: { label: "Không phát sinh", variant: "secondary" },
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -559,7 +560,7 @@ function InvoiceTable({
                       {rowSending === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                     </Button>
                   )}
-                  {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                  {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && inv.status !== "WAIVED" && (
                     <Button onClick={() => onPay(inv)} variant="gradient" size="sm" className="h-7 px-2">
                       <DollarSign className="h-3 w-3" />
                     </Button>
@@ -639,7 +640,7 @@ function InvoiceCard({ inv, canWrite, canSend, onPay, onSend, sending, showCheck
                 {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               </Button>
             )}
-            {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+            {canWrite && inv.status !== "PAID" && inv.status !== "CANCELLED" && inv.status !== "WAIVED" && (
               <Button onClick={onPay} variant="gradient" size="sm">
                 <DollarSign className="h-3.5 w-3.5" /> Ghi nhận
               </Button>
