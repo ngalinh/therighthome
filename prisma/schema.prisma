@@ -366,6 +366,11 @@ model Invoice {
   sentAt DateTime?
   notes  String?
 
+  // Manual override for the "Tiền thuê (…)" rent-period label. When set, it
+  // replaces the value normally computed from the contract's paymentDay/cycle.
+  // Used for one-off corrections on a single invoice.
+  rentPeriodOverride String?
+
   // Manual ad-hoc invoice (created from "Tạo hoá đơn" form). When true, the
   // fixed-fee fields above are unused; the breakdown lives in `lineItems`.
   isManual Boolean @default(false)
