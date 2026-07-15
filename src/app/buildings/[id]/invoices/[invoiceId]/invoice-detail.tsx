@@ -66,6 +66,7 @@ type Invoice = {
   totalAmount: string;
   paidAmount: string;
   notes: string | null;
+  rentPeriodOverride: string | null;
   lineItems: LineItem[];
   electricityLines: ElectricityLine[];
   contract: {
@@ -213,7 +214,7 @@ export function InvoiceDetail({
   // other costs = previous month (consumption period).
   const prevMonth = invoice.month === 1 ? 12 : invoice.month - 1;
   const cycle = invoice.contract.rentPaymentCycleMonths ?? 1;
-  const rentPeriod = rentPeriodLabel(invoice.contract.paymentDay, invoice.month, invoice.year, cycle);
+  const rentPeriod = invoice.rentPeriodOverride ?? rentPeriodLabel(invoice.contract.paymentDay, invoice.month, invoice.year, cycle);
   const usageLabelMonth = `T${prevMonth}`;
 
   async function save() {

@@ -82,7 +82,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       ? { bankName: pm.bankName, bankBin: pm.bankBin, accountHolder: pm.accountHolder, accountNumber: pm.accountNumber, qrCodeUrl: pm.qrCodeUrl }
       : null;
 
-  const rentPeriod = rentPeriodLabel(
+  const rentPeriod = inv.rentPeriodOverride ?? rentPeriodLabel(
     inv.contract.paymentDay,
     inv.month,
     inv.year,
