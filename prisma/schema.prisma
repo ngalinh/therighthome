@@ -96,17 +96,21 @@ model Building {
 }
 
 model Room {
-  id           String     @id @default(cuid())
+  id           String       @id @default(cuid())
   buildingId   String
   number       String
-  status       RoomStatus @default(AVAILABLE)
+  status       RoomStatus   @default(AVAILABLE)
   area         Int? // m²
   notes        String?
   info         String? // Thông tin phòng (mô tả nội thất, ghi chú riêng…)
   expectedRent BigInt? // Giá thuê dự kiến khi phòng đang trống
   vacancyNotes String? // Ghi chú listing phòng trống
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  // Loại hình cho thuê của riêng phòng này, khi khác với Building.type (nhà
+  // hỗn hợp — vd. đa số phòng VP nhưng vài phòng cho thuê CHDV). null = theo
+  // đúng loại của toà nhà.
+  rentalType   BuildingType?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   building         Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contracts        Contract[]
