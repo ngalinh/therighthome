@@ -27,16 +27,9 @@ type VacantRoom = {
   info: string | null;
   expectedRent: string | null;
   vacancyNotes: string | null;
-  rentalType: "CHDV" | "VP" | null;
   previousRent: string | null;
   soonVacantDate: string | null;
 };
-
-// A room's own rentalType overrides the building's type — for buildings that
-// mix VP and CHDV rooms (e.g. mostly-VP building with a couple of CHDV rooms).
-function effectiveType(room: VacantRoom, building: Building): "CHDV" | "VP" {
-  return room.rentalType ?? building.type;
-}
 
 function daysUntil(isoDate: string): number {
   const end = new Date(isoDate);
@@ -65,20 +58,8 @@ function StatusBadge({ room }: { room: VacantRoom }) {
   );
 }
 
-function RentalTypeBadge({ type }: { type: "CHDV" | "VP" }) {
-  return (
-    <span
-      className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700 whitespace-nowrap"
-      title={`Loại hình riêng: ${type === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"} (khác với toà nhà)`}
-    >
-      {type}
-    </span>
-  );
-}
-
 export function VacantRoomsTab({ buildings, rooms, soonVacantRooms }: { buildings: Building[]; rooms: VacantRoom[]; soonVacantRooms: VacantRoom[] }) {
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "CHDV" | "VP">("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [noticeOpen, setNoticeOpen] = useState(false);
   const buildingById = useMemo(() => new Map(buildings.map((b) => [b.id, b])), [buildings]);
@@ -92,15 +73,8 @@ export function VacantRoomsTab({ buildings, rooms, soonVacantRooms }: { building
   }, [rooms, soonVacantRooms]);
 
   const filteredRooms = useMemo(
-    () => allRooms.filter((r) => {
-      if (buildingFilter !== "ALL" && r.buildingId !== buildingFilter) return false;
-      if (typeFilter !== "ALL") {
-        const b = buildingById.get(r.buildingId);
-        if (!b || effectiveType(r, b) !== typeFilter) return false;
-      }
-      return true;
-    }),
-    [allRooms, buildingFilter, typeFilter, buildingById],
+    () => allRooms.filter((r) => buildingFilter === "ALL" || r.buildingId === buildingFilter),
+    [allRooms, buildingFilter],
   );
 
   function toggle(id: string) {
@@ -121,18 +95,6 @@ export function VacantRoomsTab({ buildings, rooms, soonVacantRooms }: { building
     () => allRooms.filter((r) => selected.has(r.id)),
     [allRooms, selected],
   );
-
-  // CHDV and VP are always announced separately — mixing them in one
-  // selection would pick the wrong template, so block it rather than guess.
-  const selectedTypes = useMemo(() => {
-    const types = new Set<"CHDV" | "VP">();
-    for (const r of selectedRooms) {
-      const b = buildingById.get(r.buildingId);
-      if (b) types.add(effectiveType(r, b));
-    }
-    return types;
-  }, [selectedRooms, buildingById]);
-  const mixedSelection = selectedTypes.size > 1;
 
   const noticeGroups = useMemo(() => {
     const groups = new Map<string, { building: Building; rooms: VacantRoom[] }>();
@@ -166,31 +128,16 @@ export function VacantRoomsTab({ buildings, rooms, soonVacantRooms }: { building
               {buildings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "ALL" | "CHDV" | "VP")}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Loại hình" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Tất cả loại hình</SelectItem>
-              <SelectItem value="CHDV">Căn hộ dịch vụ</SelectItem>
-              <SelectItem value="VP">Văn phòng</SelectItem>
-            </SelectContent>
-          </Select>
           <Button
             variant="gradient"
             size="sm"
             onClick={() => setNoticeOpen(true)}
-            disabled={selected.size === 0 || mixedSelection}
-            title={mixedSelection ? "Đã chọn lẫn phòng CHDV và VP — vui lòng thông báo riêng từng loại" : undefined}
+            disabled={selected.size === 0}
           >
             <Megaphone className="h-4 w-4" /> Thông báo {selected.size > 0 && `(${selected.size})`}
           </Button>
         </div>
       </div>
-
-      {mixedSelection && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
-          Đã chọn lẫn phòng Căn hộ dịch vụ và Văn phòng — hai loại luôn thông báo riêng. Vui lòng bỏ chọn bớt để chỉ còn 1 loại.
-        </p>
-      )}
 
       {filteredRooms.length === 0 ? (
         <EmptyState icon={DoorOpen} title="Không có phòng trống" description="Tất cả phòng đang có hợp đồng đang hoạt động." />
@@ -297,10 +244,7 @@ function VacantRoomRow({
       <td className="px-3 py-2.5 text-xs text-slate-600 max-w-[200px]" title={building.info ?? undefined}>
         <div className="line-clamp-3 whitespace-pre-line">{building.info || <span className="text-slate-400">—</span>}</div>
       </td>
-      <td className="px-3 py-2.5 whitespace-nowrap font-semibold">
-        {formatRoomNumber(room.number)}
-        {room.rentalType && room.rentalType !== building.type && <RentalTypeBadge type={room.rentalType} />}
-      </td>
+      <td className="px-3 py-2.5 whitespace-nowrap font-semibold">{formatRoomNumber(room.number)}</td>
       <td className="px-3 py-2.5 text-xs text-slate-600" title={room.info ?? undefined}>
         <div className="line-clamp-3 whitespace-pre-line">{room.info || <span className="text-slate-400">—</span>}</div>
       </td>
@@ -341,10 +285,7 @@ function VacantRoomCard({
               className="rounded"
             />
             <div className="min-w-0">
-              <div className="font-semibold text-sm flex items-center gap-1.5">
-                {building.name} · Phòng {room.number}
-                {room.rentalType && room.rentalType !== building.type && <RentalTypeBadge type={room.rentalType} />}
-              </div>
+              <div className="font-semibold text-sm">{building.name} · Phòng {room.number}</div>
               <div className="text-xs text-slate-500">{building.address}</div>
             </div>
           </div>

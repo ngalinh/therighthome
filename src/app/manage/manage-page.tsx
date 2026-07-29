@@ -113,7 +113,6 @@ export async function ManageTypePage({
       info: true,
       expectedRent: true,
       vacancyNotes: true,
-      rentalType: true,
       contracts: {
         where: { status: { in: ["TERMINATED", "EXPIRED", "TERMINATED_LOST_DEPOSIT"] } },
         orderBy: { endDate: "desc" },
@@ -129,7 +128,6 @@ export async function ManageTypePage({
     info: r.info,
     expectedRent: r.expectedRent?.toString() ?? null,
     vacancyNotes: r.vacancyNotes,
-    rentalType: r.rentalType,
     previousRent: r.contracts[0]?.monthlyRent.toString() ?? null,
     soonVacantDate: null as string | null,
   }));
@@ -172,7 +170,6 @@ export async function ManageTypePage({
       info: true,
       expectedRent: true,
       vacancyNotes: true,
-      rentalType: true,
       contracts: {
         where: { status: "ACTIVE", isOpenEnded: false },
         orderBy: { endDate: "asc" },
@@ -198,7 +195,6 @@ export async function ManageTypePage({
       info: r.info,
       expectedRent: r.expectedRent?.toString() ?? null,
       vacancyNotes: r.vacancyNotes,
-      rentalType: r.rentalType,
       previousRent: activeContract?.monthlyRent.toString() ?? null,
       soonVacantDate: activeContract?.endDate.toISOString() ?? null,
     };

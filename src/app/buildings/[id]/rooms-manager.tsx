@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn, roomFloor, compareRooms } from "@/lib/utils";
 
@@ -20,17 +19,14 @@ type Room = {
   customerName: string | null;
   daysLeft: number | null;
   contractId: string | null;
-  rentalType: "CHDV" | "VP" | null;
 };
 
 export function RoomsManager({
   buildingId,
-  buildingType,
   canWrite,
   rooms,
 }: {
   buildingId: string;
-  buildingType: "CHDV" | "VP";
   canWrite: boolean;
   rooms: Room[];
 }) {
@@ -126,7 +122,6 @@ export function RoomsManager({
         <FloorGroupedRooms
           rooms={rooms}
           buildingId={buildingId}
-          buildingType={buildingType}
           canWrite={canWrite}
           onDelete={(r) => deleteRoom(r.id, r.number)}
           onEdit={(r) => setEditing(r)}
@@ -137,7 +132,6 @@ export function RoomsManager({
         key={editing?.id ?? "none"}
         room={editing}
         buildingId={buildingId}
-        buildingType={buildingType}
         onClose={() => setEditing(null)}
       />
     </div>
@@ -145,11 +139,10 @@ export function RoomsManager({
 }
 
 function FloorGroupedRooms({
-  rooms, buildingId, buildingType, canWrite, onDelete, onEdit,
+  rooms, buildingId, canWrite, onDelete, onEdit,
 }: {
   rooms: Room[];
   buildingId: string;
-  buildingType: "CHDV" | "VP";
   canWrite: boolean;
   onDelete: (r: Room) => void;
   onEdit: (r: Room) => void;
@@ -185,7 +178,6 @@ function FloorGroupedRooms({
                 key={r.id}
                 room={r}
                 buildingId={buildingId}
-                buildingType={buildingType}
                 canWrite={canWrite}
                 onDelete={() => onDelete(r)}
                 onEdit={() => onEdit(r)}
@@ -199,12 +191,11 @@ function FloorGroupedRooms({
 }
 
 function RoomTile({
-  room, buildingId, buildingType, canWrite, onDelete, onEdit,
+  room, buildingId, canWrite, onDelete, onEdit,
 }: {
-  room: Room; buildingId: string; buildingType: "CHDV" | "VP"; canWrite: boolean; onDelete: () => void; onEdit: () => void;
+  room: Room; buildingId: string; canWrite: boolean; onDelete: () => void; onEdit: () => void;
 }) {
   const isExpiring = room.daysLeft !== null && room.daysLeft <= 30;
-  const overridesType = room.rentalType !== null && room.rentalType !== buildingType;
 
   const styles = {
     OCCUPIED: isExpiring
@@ -237,14 +228,6 @@ function RoomTile({
             {room.daysLeft <= 0 ? "Hết hạn" : `Còn ${room.daysLeft}d`}
           </div>
         )}
-        {overridesType && (
-          <div
-            className="text-[10px] mt-1.5 text-violet-700 font-semibold bg-violet-100 rounded-md px-1.5 py-0.5 inline-block"
-            title={`Loại hình riêng: ${room.rentalType === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"} (khác với toà nhà)`}
-          >
-            {room.rentalType}
-          </div>
-        )}
       </Link>
       {canWrite && (
         <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -271,18 +254,16 @@ function RoomTile({
 }
 
 function EditRoomDialog({
-  room, buildingId, buildingType, onClose,
+  room, buildingId, onClose,
 }: {
   room: Room | null;
   buildingId: string;
-  buildingType: "CHDV" | "VP";
   onClose: () => void;
 }) {
   const router = useRouter();
   const [number, setNumber] = useState(room?.number ?? "");
   const [info, setInfo] = useState(room?.info ?? "");
   const [status, setStatus] = useState<"AVAILABLE" | "MAINTENANCE" | undefined>(undefined);
-  const [rentalType, setRentalType] = useState<"CHDV" | "VP" | "">(room?.rentalType ?? "");
   const [loading, setLoading] = useState(false);
 
   if (!room) return null;
@@ -292,11 +273,7 @@ function EditRoomDialog({
   async function submit() {
     if (!number.trim()) return toast.error("Số phòng không được để trống");
     setLoading(true);
-    const body: Record<string, unknown> = {
-      number: number.trim(),
-      info: info.trim() || null,
-      rentalType: rentalType || null,
-    };
+    const body: Record<string, unknown> = { number: number.trim(), info: info.trim() || null };
     if (canResetStatus && status !== undefined) body.status = status;
     const res = await fetch(`/api/buildings/${buildingId}/rooms/${room!.id}`, {
       method: "PATCH",
@@ -332,22 +309,6 @@ function EditRoomDialog({
               rows={6}
               placeholder="Mô tả nội thất, diện tích, hướng ban công, ghi chú…"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Loại hình cho thuê riêng (tuỳ chọn)</Label>
-            <Select value={rentalType || "DEFAULT"} onValueChange={(v) => setRentalType(v === "DEFAULT" ? "" : (v as "CHDV" | "VP"))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DEFAULT">Theo toà nhà ({buildingType === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng"})</SelectItem>
-                <SelectItem value="CHDV">Căn hộ dịch vụ (CHDV)</SelectItem>
-                <SelectItem value="VP">Văn phòng (VP)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-slate-500">
-              Chỉ cần đổi khi phòng này khác loại với toà nhà (nhà hỗn hợp). Ảnh hưởng đến mẫu thông báo phòng trống.
-            </p>
           </div>
           {canResetStatus && (
             <div className="space-y-1.5">
