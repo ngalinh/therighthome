@@ -10,7 +10,6 @@ const updateSchema = z.object({
   expectedRent: z.string().nullable().optional(),
   vacancyNotes: z.string().max(2000).nullable().optional(),
   status: z.enum(["AVAILABLE", "MAINTENANCE"]).optional(),
-  rentalType: z.enum(["CHDV", "VP"]).nullable().optional(),
 });
 
 export async function PATCH(
@@ -32,12 +31,10 @@ export async function PATCH(
     expectedRent?: bigint | null;
     vacancyNotes?: string | null;
     status?: "AVAILABLE" | "MAINTENANCE";
-    rentalType?: "CHDV" | "VP" | null;
   } = {};
   if (parsed.data.number !== undefined) data.number = parsed.data.number;
   if (parsed.data.info !== undefined) data.info = parsed.data.info;
   if (parsed.data.vacancyNotes !== undefined) data.vacancyNotes = parsed.data.vacancyNotes;
-  if (parsed.data.rentalType !== undefined) data.rentalType = parsed.data.rentalType;
   if (parsed.data.expectedRent !== undefined) {
     data.expectedRent = parsed.data.expectedRent === null || parsed.data.expectedRent === ""
       ? null

@@ -26,31 +26,21 @@ type VacantRoom = {
   info: string | null;
   expectedRent: string | null;
   vacancyNotes: string | null;
-  rentalType: "CHDV" | "VP" | null;
   previousRent: string | null;
   soonVacantDate: string | null;
 };
 
 type Group = { building: Building; rooms: VacantRoom[] };
 
-// A room's own rentalType overrides the building's type — for buildings that
-// mix VP and CHDV rooms (e.g. mostly-VP building with a couple of CHDV rooms).
-function roomEffectiveType(room: VacantRoom, building: Building): "CHDV" | "VP" {
-  return room.rentalType ?? building.type;
-}
-
 // Two independent templates: one for serviced apartments (CHDV), one for
-// offices (VP). CHDV and VP are always announced separately (the caller
-// blocks mixed-type selections), so every room across every group shares the
-// same effective type — pick it from the first room rather than the
-// building, since a building can now mix VP and CHDV rooms.
+// offices (VP). The dialog picks `kind` from the selected groups — all-VP
+// edits the VP template, anything else (all-CHDV or mixed) edits the CHDV
+// template — so saving the office template never overwrites the apartment
+// template and vice versa.
 type TemplateKind = "chdv" | "vp";
 
 function pickKind(groups: Group[]): TemplateKind {
-  const firstRoom = groups[0]?.rooms[0];
-  if (!firstRoom) return "chdv";
-  const type = roomEffectiveType(firstRoom, groups[0].building);
-  return type === "VP" ? "vp" : "chdv";
+  return groups.length > 0 && groups.every((g) => g.building.type === "VP") ? "vp" : "chdv";
 }
 
 const BRAND_DEFAULTS: Record<TemplateKind, {
@@ -152,7 +142,7 @@ function buildInitialData(groups: Group[], kind: TemplateKind): NoticeData {
       { label: "Giá thuê từ", value: minRentLabel, unit: "triệu/tháng" },
       { label: "Sẵn sàng", value: "Ngay", unit: "hôm nay" },
     ],
-    buildings: groups.map((g) => buildInitialBuilding(g, kind)),
+    buildings: groups.map((g) => buildInitialBuilding(g)),
     policy: { ...DEFAULT_POLICY },
     footer: { ...DEFAULT_FOOTER, note: brand.footerNote },
   };
@@ -169,11 +159,11 @@ function formatDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-function buildInitialBuilding(g: Group, kind: TemplateKind): NoticeBuilding {
+function buildInitialBuilding(g: Group): NoticeBuilding {
   return {
     id: g.building.id,
     name: g.building.name,
-    metaParts: [g.building.address, kind === "vp" ? "Văn phòng" : "Căn hộ dịch vụ", ""],
+    metaParts: [g.building.address, g.building.type === "CHDV" ? "Căn hộ dịch vụ" : "Văn phòng", ""],
     countLabel: `${g.rooms.length} phòng`,
     info: g.building.info ?? "",
     rooms: g.rooms.map((r) => buildInitialRoom(r)),

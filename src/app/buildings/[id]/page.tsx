@@ -148,7 +148,6 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
             <CardContent>
               <RoomsManager
                 buildingId={building.id}
-                buildingType={building.type}
                 canWrite={canWrite}
                 rooms={building.rooms.map((r) => {
                   const c = r.contracts[0];
@@ -164,7 +163,6 @@ export default async function BuildingDetailPage({ params }: { params: Promise<{
                     customerName: primary?.fullName || primary?.companyName || null,
                     daysLeft,
                     contractId: c?.id ?? null,
-                    rentalType: r.rentalType,
                   };
                 })}
               />
