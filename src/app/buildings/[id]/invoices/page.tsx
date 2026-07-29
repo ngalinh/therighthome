@@ -95,7 +95,13 @@ export default async function InvoicesPage({
   });
 
   const paymentMethods = await prisma.paymentMethod.findMany({
-    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    where: {
+      OR: [
+        { buildings: { some: { id } } },
+        { buildingType: building.type, buildings: { none: {} } },
+        { buildingType: null, buildings: { none: {} } },
+      ],
+    },
     orderBy: { name: "asc" },
   });
 

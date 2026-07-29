@@ -40,7 +40,13 @@ export default async function FinancePage({
       orderBy: [{ type: "asc" }, { name: "asc" }],
     }),
     prisma.paymentMethod.findMany({
-      where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+      where: {
+        OR: [
+          { buildings: { some: { id } } },
+          { buildingType: building.type, buildings: { none: {} } },
+          { buildingType: null, buildings: { none: {} } },
+        ],
+      },
       orderBy: { name: "asc" },
     }),
     prisma.partyKindConfig.findMany({

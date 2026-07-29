@@ -288,9 +288,17 @@ export async function ManageTypePage({
     return a.contract.room.number.localeCompare(b.contract.room.number, "vi");
   });
 
-  // Payment methods for invoice payment dialog.
+  // Payment methods for invoice payment dialog. A method counts as available
+  // here if it's explicitly tied to at least one of this user's accessible
+  // buildings of this kind, or if it has no building restriction at all.
   const paymentMethods = await prisma.paymentMethod.findMany({
-    where: { OR: [{ buildingType: kind }, { buildingType: null }] },
+    where: {
+      OR: [
+        { buildings: { some: { id: { in: buildingIds } } } },
+        { buildingType: kind, buildings: { none: {} } },
+        { buildingType: null, buildings: { none: {} } },
+      ],
+    },
     orderBy: { name: "asc" },
   });
 

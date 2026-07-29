@@ -22,7 +22,13 @@ export default async function BuildingSettingsPage({ params }: { params: Promise
 
   const [paymentMethods, openings, customers, parties] = await Promise.all([
     prisma.paymentMethod.findMany({
-      where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+      where: {
+        OR: [
+          { buildings: { some: { id } } },
+          { buildingType: building.type, buildings: { none: {} } },
+          { buildingType: null, buildings: { none: {} } },
+        ],
+      },
       orderBy: { name: "asc" },
     }),
     prisma.openingBalance.findMany({

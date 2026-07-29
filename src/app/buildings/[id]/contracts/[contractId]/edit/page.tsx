@@ -60,7 +60,13 @@ export default async function EditContractPage({
     data: { name: "Phí môi giới", type: "EXPENSE", buildingType: null },
   });
   const paymentMethods = await prisma.paymentMethod.findMany({
-    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    where: {
+      OR: [
+        { buildings: { some: { id } } },
+        { buildingType: building.type, buildings: { none: {} } },
+        { buildingType: null, buildings: { none: {} } },
+      ],
+    },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
