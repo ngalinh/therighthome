@@ -45,7 +45,13 @@ export default async function InvoiceDetailPage({
   // Payment methods available for this building type — used in the
   // payment-history edit dropdown.
   const paymentMethodsForEdit = await prisma.paymentMethod.findMany({
-    where: { OR: [{ buildingType: building.type }, { buildingType: null }] },
+    where: {
+      OR: [
+        { buildings: { some: { id } } },
+        { buildingType: building.type, buildings: { none: {} } },
+        { buildingType: null, buildings: { none: {} } },
+      ],
+    },
     orderBy: { name: "asc" },
     select: { id: true, name: true, isCash: true },
   });
