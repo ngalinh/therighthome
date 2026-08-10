@@ -74,14 +74,18 @@ function PaymentMethodsSection({ paymentMethods, buildings }: { paymentMethods: 
         <Button onClick={() => setCreateOpen(true)} variant="gradient"><Plus className="h-4 w-4" /> Thêm</Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {(["CHDV", "VP"] as const).map((bt) => {
-          const list = paymentMethods.filter((p) => p.buildingType === bt);
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {([
+          { key: "CHDV", label: "CHDV" },
+          { key: "VP", label: "VP" },
+          { key: "SHARED", label: "Dùng chung (CHDV+VP)" },
+        ] as const).map(({ key, label }) => {
+          const list = paymentMethods.filter((p) => (key === "SHARED" ? p.buildingType === null : p.buildingType === key));
           return (
-            <Card key={bt}>
+            <Card key={key}>
               <CardContent className="p-4">
                 <h3 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <Wallet className="h-4 w-4" /> {bt}
+                  <Wallet className="h-4 w-4" /> {label}
                   <Badge variant="secondary" className="text-[10px] ml-auto">{list.length}</Badge>
                 </h3>
                 <div className="space-y-1">
@@ -141,7 +145,7 @@ function PMDialog({
   buildings: BuildingLite[];
 }) {
   const router = useRouter();
-  const [buildingType, setBuildingType] = useState<"CHDV" | "VP">("CHDV");
+  const [buildingType, setBuildingType] = useState<"CHDV" | "VP" | "SHARED">("CHDV");
   const [name, setName] = useState("");
   const [isCash, setIsCash] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -157,7 +161,7 @@ function PMDialog({
   useEffect(() => {
     if (!open) return;
     if (mode === "edit" && item) {
-      setBuildingType((item.buildingType ?? "CHDV") as "CHDV" | "VP");
+      setBuildingType(item.buildingType ?? "SHARED");
       setName(item.name);
       setIsCash(item.isCash);
       setQrCodeUrl(item.qrCodeUrl ?? null);
@@ -210,14 +214,15 @@ function PMDialog({
     setBuildingIds((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
   }
 
-  // Filter buildings by selected type so the user only attaches matching ones
-  const eligibleBuildings = buildings.filter((b) => b.type === buildingType);
+  // Filter buildings by selected type so the user only attaches matching ones;
+  // "Dùng chung" cho chọn toà cả 2 loại.
+  const eligibleBuildings = buildingType === "SHARED" ? buildings : buildings.filter((b) => b.type === buildingType);
 
   async function submit() {
     if (!name.trim()) return toast.error("Nhập tên");
     setLoading(true);
     const body = {
-      buildingType,
+      buildingType: buildingType === "SHARED" ? null : buildingType,
       name: name.trim(),
       isCash,
       qrCodeUrl,
@@ -260,7 +265,7 @@ function PMDialog({
             <Select
               value={buildingType}
               onValueChange={(v) => {
-                setBuildingType(v as "CHDV" | "VP");
+                setBuildingType(v as "CHDV" | "VP" | "SHARED");
                 setBuildingIds([]);
               }}
             >
@@ -268,6 +273,7 @@ function PMDialog({
               <SelectContent>
                 <SelectItem value="CHDV">CHDV</SelectItem>
                 <SelectItem value="VP">VP</SelectItem>
+                <SelectItem value="SHARED">Dùng chung (CHDV + VP)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -370,9 +376,12 @@ function PMDialog({
 
           <div className="border-t pt-3 space-y-1.5">
             <Label className="text-xs">Toà nhà áp dụng</Label>
-            <p className="text-[11px] text-slate-500">Chọn toà nhà sẽ dùng tài khoản này trên hoá đơn. Bỏ trống = áp dụng cho mọi toà nhà cùng loại.</p>
+            <p className="text-[11px] text-slate-500">
+              Chọn toà nhà sẽ dùng tài khoản này trên hoá đơn. Bỏ trống = áp dụng cho mọi toà nhà
+              {buildingType === "SHARED" ? " (cả CHDV và VP)" : " cùng loại"}.
+            </p>
             {eligibleBuildings.length === 0 ? (
-              <p className="text-xs text-slate-400">Chưa có toà nhà loại {buildingType}</p>
+              <p className="text-xs text-slate-400">Chưa có toà nhà{buildingType !== "SHARED" && ` loại ${buildingType}`}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {eligibleBuildings.map((b) => (
@@ -383,7 +392,10 @@ function PMDialog({
                       onChange={() => toggleBuilding(b.id)}
                       className="rounded"
                     />
-                    <span className="truncate">{b.name}</span>
+                    <span className="truncate flex-1">{b.name}</span>
+                    {buildingType === "SHARED" && (
+                      <Badge variant="outline" className="text-[9px] shrink-0">{b.type}</Badge>
+                    )}
                   </label>
                 ))}
               </div>

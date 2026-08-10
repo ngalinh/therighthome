@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const patchSchema = z.object({
+  buildingType: z.enum(["CHDV", "VP"]).nullable().optional(),
   name: z.string().min(1).optional(),
   isCash: z.boolean().optional(),
   qrCodeUrl: z.string().nullable().optional(),
