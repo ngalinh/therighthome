@@ -265,8 +265,16 @@ function PMDialog({
             <Select
               value={buildingType}
               onValueChange={(v) => {
-                setBuildingType(v as "CHDV" | "VP" | "SHARED");
-                setBuildingIds([]);
+                const nextType = v as "CHDV" | "VP" | "SHARED";
+                setBuildingType(nextType);
+                // Giữ lại các toà đã chọn còn hợp lệ với loại mới, thay vì xoá
+                // trắng — tránh mất lựa chọn toà cũ khi chuyển 1 PTTT có sẵn
+                // sang "Dùng chung".
+                setBuildingIds((prev) =>
+                  nextType === "SHARED"
+                    ? prev
+                    : prev.filter((id) => buildings.find((b) => b.id === id)?.type === nextType),
+                );
               }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
