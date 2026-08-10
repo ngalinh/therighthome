@@ -334,6 +334,12 @@ export async function ManageTypePage({
   }));
 
   const buildingsLite = buildings.map((b) => ({ id: b.id, name: b.name, type: b.type }));
+  // PTTT dùng chung CHDV+VP (buildingType null, gắn cả 2 loại toà) chỉ hiện
+  // ở Sổ quỹ tổng bên VP — nên bên VP cần thấy toàn bộ toà user có quyền,
+  // không chỉ toà VP, để ngưỡng "shared" (≥2 toà) bắt được các toà khác loại.
+  const cashbookBuildingsLite = kind === "VP"
+    ? accessible.map((b) => ({ id: b.id, name: b.name, type: b.type }))
+    : buildingsLite;
   const tasksS = serializeBigInt(tasks);
   const overtimesS = serializeBigInt(overtimes);
   const partiesS = serializeBigInt(parties);
@@ -398,7 +404,7 @@ export async function ManageTypePage({
           <TabsContent value="cashbook">
             <AggregatedCashbookTab
               kind={kind}
-              buildings={buildingsLite}
+              buildings={cashbookBuildingsLite}
               month={month}
               year={year}
               buildingFilter={buildingFilter}
