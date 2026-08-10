@@ -44,9 +44,15 @@ export async function AggregatedCashbookTab({
 
   // PMs are shared across buildings via the BuildingPaymentMethods join. We
   // include `buildings` so we can count how many of THIS user's accessible
-  // buildings the PM is tied to, and only keep those tied to ≥2.
+  // buildings the PM is tied to, and only keep those tied to ≥2. On the VP
+  // page, accessibleBuildingIds also includes CHDV buildings (so PMs shared
+  // across both types can be detected) — restrict to buildingType VP/null
+  // here so a plain CHDV-only PM tied to 2+ CHDV buildings doesn't leak in.
   const allPMs = await prisma.paymentMethod.findMany({
-    where: { buildings: { some: { id: { in: accessibleBuildingIds } } } },
+    where: {
+      buildings: { some: { id: { in: accessibleBuildingIds } } },
+      OR: [{ buildingType: kind }, { buildingType: null }],
+    },
     include: {
       buildings: {
         where: { id: { in: accessibleBuildingIds } },
