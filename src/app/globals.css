@@ -152,7 +152,9 @@
     -webkit-tap-highlight-color: transparent;
   }
   html { -webkit-text-size-adjust: 100%; }
-  html, body { overflow-x: hidden; }
+  /* clip (unlike hidden) does not create a scroll container, so position:fixed
+     children stay anchored to the viewport on iOS Safari. */
+  html, body { overflow-x: clip; }
 
   /* iOS Safari renders date/time inputs with weird default sizing & alignment.
      Reset to match other text inputs. */
