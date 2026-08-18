@@ -21,7 +21,7 @@ const TX_CATEGORIES = {
   },
   VP: {
     INCOME: ["Tiền thuê VP", "Tiền điện", "Phí gửi xe", "Phí dịch vụ", "Phí làm ngoài giờ", "Tiền cọc mất", "Khác"],
-    EXPENSE: ["Lương nhân viên", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Hoàn tiền cọc", "Khác"],
+    EXPENSE: ["Lương, thưởng, bảo hiểm", "Sửa chữa", "Vệ sinh", "Điện nước toà", "Internet", "Bảo vệ", "Vật tư", "Phí môi giới", "Hoàn tiền cọc", "Khác"],
   },
 };
 
@@ -488,6 +488,20 @@ async function main() {
     create: { buildingType: "VP", name: "Chuyển nguồn", type: "INCOME", isTransfer: true },
   });
   console.log("Ensured VP Chuyển nguồn categories.");
+
+  // One-off rename: VP expense category "Lương nhân viên" -> "Lương, thưởng, bảo hiểm".
+  // Renaming in place (not delete+create) keeps existing transactions' categoryId
+  // intact, so they automatically show under the new name too.
+  const oldSalaryCat = await prisma.transactionCategory.findUnique({
+    where: { buildingType_name_type: { buildingType: "VP", name: "Lương nhân viên", type: "EXPENSE" } },
+  });
+  if (oldSalaryCat) {
+    await prisma.transactionCategory.update({
+      where: { id: oldSalaryCat.id },
+      data: { name: "Lương, thưởng, bảo hiểm" },
+    });
+    console.log("Renamed VP expense category: Lương nhân viên -> Lương, thưởng, bảo hiểm");
+  }
 
   console.log("Seed complete");
 }
