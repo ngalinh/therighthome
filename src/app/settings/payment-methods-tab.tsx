@@ -23,6 +23,7 @@ type PM = {
   bankBin: string | null;
   accountHolder: string | null;
   accountNumber: string | null;
+  sortOrder: number;
   buildings: BuildingLite[];
 };
 type PartyKindConfig = {
@@ -153,6 +154,7 @@ function PMDialog({
   const [bankName, setBankName] = useState("");
   const [accountHolder, setAccountHolder] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [sortOrder, setSortOrder] = useState(0);
   const [buildingIds, setBuildingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -169,6 +171,7 @@ function PMDialog({
       setBankName(item.bankName ?? "");
       setAccountHolder(item.accountHolder ?? "");
       setAccountNumber(item.accountNumber ?? "");
+      setSortOrder(item.sortOrder);
       setBuildingIds(item.buildings.map((b) => b.id));
     } else {
       setBuildingType("CHDV");
@@ -179,6 +182,7 @@ function PMDialog({
       setBankName("");
       setAccountHolder("");
       setAccountNumber("");
+      setSortOrder(0);
       setBuildingIds([]);
     }
   }, [open, mode, item]);
@@ -230,6 +234,7 @@ function PMDialog({
       bankName: bankName.trim() || null,
       accountHolder: accountHolder.trim() || null,
       accountNumber: accountNumber.trim() || null,
+      sortOrder,
       buildingIds,
     };
     const res = mode === "create"
@@ -381,6 +386,19 @@ function PMDialog({
               </div>
             </>
           )}
+
+          <div className="border-t pt-3 space-y-1.5">
+            <Label className="text-xs">Thứ tự ưu tiên</Label>
+            <Input
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+              className="w-28"
+            />
+            <p className="text-[11px] text-slate-500">
+              Nếu 1 toà nhà được gán nhiều tài khoản, tài khoản có số nhỏ hơn sẽ được chọn hiển thị trên hoá đơn.
+            </p>
+          </div>
 
           <div className="border-t pt-3 space-y-1.5">
             <Label className="text-xs">Toà nhà áp dụng</Label>
