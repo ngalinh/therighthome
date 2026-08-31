@@ -65,13 +65,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   // Fetch payment method — same logic as invoice page
   const specific = await prisma.paymentMethod.findFirst({
     where: { isCash: false, buildings: { some: { id: inv.buildingId } } },
-    orderBy: { name: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   const fallback = specific
     ? null
     : await prisma.paymentMethod.findFirst({
         where: { isCash: false, buildingType: inv.building.type, buildings: { none: {} } },
-        orderBy: { name: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
   const pm = specific ?? fallback;
   const isIndividual = primary.type === "INDIVIDUAL";

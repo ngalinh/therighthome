@@ -557,6 +557,9 @@ model PaymentMethod {
   buildingType BuildingType? // null = both
   name         String
   isCash       Boolean       @default(false)
+  // When multiple accounts apply to the same building, the lowest sortOrder
+  // wins the invoice's displayed transfer info.
+  sortOrder    Int           @default(0)
 
   // Bank details shown to tenants on the invoice receipt
   qrCodeUrl     String?

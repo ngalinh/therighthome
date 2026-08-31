@@ -81,13 +81,13 @@ export default async function InvoiceDetailPage({
   // the same building type that has no specific building bindings.
   const specific = await prisma.paymentMethod.findFirst({
     where: { isCash: false, buildings: { some: { id } } },
-    orderBy: { name: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   const fallback = specific
     ? null
     : await prisma.paymentMethod.findFirst({
         where: { isCash: false, buildingType: building.type, buildings: { none: {} } },
-        orderBy: { name: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       });
   const pm = specific ?? fallback;
   const primaryCustomer =
