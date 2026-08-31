@@ -378,13 +378,19 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  contract          Contract               @relation(fields: [contractId], references: [id])
-  building          Building               @relation(fields: [buildingId], references: [id])
-  payments          InvoicePayment[]
-  transactions      Transaction[]
-  overtimeRequests  OvertimeRequest[]
-  lineItems         InvoiceLineItem[]
-  electricityLines  InvoiceElectricityLine[]
+  // Explicit override for which bank account to show on this invoice's
+  // receipt/email. When unset, falls back to the building/customer-type
+  // auto-resolution logic.
+  displayPaymentMethodId String?
+
+  contract             Contract                 @relation(fields: [contractId], references: [id])
+  building             Building                 @relation(fields: [buildingId], references: [id])
+  displayPaymentMethod PaymentMethod?           @relation("InvoiceDisplayPaymentMethod", fields: [displayPaymentMethodId], references: [id])
+  payments             InvoicePayment[]
+  transactions         Transaction[]
+  overtimeRequests     OvertimeRequest[]
+  lineItems            InvoiceLineItem[]
+  electricityLines     InvoiceElectricityLine[]
 
   @@index([contractId, month, year])
   @@index([buildingId, year, month])
@@ -568,9 +574,10 @@ model PaymentMethod {
   accountHolder String?
   accountNumber String?
 
-  buildings        Building[]        @relation("BuildingPaymentMethods")
-  transactions     Transaction[]
-  maintenanceTasks MaintenanceTask[]
+  buildings           Building[]        @relation("BuildingPaymentMethods")
+  transactions        Transaction[]
+  maintenanceTasks    MaintenanceTask[]
+  displayedOnInvoices Invoice[]         @relation("InvoiceDisplayPaymentMethod")
 
   @@unique([buildingType, name])
 }

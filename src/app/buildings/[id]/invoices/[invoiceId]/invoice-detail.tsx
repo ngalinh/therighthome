@@ -67,6 +67,7 @@ type Invoice = {
   paidAmount: string;
   notes: string | null;
   rentPeriodOverride: string | null;
+  displayPaymentMethodId: string | null;
   lineItems: LineItem[];
   electricityLines: ElectricityLine[];
   contract: {
@@ -112,7 +113,7 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "warning" |
 };
 
 export function InvoiceDetail({
-  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod, paymentMethods, incomeCategories,
+  invoice, buildingType, buildingName, buildingAddress, settingFallback, canWrite, canSend, paymentMethod, paymentMethods, bankPaymentMethods, incomeCategories,
 }: {
   invoice: Invoice;
   buildingType: "CHDV" | "VP";
@@ -123,6 +124,7 @@ export function InvoiceDetail({
   canSend: boolean;
   paymentMethod: PaymentMethodInfo;
   paymentMethods: PMOption[];
+  bankPaymentMethods: { id: string; name: string }[];
   incomeCategories: { id: string; name: string }[];
 }) {
   const router = useRouter();
@@ -130,6 +132,8 @@ export function InvoiceDetail({
   const [sending, setSending] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [displayPmId, setDisplayPmId] = useState(invoice.displayPaymentMethodId ?? "");
+  const [savingPm, setSavingPm] = useState(false);
 
   const [elecStart, setElecStart] = useState<string>(invoice.electricityStart?.toString() ?? "");
   const [elecEnd, setElecEnd] = useState<string>(invoice.electricityEnd?.toString() ?? "");
@@ -342,6 +346,20 @@ export function InvoiceDetail({
     const res = await fetch(`/api/invoices/${invoice.id}`, { method: "DELETE" });
     if (!res.ok) return toast.error("Có lỗi");
     toast.success("Đã huỷ");
+    router.refresh();
+  }
+
+  async function saveDisplayPaymentMethod(v: string) {
+    setDisplayPmId(v);
+    setSavingPm(true);
+    const res = await fetch(`/api/invoices/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayPaymentMethodId: v || null }),
+    });
+    setSavingPm(false);
+    if (!res.ok) return toast.error("Lưu thất bại");
+    toast.success("Đã lưu");
     router.refresh();
   }
 
@@ -779,6 +797,30 @@ export function InvoiceDetail({
                 <Label className="text-xs">Ghi chú</Label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!canWrite} />
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {bankPaymentMethods.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>Tài khoản hiển thị trên hoá đơn</CardTitle></CardHeader>
+            <CardContent className="space-y-1.5">
+              <Select
+                value={displayPmId || "__AUTO__"}
+                onValueChange={(v) => saveDisplayPaymentMethod(v === "__AUTO__" ? "" : v)}
+                disabled={!canWrite || savingPm}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__AUTO__">Tự động (mặc định)</SelectItem>
+                  {bankPaymentMethods.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-slate-500">
+                Ghi đè tài khoản chuyển khoản hiện trên hoá đơn này (bản in, email). Để &quot;Tự động&quot; nếu muốn hệ thống tự chọn theo toà nhà.
+              </p>
             </CardContent>
           </Card>
         )}
