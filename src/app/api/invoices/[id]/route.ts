@@ -31,6 +31,9 @@ const updateSchema = z.object({
   lineItems: z.array(lineItemSchema).optional(),
   // Reactivate a CANCELLED auto invoice back to PENDING after editing amounts.
   reactivate: z.boolean().optional(),
+  // Explicit override for which bank account shows on this invoice's
+  // receipt/email. null clears the override back to auto-resolution.
+  displayPaymentMethodId: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -133,7 +136,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
-  if (d.notes !== undefined || d.dueDate) {
+  if (d.notes !== undefined || d.dueDate || d.displayPaymentMethodId !== undefined) {
     const newDueDate = d.dueDate ? new Date(d.dueDate) : undefined;
     const shouldResetOverdue = newDueDate && newDueDate > new Date() && inv.status === "OVERDUE";
     await prisma.invoice.update({
@@ -142,6 +145,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         ...(d.notes !== undefined ? { notes: d.notes } : {}),
         ...(newDueDate ? { dueDate: newDueDate } : {}),
         ...(shouldResetOverdue ? { status: "PENDING" } : {}),
+        ...(d.displayPaymentMethodId !== undefined ? { displayPaymentMethodId: d.displayPaymentMethodId } : {}),
       },
     });
   }

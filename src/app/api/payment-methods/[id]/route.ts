@@ -41,6 +41,10 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const { id } = await ctx.params;
   const used = await prisma.transaction.count({ where: { paymentMethodId: id } });
   if (used > 0) return NextResponse.json({ error: "PTTT đang được dùng" }, { status: 400 });
+  const usedOnInvoices = await prisma.invoice.count({ where: { displayPaymentMethodId: id } });
+  if (usedOnInvoices > 0) {
+    return NextResponse.json({ error: "PTTT đang được chọn hiển thị trên hoá đơn" }, { status: 400 });
+  }
   await prisma.paymentMethod.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
