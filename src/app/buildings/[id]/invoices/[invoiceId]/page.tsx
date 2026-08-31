@@ -38,7 +38,6 @@ export default async function InvoiceDetailPage({
         orderBy: { sortOrder: "asc" },
       },
       electricityLines: { orderBy: { sortOrder: "asc" } },
-      displayPaymentMethod: true,
     },
   });
   if (!inv || inv.buildingId !== id) notFound();
@@ -82,21 +81,20 @@ export default async function InvoiceDetailPage({
   // the same building type that has no specific building bindings.
   const specific = await prisma.paymentMethod.findFirst({
     where: { isCash: false, buildings: { some: { id } } },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
   const fallback = specific
     ? null
     : await prisma.paymentMethod.findFirst({
         where: { isCash: false, buildingType: building.type, buildings: { none: {} } },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        orderBy: { name: "asc" },
       });
   const pm = specific ?? fallback;
   const primaryCustomer =
     inv.contract?.customers.find((c) => c.isPrimary)?.customer ??
     inv.contract?.customers[0]?.customer;
   const isIndividual = primaryCustomer?.type === "INDIVIDUAL";
-  // Explicit per-invoice pick wins over the auto-resolution below.
-  const autoResolved =
+  const paymentMethod =
     building.type === "VP" && isIndividual
       ? {
           id: "vp-individual",
@@ -118,31 +116,6 @@ export default async function InvoiceDetailPage({
           qrCodeUrl: pm.qrCodeUrl,
         }
       : null;
-  const paymentMethod = inv.displayPaymentMethod
-    ? {
-        id: inv.displayPaymentMethod.id,
-        name: inv.displayPaymentMethod.name,
-        bankName: inv.displayPaymentMethod.bankName,
-        bankBin: inv.displayPaymentMethod.bankBin,
-        accountHolder: inv.displayPaymentMethod.accountHolder,
-        accountNumber: inv.displayPaymentMethod.accountNumber,
-        qrCodeUrl: inv.displayPaymentMethod.qrCodeUrl,
-      }
-    : autoResolved;
-
-  // Non-cash accounts the user can explicitly pick to show on this invoice.
-  const bankPaymentMethods = await prisma.paymentMethod.findMany({
-    where: {
-      isCash: false,
-      OR: [
-        { buildings: { some: { id } } },
-        { buildingType: building.type, buildings: { none: {} } },
-        { buildingType: null, buildings: { none: {} } },
-      ],
-    },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
 
   return (
     <AppShell
@@ -165,7 +138,6 @@ export default async function InvoiceDetailPage({
           canSend={canSend}
           paymentMethod={paymentMethod}
           paymentMethods={paymentMethodsForEdit}
-          bankPaymentMethods={bankPaymentMethods}
           incomeCategories={incomeCategories}
         />
       </PageBody>

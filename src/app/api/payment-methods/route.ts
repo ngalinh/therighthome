@@ -12,7 +12,6 @@ const schema = z.object({
   bankBin: z.string().nullable().optional(),
   accountHolder: z.string().nullable().optional(),
   accountNumber: z.string().nullable().optional(),
-  sortOrder: z.number().int().optional(),
   buildingIds: z.array(z.string()).optional(),
 });
 

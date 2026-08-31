@@ -378,19 +378,13 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Explicit override for which bank account to show on this invoice's
-  // receipt/email. When unset, falls back to the building/customer-type
-  // auto-resolution logic.
-  displayPaymentMethodId String?
-
-  contract             Contract                 @relation(fields: [contractId], references: [id])
-  building             Building                 @relation(fields: [buildingId], references: [id])
-  displayPaymentMethod PaymentMethod?           @relation("InvoiceDisplayPaymentMethod", fields: [displayPaymentMethodId], references: [id])
-  payments             InvoicePayment[]
-  transactions         Transaction[]
-  overtimeRequests     OvertimeRequest[]
-  lineItems            InvoiceLineItem[]
-  electricityLines     InvoiceElectricityLine[]
+  contract          Contract               @relation(fields: [contractId], references: [id])
+  building          Building               @relation(fields: [buildingId], references: [id])
+  payments          InvoicePayment[]
+  transactions      Transaction[]
+  overtimeRequests  OvertimeRequest[]
+  lineItems         InvoiceLineItem[]
+  electricityLines  InvoiceElectricityLine[]
 
   @@index([contractId, month, year])
   @@index([buildingId, year, month])
@@ -563,9 +557,6 @@ model PaymentMethod {
   buildingType BuildingType? // null = both
   name         String
   isCash       Boolean       @default(false)
-  // When multiple accounts apply to the same building, the lowest sortOrder
-  // wins the invoice's displayed transfer info.
-  sortOrder    Int           @default(0)
 
   // Bank details shown to tenants on the invoice receipt
   qrCodeUrl     String?
@@ -574,10 +565,9 @@ model PaymentMethod {
   accountHolder String?
   accountNumber String?
 
-  buildings           Building[]        @relation("BuildingPaymentMethods")
-  transactions        Transaction[]
-  maintenanceTasks    MaintenanceTask[]
-  displayedOnInvoices Invoice[]         @relation("InvoiceDisplayPaymentMethod")
+  buildings        Building[]        @relation("BuildingPaymentMethods")
+  transactions     Transaction[]
+  maintenanceTasks MaintenanceTask[]
 
   @@unique([buildingType, name])
 }

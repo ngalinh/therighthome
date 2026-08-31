@@ -44,7 +44,6 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
         orderBy: { sortOrder: "asc" },
       },
       electricityLines: { orderBy: { sortOrder: "asc" } },
-      displayPaymentMethod: true,
     },
   });
   if (!inv) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -66,31 +65,22 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
   // Fetch payment method — same logic as invoice page
   const specific = await prisma.paymentMethod.findFirst({
     where: { isCash: false, buildings: { some: { id: inv.buildingId } } },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
   const fallback = specific
     ? null
     : await prisma.paymentMethod.findFirst({
         where: { isCash: false, buildingType: inv.building.type, buildings: { none: {} } },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        orderBy: { name: "asc" },
       });
   const pm = specific ?? fallback;
   const isIndividual = primary.type === "INDIVIDUAL";
-  const autoResolved =
+  const paymentMethod =
     inv.building.type === "VP" && isIndividual
       ? { bankName: "ACB", bankBin: "970416", accountHolder: "TRAN THI TU LAN", accountNumber: "22558", qrCodeUrl: null }
       : pm
       ? { bankName: pm.bankName, bankBin: pm.bankBin, accountHolder: pm.accountHolder, accountNumber: pm.accountNumber, qrCodeUrl: pm.qrCodeUrl }
       : null;
-  const paymentMethod = inv.displayPaymentMethod
-    ? {
-        bankName: inv.displayPaymentMethod.bankName,
-        bankBin: inv.displayPaymentMethod.bankBin,
-        accountHolder: inv.displayPaymentMethod.accountHolder,
-        accountNumber: inv.displayPaymentMethod.accountNumber,
-        qrCodeUrl: inv.displayPaymentMethod.qrCodeUrl,
-      }
-    : autoResolved;
 
   const rentPeriod = inv.rentPeriodOverride ?? rentPeriodLabel(
     inv.contract.paymentDay,
