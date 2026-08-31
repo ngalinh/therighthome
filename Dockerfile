@@ -15,11 +15,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:20-alpine AS runner
-# libreoffice + fonts: used by /api/contracts/[id]/pdf to convert generated
-# DOCX → PDF for in-app preview/print/share.
-RUN apk add --no-cache libc6-compat openssl su-exec \
-    libreoffice ttf-dejavu fontconfig
+# Shared base for both final images. libreoffice is NOT installed here — it's
+# only needed by the app's /api/contracts/[id]/pdf DOCX→PDF conversion, never
+# by the worker (scripts/worker.js just runs scheduled DB jobs). Adding it as
+# its own layer on the "runner" stage below (not here) means `docker compose
+# build app worker` only pays the (large) libreoffice install once, instead
+# of duplicating it into both service images.
+FROM node:20-alpine AS runner-base
+RUN apk add --no-cache libc6-compat openssl su-exec
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -44,3 +47,10 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 CMD ["/app/entrypoint.sh"]
+
+FROM runner-base AS worker
+
+FROM runner-base AS runner
+# libreoffice + fonts: used by /api/contracts/[id]/pdf to convert generated
+# DOCX → PDF for in-app preview/print/share.
+RUN apk add --no-cache libreoffice ttf-dejavu fontconfig

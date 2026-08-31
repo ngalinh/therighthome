@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     restart: unless-stopped
     env_file: .env
     depends_on:
@@ -41,6 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: worker
     restart: unless-stopped
     env_file: .env
     depends_on:
