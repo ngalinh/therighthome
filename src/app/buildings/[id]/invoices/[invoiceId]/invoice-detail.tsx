@@ -539,6 +539,9 @@ export function InvoiceDetail({
                         {overtimeBN > 0n && <Row label="Phí ngoài giờ" value={formatVND(overtimeBN)} />}
                         {repairBN > 0n && <Row label="Phí sửa chữa" value={formatVND(repairBN)} />}
                         {extraParkingBN > 0n && <Row label="Phí xe lẻ" value={formatVND(extraParkingBN)} />}
+                        {parseVNDInput(serviceFee) > 0n && (
+                          <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
+                        )}
                         <hr />
                         <Row label="Cộng chưa VAT" value={formatVND(subtotal)} />
                         <Row label={`VAT (${Math.round(vatRate * 100)}%)`} value={formatVND(totalVat)} />
