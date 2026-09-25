@@ -49,6 +49,9 @@ const createSchema = z.object({
   paymentDay: z.number().int().min(1).max(28),
   monthlyRent: z.string(),
   vatRate: z.number().min(0).max(1),
+  vatApplicableFees: z
+    .array(z.enum(["electricity", "parking", "overtime", "repair", "extraParking", "service"]))
+    .optional(),
   depositAmount: z.string(),
   parkingCount: z.number().int().min(0),
   parkingFeePerVehicle: z.string(),
@@ -134,6 +137,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         paymentDay: d.paymentDay,
         monthlyRent: BigInt(d.monthlyRent),
         vatRate: d.vatRate,
+        vatApplicableFees: d.vatApplicableFees ?? [],
         depositAmount: BigInt(d.depositAmount),
         electricityPricePerKwh: BigInt(d.electricityPricePerKwh),
         parkingCount: d.parkingCount,

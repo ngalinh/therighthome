@@ -35,7 +35,7 @@ type ElectricityLine = {
   endPhotoUrl: string | null;
 };
 
-type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
 
 type Invoice = {
   id: string;
@@ -196,7 +196,8 @@ export function InvoiceDetail({
   const overtimeVat = vatApplicable.has("overtime") ? vatOf(overtimeBN) : 0n;
   const repairVat = vatApplicable.has("repair") ? vatOf(repairBN) : 0n;
   const extraParkingVat = vatApplicable.has("extraParking") ? vatOf(extraParkingBN) : 0n;
-  const feeVatTotal = elecVat + parkingVat + overtimeVat + repairVat + extraParkingVat;
+  const serviceVat = vatApplicable.has("service") ? vatOf(parseVNDInput(serviceFee)) : 0n;
+  const feeVatTotal = elecVat + parkingVat + overtimeVat + repairVat + extraParkingVat + serviceVat;
   // rentAmount already includes VAT (after-VAT). Don't add vatAmount on top.
   // For CANCELLED auto invoices use the editable local state so the preview
   // reflects what will be saved when the user reopens the invoice.
@@ -599,8 +600,10 @@ export function InvoiceDetail({
                     {buildingType === "VP" && extraParkingBN > 0n && (
                       <FeeRow label="Phí xe lẻ" base={extraParkingBN} vat={extraParkingVat} />
                     )}
-                    {buildingType === "CHDV" && parseVNDInput(serviceFee) > 0n && (
-                      <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
+                    {parseVNDInput(serviceFee) > 0n && (
+                      buildingType === "VP"
+                        ? <FeeRow label="Phí dịch vụ" base={parseVNDInput(serviceFee)} vat={serviceVat} />
+                        : <Row label="Phí dịch vụ" value={formatVND(parseVNDInput(serviceFee))} />
                     )}
                     <hr />
                     <Row label="Tổng phải thu" value={formatVND(totalPreview)} bold />

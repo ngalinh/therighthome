@@ -17,7 +17,7 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { PdfViewer } from "@/components/contract/pdf-viewer";
 
-type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
 
 type ContractCustomer = {
   id: string;
@@ -1811,6 +1811,7 @@ const VAT_FEE_OPTIONS: { key: VatFeeKey; label: string }[] = [
   { key: "overtime", label: "Phí ngoài giờ" },
   { key: "repair", label: "Phí sửa chữa" },
   { key: "extraParking", label: "Phí xe lẻ" },
+  { key: "service", label: "Phí dịch vụ" },
 ];
 
 // Pill-style toggle picker rendered on its own row. Selected pills have the

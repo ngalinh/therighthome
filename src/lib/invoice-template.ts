@@ -1,7 +1,7 @@
 import { formatVND, formatDateVN } from "@/lib/utils";
 import { vietQrUrl } from "@/lib/vn-banks";
 
-export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
 
 export type InvoiceEmailData = {
   buildingName: string;
@@ -108,7 +108,8 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
     const otVat = vatOf(d.overtimeFee, "overtime");
     const repVat = vatOf(d.repairFee, "repair");
     const exParkVat = vatOf(d.extraParkingFee, "extraParking");
-    const feeVatTotal = elecVat + parkVat + otVat + repVat + exParkVat;
+    const serviceVat = vatOf(d.serviceFee, "service");
+    const feeVatTotal = elecVat + parkVat + otVat + repVat + exParkVat + serviceVat;
     const netRent = d.rentAmount - d.vatAmount;
     const totalVat = d.vatAmount + feeVatTotal;
     const subtotal = d.totalAmount - totalVat;
@@ -137,7 +138,7 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       d.buildingType === "VP" && d.overtimeFee > 0n ? feeCostRow("Phí ngoài giờ", d.overtimeFee, d.vatApplicableFees.includes("overtime"), d.vatRate) : "",
       d.buildingType === "VP" && d.repairFee > 0n ? feeCostRow("Phí sửa chữa", d.repairFee, d.vatApplicableFees.includes("repair"), d.vatRate) : "",
       d.buildingType === "VP" && d.extraParkingFee > 0n ? feeCostRow("Phí xe lẻ", d.extraParkingFee, d.vatApplicableFees.includes("extraParking"), d.vatRate) : "",
-      d.buildingType === "CHDV" && d.serviceFee > 0n ? costRow("Phí dịch vụ", formatVND(d.serviceFee)) : "",
+      d.serviceFee > 0n ? feeCostRow("Phí dịch vụ", d.serviceFee, d.buildingType === "VP" && d.vatApplicableFees.includes("service"), d.vatRate) : "",
     ].join("");
   }
 

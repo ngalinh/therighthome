@@ -31,7 +31,7 @@ export type ReceiptLine = {
   amount: bigint;
 };
 
-export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
 
 export type ReceiptData = {
   invoiceCode: string;
@@ -388,7 +388,8 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                 const otVat = vatOf(data.overtimeFee, "overtime");
                 const repVat = vatOf(data.repairFee, "repair");
                 const exParkVat = vatOf(data.extraParkingFee, "extraParking");
-                const feeVatTotal = elecVat + parkVat + otVat + repVat + exParkVat;
+                const serviceVat = vatOf(data.serviceFee, "service");
+                const feeVatTotal = elecVat + parkVat + otVat + repVat + exParkVat + serviceVat;
                 const netRent = data.rentAmount - data.vatAmount;
                 const totalVat = data.vatAmount + feeVatTotal;
                 const subtotal = data.totalAmount - totalVat;
@@ -469,8 +470,10 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
                     vatRate={data.vatRate}
                   />
                 )}
-                {data.buildingType === "CHDV" && data.serviceFee > 0n && (
-                  <CostRow label="Phí dịch vụ" value={formatVND(data.serviceFee)} />
+                {data.serviceFee > 0n && (
+                  data.buildingType === "VP"
+                    ? <FeeCostRow label="Phí dịch vụ" base={data.serviceFee} withVat={data.vatApplicableFees.includes("service")} vatRate={data.vatRate} />
+                    : <CostRow label="Phí dịch vụ" value={formatVND(data.serviceFee)} />
                 )}
               </>
             )}

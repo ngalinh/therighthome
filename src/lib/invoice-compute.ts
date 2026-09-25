@@ -6,7 +6,8 @@
 //   `vatAmount` is informational only — it is NOT added on top of `rentAmount`.
 //
 //   `vatApplicableFees` (VP only) selects which non-rent fees get an extra
-//   VAT charge on top (electricity, parking, overtime, repair, extra parking).
+//   VAT charge on top (electricity, parking, overtime, repair, extra parking,
+//   service).
 //   The fee amounts themselves are stored NET; VAT is added on top when
 //   computing `totalAmount`.
 //
@@ -15,7 +16,7 @@
 //   vatAmount  = 2,100,000    (the VAT portion within the 21M)
 //   pre-VAT rent (informational) = 18,900,000
 
-export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking";
+export type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
 
 export type InvoiceComputeInput = {
   rentAmount: bigint;        // after-VAT rent (what we charge)
@@ -65,7 +66,8 @@ export function computeInvoice(d: InvoiceComputeInput): InvoiceComputeResult {
     (applicable.has("parking") ? vatOn(parkingFee, d.vatRate) : 0n) +
     (applicable.has("overtime") ? vatOn(d.overtimeFee, d.vatRate) : 0n) +
     (applicable.has("repair") ? vatOn(d.repairFee, d.vatRate) : 0n) +
-    (applicable.has("extraParking") ? vatOn(d.extraParkingFee, d.vatRate) : 0n);
+    (applicable.has("extraParking") ? vatOn(d.extraParkingFee, d.vatRate) : 0n) +
+    (applicable.has("service") ? vatOn(d.serviceFee, d.vatRate) : 0n);
 
   const totalAmount =
     d.rentAmount +

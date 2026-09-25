@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { CCCDScanner, type CCCDData } from "@/components/contract/cccd-scanner";
 import { contractEndDate, parseVNDInput, formatNumber } from "@/lib/utils";
 
+type VatFeeKey = "electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service";
+
 type Customer = { kind: "INDIVIDUAL"; data: CCCDData & { phone?: string; email?: string; licensePlate?: string } } | { kind: "COMPANY"; data: { companyName: string; taxNumber: string; phone?: string; email?: string; contactName?: string; representativeName: string; representativeTitle: string; businessLicenseUrls?: string[] } };
 
 export function NewContractForm({
@@ -44,6 +46,7 @@ export function NewContractForm({
   const [rentPaymentCycleMonths, setRentPaymentCycleMonths] = useState<number>(1);
   const [monthlyRent, setMonthlyRent] = useState("");
   const [vatRate, setVatRate] = useState<number>(buildingType === "VP" ? 10 : 0);
+  const [vatApplicableFees, setVatApplicableFees] = useState<VatFeeKey[]>([]);
   const [deposit, setDeposit] = useState("");
   const [parkingCount, setParkingCount] = useState(0);
   const [parkingFeePerVehicle, setParkingFeePerVehicle] = useState(defaults.parkingFeePerVehicle);
@@ -88,6 +91,7 @@ export function NewContractForm({
       rentPaymentCycleMonths,
       monthlyRent: parseVNDInput(monthlyRent).toString(),
       vatRate: vatRate / 100,
+      vatApplicableFees,
       depositAmount: parseVNDInput(deposit).toString(),
       parkingCount,
       parkingFeePerVehicle: parseVNDInput(parkingFeePerVehicle).toString(),
@@ -341,6 +345,13 @@ export function NewContractForm({
                 </Field>
               )}
             </div>
+            {buildingType === "VP" && (
+              <VatFeesPickerField
+                value={vatApplicableFees}
+                onChange={setVatApplicableFees}
+                vatRate={vatRate}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -425,6 +436,67 @@ export function NewContractForm({
             <Check className="h-4 w-4" /> Tạo hợp đồng
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const VAT_FEE_OPTIONS: { key: VatFeeKey; label: string }[] = [
+  { key: "electricity", label: "Tiền điện" },
+  { key: "parking", label: "Phí gửi xe" },
+  { key: "overtime", label: "Phí ngoài giờ" },
+  { key: "repair", label: "Phí sửa chữa" },
+  { key: "extraParking", label: "Phí xe lẻ" },
+  { key: "service", label: "Phí dịch vụ" },
+];
+
+function VatFeesPickerField({
+  value, onChange, vatRate,
+}: {
+  value: VatFeeKey[];
+  onChange: (value: VatFeeKey[]) => void;
+  vatRate: number;
+}) {
+  const disabled = vatRate <= 0;
+  const selected = new Set(value);
+  function toggle(key: VatFeeKey) {
+    if (disabled) return;
+    const next = new Set(selected);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    onChange(VAT_FEE_OPTIONS.map((option) => option.key).filter((key) => next.has(key)));
+  }
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <Label className="text-xs">Chi phí lấy VAT{vatRate > 0 ? ` (${vatRate}%)` : ""}</Label>
+        <span className="text-[11px] text-slate-500">
+          {disabled
+            ? "Đặt VAT > 0 để bật"
+            : value.length === 0
+              ? "Chưa chọn — không phí nào cộng VAT"
+              : `Đã chọn ${value.length}/${VAT_FEE_OPTIONS.length}`}
+        </span>
+      </div>
+      <div className={`flex flex-wrap gap-1.5 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+        {VAT_FEE_OPTIONS.map((option) => {
+          const active = selected.has(option.key);
+          return (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => toggle(option.key)}
+              aria-pressed={active}
+              className={`inline-flex items-center gap-1 h-8 px-3 rounded-full border text-xs font-medium transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-input hover:bg-muted"
+              }`}
+            >
+              {active && <Check className="h-3.5 w-3.5" />}
+              {option.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -646,4 +718,3 @@ function AddCustomerSection({
     </div>
   );
 }
-
