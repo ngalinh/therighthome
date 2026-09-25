@@ -149,7 +149,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
     totalAmount: inv.totalAmount,
     paidAmount: inv.paidAmount,
     vatRate: inv.contract.vatRate ?? 0,
-    vatApplicableFees: (inv.contract.vatApplicableFees ?? []) as ("electricity" | "parking" | "overtime" | "repair" | "extraParking")[],
+    vatApplicableFees: (inv.contract.vatApplicableFees ?? []) as ("electricity" | "parking" | "overtime" | "repair" | "extraParking" | "service")[],
     notes: inv.notes,
     isManual: inv.isManual,
     electricityStartPhotoData,

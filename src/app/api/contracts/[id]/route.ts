@@ -13,7 +13,7 @@ const updateSchema = z.object({
   monthlyRent: z.string().optional(), // BigInt as string
   vatRate: z.number().min(0).max(1).optional(),
   vatApplicableFees: z
-    .array(z.enum(["electricity", "parking", "overtime", "repair", "extraParking"]))
+    .array(z.enum(["electricity", "parking", "overtime", "repair", "extraParking", "service"]))
     .optional(),
   depositAmount: z.string().optional(),
   parkingCount: z.number().int().min(0).optional(),
