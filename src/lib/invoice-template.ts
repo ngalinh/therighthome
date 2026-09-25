@@ -120,6 +120,7 @@ export function renderInvoiceEmail(d: InvoiceEmailData): string {
       d.overtimeFee > 0n ? costRow("Phí ngoài giờ", formatVND(d.overtimeFee)) : "",
       d.repairFee > 0n ? costRow("Phí sửa chữa", formatVND(d.repairFee)) : "",
       d.extraParkingFee > 0n ? costRow("Phí xe lẻ", formatVND(d.extraParkingFee)) : "",
+      d.serviceFee > 0n ? costRow("Phí dịch vụ", formatVND(d.serviceFee)) : "",
       `<tr><td colspan="2" style="padding:4px 0"><div style="height:1px;background:#e2e8f0"></div></td></tr>`,
       costRow("Tổng chưa VAT", formatVND(subtotal)),
       costRow(`VAT (${vatPct}%)`, formatVND(totalVat)),
