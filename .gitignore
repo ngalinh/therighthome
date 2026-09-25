@@ -15,3 +15,4 @@ postgres-data/
 # Design reference (not part of production code)
 design-reference/
 *.zip
+backups/

@@ -10,3 +10,4 @@ postgres-data/
 *.tsbuildinfo
 design-reference/
 *.zip
+backups/
