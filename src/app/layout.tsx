@@ -1,27 +1,41 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Cormorant_Garamond, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
 
-const beVietnamPro = Be_Vietnam_Pro({
-  subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+// Self-hosted (not next/font/google): the production build host has
+// unreliable outbound access to fonts.googleapis.com, which makes
+// next/font/google fail the Docker build intermittently (see git log for
+// this file). These .ttf files are the original, full-glyph-coverage
+// sources from github.com/google/fonts/tree/main/ofl — same families,
+// same weights, no network needed at build time.
+const beVietnamPro = localFont({
+  src: [
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-Light.ttf", weight: "300", style: "normal" },
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-Regular.ttf", weight: "400", style: "normal" },
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-Medium.ttf", weight: "500", style: "normal" },
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-SemiBold.ttf", weight: "600", style: "normal" },
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-Bold.ttf", weight: "700", style: "normal" },
+    { path: "../fonts/be-vietnam-pro/BeVietnamPro-ExtraBold.ttf", weight: "800", style: "normal" },
+  ],
   variable: "--font-sans",
   display: "swap",
 });
 
-const cormorantGaramond = Cormorant_Garamond({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+const cormorantGaramond = localFont({
+  src: [
+    { path: "../fonts/cormorant-garamond/CormorantGaramond[wght].ttf", weight: "400 600", style: "normal" },
+    { path: "../fonts/cormorant-garamond/CormorantGaramond-Italic[wght].ttf", weight: "400 600", style: "italic" },
+  ],
   variable: "--font-serif",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const jetbrainsMono = localFont({
+  src: "../fonts/jetbrains-mono/JetBrainsMono[wght].ttf",
+  weight: "400 500",
+  style: "normal",
   variable: "--font-mono",
   display: "swap",
 });
