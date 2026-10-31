@@ -124,7 +124,7 @@ function ReceiptBody({ data }: { data: ReceiptData }) {
         scale: 2,
         width: CAPTURE_WIDTH,
         windowWidth: CAPTURE_WIDTH,
-        useCORS: false,
+        useCORS: true,
         allowTaint: false,
         logging: false,
         imageTimeout: 15000,
@@ -672,9 +672,11 @@ function KV({ label, value, mono }: { label: string; value: string; mono?: boole
 // Replace every <img>'s src in a subtree with a data URL.
 // - same-origin URLs (auth-protected /api/files/*): fetch with credentials
 // - cross-origin URLs (e.g. img.vietqr.io): fetch without credentials and rely
-//   on the remote's CORS policy. VietQR.io serves images CORS-open.
+//   on the remote's CORS policy.
 // Returns once all replacements have settled, so html2canvas sees a tree where
-// images don't need any network access.
+// images don't need any network access. If a fetch fails (e.g. the remote
+// doesn't allow cross-origin reads), the <img> keeps its original src and
+// html2canvas's own useCORS:true pass gets a second chance to load it.
 async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
   const imgs = Array.from(root.querySelectorAll("img"));
   await Promise.all(imgs.map(async (img) => {
@@ -690,7 +692,10 @@ async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
         credentials: isSameOrigin ? "same-origin" : "omit",
         cache: "no-cache",
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn(`[receipt] preload image failed: ${src} (HTTP ${res.status})`);
+        return;
+      }
       const blob = await res.blob();
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -708,8 +713,10 @@ async function preloadImagesAsDataUrls(root: HTMLElement): Promise<void> {
         img.addEventListener("error", settle);
         img.src = dataUrl;
       });
-    } catch {
-      // Best-effort — if pre-loading fails, html2canvas still gets a chance.
+    } catch (err) {
+      // Best-effort — if pre-loading fails, html2canvas's useCORS:true pass
+      // still gets a chance to load the image directly.
+      console.warn(`[receipt] preload image failed: ${src}`, err);
     }
   }));
 }
