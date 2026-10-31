@@ -76,3 +76,31 @@ export function vietQrUrl(args: {
   const qs = params.toString();
   return `https://img.vietqr.io/image/${bin}-${acc}-${tpl}.png${qs ? `?${qs}` : ""}`;
 }
+
+type VietQrArgs = Parameters<typeof vietQrUrl>[0];
+
+// Same inputs as vietQrUrl, but routed through our own /api/vietqr proxy
+// instead of hitting img.vietqr.io directly from the browser. Use this for
+// anything the browser will capture with html2canvas (the invoice receipt's
+// copy/share-image/share-PDF buttons): html2canvas needs the pixels to come
+// from a same-origin, cookie-authenticated response it can always read,
+// whereas a direct img.vietqr.io request depends on that third party's CORS
+// behavior, which has proven unreliable for canvas capture even with
+// useCORS:true. Keep using vietQrUrl (not this) for the emailed invoice HTML,
+// where the image loads directly in the recipient's mail client, not through
+// a canvas.
+export function vietQrProxyUrl(args: VietQrArgs): string | null {
+  const bin = args.bankBin?.trim();
+  const acc = args.accountNumber?.trim();
+  if (!bin || !acc) return null;
+  const params = new URLSearchParams();
+  params.set("bin", bin);
+  params.set("acc", acc);
+  if (args.template) params.set("template", args.template);
+  if (args.amount !== null && args.amount !== undefined && args.amount !== "") {
+    params.set("amount", String(args.amount));
+  }
+  if (args.memo) params.set("addInfo", args.memo);
+  if (args.accountHolder) params.set("accountName", args.accountHolder);
+  return `/api/vietqr?${params.toString()}`;
+}

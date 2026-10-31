@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Loader2, Share2, Copy, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { formatVND, formatDateVN, customerDisplayName } from "@/lib/utils";
-import { vietQrUrl } from "@/lib/vn-banks";
+import { vietQrProxyUrl } from "@/lib/vn-banks";
 
 type CustomerLite = {
   type: string;
@@ -305,12 +305,13 @@ function ReceiptCard({ data, cardRef }: { data: ReceiptData; cardRef: React.Ref<
     : (phoneDigits ? `DT${phoneDigits}` : `${data.invoiceCode} ${data.roomNumber}`);
 
   // VietQR auto-render: if the payment method has a bank BIN selected, build
-  // a vietqr.io image URL with this invoice's outstanding amount + the
-  // transfer memo so the customer scans and gets a pre-filled transfer.
-  // Falls back to the user-uploaded static QR when no BIN is set.
+  // a VietQR image URL (proxied through /api/vietqr, see vietQrProxyUrl) with
+  // this invoice's outstanding amount + the transfer memo so the customer
+  // scans and gets a pre-filled transfer. Falls back to the user-uploaded
+  // static QR when no BIN is set.
   const remainingForQr = data.totalAmount - data.paidAmount;
   const amountForQr = remainingForQr > 0n ? remainingForQr : data.totalAmount;
-  const dynamicQrUrl = vietQrUrl({
+  const dynamicQrUrl = vietQrProxyUrl({
     bankBin: data.paymentMethod?.bankBin,
     accountNumber: data.paymentMethod?.accountNumber,
     accountHolder: data.paymentMethod?.accountHolder,
